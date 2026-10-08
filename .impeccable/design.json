@@ -1,0 +1,436 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-08T17:11:00.000Z",
+  "title": "Design System: Entourage",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Spruce",
+        "canonical": "#0f5c4c",
+        "tonalRamp": ["oklch(15.0% 0.075 174.5)", "oklch(26.4% 0.075 174.5)", "oklch(37.9% 0.075 174.5)", "oklch(49.3% 0.075 174.5)", "oklch(60.7% 0.075 174.5)", "oklch(72.1% 0.075 174.5)", "oklch(83.6% 0.075 174.5)", "oklch(95.0% 0.075 174.5)"]
+      },
+      "accent-hover": {
+        "role": "primary",
+        "displayName": "Spruce Deep",
+        "canonical": "#0c4a3d",
+        "tonalRamp": ["oklch(15.0% 0.064 174.7)", "oklch(26.4% 0.064 174.7)", "oklch(37.9% 0.064 174.7)", "oklch(49.3% 0.064 174.7)", "oklch(60.7% 0.064 174.7)", "oklch(72.1% 0.064 174.7)", "oklch(83.6% 0.064 174.7)", "oklch(95.0% 0.064 174.7)"]
+      },
+      "accent-foreground": {
+        "role": "primary",
+        "displayName": "Spruce Paper",
+        "canonical": "#f4fbf8",
+        "tonalRamp": ["oklch(15.0% 0.008 168.8)", "oklch(26.4% 0.008 168.8)", "oklch(37.9% 0.008 168.8)", "oklch(49.3% 0.008 168.8)", "oklch(60.7% 0.008 168.8)", "oklch(72.1% 0.008 168.8)", "oklch(83.6% 0.008 168.8)", "oklch(95.0% 0.008 168.8)"]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Spruce Wash",
+        "canonical": "#e3f2ed",
+        "tonalRamp": ["oklch(15.0% 0.017 174.1)", "oklch(26.4% 0.017 174.1)", "oklch(37.9% 0.017 174.1)", "oklch(49.3% 0.017 174.1)", "oklch(60.7% 0.017 174.1)", "oklch(72.1% 0.017 174.1)", "oklch(83.6% 0.017 174.1)", "oklch(95.0% 0.017 174.1)"]
+      },
+      "dark-accent": {
+        "role": "primary",
+        "displayName": "Night Spruce",
+        "canonical": "#3dbea2",
+        "tonalRamp": ["oklch(15.0% 0.119 175.2)", "oklch(26.4% 0.119 175.2)", "oklch(37.9% 0.119 175.2)", "oklch(49.3% 0.119 175.2)", "oklch(60.7% 0.119 175.2)", "oklch(72.1% 0.119 175.2)", "oklch(83.6% 0.119 175.2)", "oklch(95.0% 0.119 175.2)"]
+      },
+      "dark-accent-hover": {
+        "role": "primary",
+        "displayName": "Night Spruce Lift",
+        "canonical": "#62d0b8",
+        "tonalRamp": ["oklch(15.0% 0.108 177.0)", "oklch(26.4% 0.108 177.0)", "oklch(37.9% 0.108 177.0)", "oklch(49.3% 0.108 177.0)", "oklch(60.7% 0.108 177.0)", "oklch(72.1% 0.108 177.0)", "oklch(83.6% 0.108 177.0)", "oklch(95.0% 0.108 177.0)"]
+      },
+      "dark-accent-foreground": {
+        "role": "primary",
+        "displayName": "Night Spruce Ink",
+        "canonical": "#04241c",
+        "tonalRamp": ["oklch(15.0% 0.041 172.9)", "oklch(26.4% 0.041 172.9)", "oklch(37.9% 0.041 172.9)", "oklch(49.3% 0.041 172.9)", "oklch(60.7% 0.041 172.9)", "oklch(72.1% 0.041 172.9)", "oklch(83.6% 0.041 172.9)", "oklch(95.0% 0.041 172.9)"]
+      },
+      "dark-accent-soft": {
+        "role": "primary",
+        "displayName": "Night Spruce Wash",
+        "canonical": "#17352e",
+        "tonalRamp": ["oklch(15.0% 0.038 176.5)", "oklch(26.4% 0.038 176.5)", "oklch(37.9% 0.038 176.5)", "oklch(49.3% 0.038 176.5)", "oklch(60.7% 0.038 176.5)", "oklch(72.1% 0.038 176.5)", "oklch(83.6% 0.038 176.5)", "oklch(95.0% 0.038 176.5)"]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "#f3f3f1",
+        "tonalRamp": ["#1c1c1a", "#5c5c56", "#dddcd7", "#deded8", "#e6e6e2", "#e9e9e6", "#f3f3f1", "#fcfcfb"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Sheet",
+        "canonical": "#fcfcfb",
+        "tonalRamp": ["#1c1c1a", "#5c5c56", "#dddcd7", "#deded8", "#e6e6e2", "#e9e9e6", "#f3f3f1", "#fcfcfb"]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Galley",
+        "canonical": "#e9e9e6",
+        "tonalRamp": ["#1c1c1a", "#5c5c56", "#dddcd7", "#deded8", "#e6e6e2", "#e9e9e6", "#f3f3f1", "#fcfcfb"]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Charcoal Ink",
+        "canonical": "#1c1c1a",
+        "tonalRamp": ["#1c1c1a", "#5c5c56", "#dddcd7", "#deded8", "#e6e6e2", "#e9e9e6", "#f3f3f1", "#fcfcfb"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Proof Gray",
+        "canonical": "#5c5c56",
+        "tonalRamp": ["#1c1c1a", "#5c5c56", "#dddcd7", "#deded8", "#e6e6e2", "#e9e9e6", "#f3f3f1", "#fcfcfb"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#dddcd7",
+        "tonalRamp": ["#1c1c1a", "#5c5c56", "#dddcd7", "#deded8", "#e6e6e2", "#e9e9e6", "#f3f3f1", "#fcfcfb"]
+      },
+      "hover": {
+        "role": "neutral",
+        "displayName": "Press",
+        "canonical": "#e6e6e2",
+        "tonalRamp": ["#1c1c1a", "#5c5c56", "#dddcd7", "#deded8", "#e6e6e2", "#e9e9e6", "#f3f3f1", "#fcfcfb"]
+      },
+      "selected": {
+        "role": "neutral",
+        "displayName": "Selected Sheet",
+        "canonical": "#deded8",
+        "tonalRamp": ["#1c1c1a", "#5c5c56", "#dddcd7", "#deded8", "#e6e6e2", "#e9e9e6", "#f3f3f1", "#fcfcfb"]
+      },
+      "disabled": {
+        "role": "neutral",
+        "displayName": "Rest",
+        "canonical": "#ecebe7",
+        "tonalRamp": ["#1c1c1a", "#5c5c56", "#dddcd7", "#deded8", "#e6e6e2", "#e9e9e6", "#f3f3f1", "#fcfcfb"]
+      },
+      "overlay": {
+        "role": "neutral",
+        "displayName": "Scrim",
+        "canonical": "rgb(22 22 20 / 48%)",
+        "tonalRamp": ["oklch(15.0% 0.004 106.7)", "oklch(26.4% 0.004 106.7)", "oklch(37.9% 0.004 106.7)", "oklch(49.3% 0.004 106.7)", "oklch(60.7% 0.004 106.7)", "oklch(72.1% 0.004 106.7)", "oklch(83.6% 0.004 106.7)", "oklch(95.0% 0.004 106.7)"]
+      },
+      "dark-background": {
+        "role": "neutral",
+        "displayName": "Night Paper",
+        "canonical": "#121310",
+        "tonalRamp": ["#121310", "#181914", "#1c1d1a", "#262722", "#2d2e29", "#31322d", "#b7b7ae", "#f4f4f1"]
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Night Sheet",
+        "canonical": "#1c1d1a",
+        "tonalRamp": ["#121310", "#181914", "#1c1d1a", "#262722", "#2d2e29", "#31322d", "#b7b7ae", "#f4f4f1"]
+      },
+      "dark-sidebar": {
+        "role": "neutral",
+        "displayName": "Night Galley",
+        "canonical": "#181914",
+        "tonalRamp": ["#121310", "#181914", "#1c1d1a", "#262722", "#2d2e29", "#31322d", "#b7b7ae", "#f4f4f1"]
+      },
+      "dark-foreground": {
+        "role": "neutral",
+        "displayName": "Night Ink",
+        "canonical": "#f4f4f1",
+        "tonalRamp": ["#121310", "#181914", "#1c1d1a", "#262722", "#2d2e29", "#31322d", "#b7b7ae", "#f4f4f1"]
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Night Proof",
+        "canonical": "#b7b7ae",
+        "tonalRamp": ["#121310", "#181914", "#1c1d1a", "#262722", "#2d2e29", "#31322d", "#b7b7ae", "#f4f4f1"]
+      },
+      "dark-border": {
+        "role": "neutral",
+        "displayName": "Night Rule",
+        "canonical": "#31322d",
+        "tonalRamp": ["#121310", "#181914", "#1c1d1a", "#262722", "#2d2e29", "#31322d", "#b7b7ae", "#f4f4f1"]
+      },
+      "dark-hover": {
+        "role": "neutral",
+        "displayName": "Night Press",
+        "canonical": "#262722",
+        "tonalRamp": ["#121310", "#181914", "#1c1d1a", "#262722", "#2d2e29", "#31322d", "#b7b7ae", "#f4f4f1"]
+      },
+      "dark-selected": {
+        "role": "neutral",
+        "displayName": "Night Selected",
+        "canonical": "#2d2e29",
+        "tonalRamp": ["#121310", "#181914", "#1c1d1a", "#262722", "#2d2e29", "#31322d", "#b7b7ae", "#f4f4f1"]
+      },
+      "dark-disabled": {
+        "role": "neutral",
+        "displayName": "Night Rest",
+        "canonical": "#242520",
+        "tonalRamp": ["#121310", "#181914", "#1c1d1a", "#262722", "#2d2e29", "#31322d", "#b7b7ae", "#f4f4f1"]
+      },
+      "dark-overlay": {
+        "role": "neutral",
+        "displayName": "Night Scrim",
+        "canonical": "rgb(0 0 0 / 62%)",
+        "tonalRamp": ["oklch(15.0% 0 0)", "oklch(26.4% 0 0)", "oklch(37.9% 0 0)", "oklch(49.3% 0 0)", "oklch(60.7% 0 0)", "oklch(72.1% 0 0)", "oklch(83.6% 0 0)", "oklch(95.0% 0 0)"]
+      },
+      "danger": {
+        "role": "danger",
+        "displayName": "Seal",
+        "canonical": "#8d2f2f",
+        "tonalRamp": ["oklch(15.0% 0.128 23.9)", "oklch(26.4% 0.128 23.9)", "oklch(37.9% 0.128 23.9)", "oklch(49.3% 0.128 23.9)", "oklch(60.7% 0.128 23.9)", "oklch(72.1% 0.128 23.9)", "oklch(83.6% 0.128 23.9)", "oklch(95.0% 0.128 23.9)"]
+      },
+      "danger-hover": {
+        "role": "danger",
+        "displayName": "Seal Deep",
+        "canonical": "#742626",
+        "tonalRamp": ["oklch(15.0% 0.110 23.8)", "oklch(26.4% 0.110 23.8)", "oklch(37.9% 0.110 23.8)", "oklch(49.3% 0.110 23.8)", "oklch(60.7% 0.110 23.8)", "oklch(72.1% 0.110 23.8)", "oklch(83.6% 0.110 23.8)", "oklch(95.0% 0.110 23.8)"]
+      },
+      "danger-foreground": {
+        "role": "danger",
+        "displayName": "Seal Paper",
+        "canonical": "#fff7f7",
+        "tonalRamp": ["oklch(15.0% 0.009 17.3)", "oklch(26.4% 0.009 17.3)", "oklch(37.9% 0.009 17.3)", "oklch(49.3% 0.009 17.3)", "oklch(60.7% 0.009 17.3)", "oklch(72.1% 0.009 17.3)", "oklch(83.6% 0.009 17.3)", "oklch(95.0% 0.009 17.3)"]
+      },
+      "danger-soft": {
+        "role": "danger",
+        "displayName": "Seal Wash",
+        "canonical": "#f7e8e8",
+        "tonalRamp": ["oklch(15.0% 0.016 17.4)", "oklch(26.4% 0.016 17.4)", "oklch(37.9% 0.016 17.4)", "oklch(49.3% 0.016 17.4)", "oklch(60.7% 0.016 17.4)", "oklch(72.1% 0.016 17.4)", "oklch(83.6% 0.016 17.4)", "oklch(95.0% 0.016 17.4)"]
+      },
+      "dark-danger": {
+        "role": "danger",
+        "displayName": "Night Seal",
+        "canonical": "#f0b4b4",
+        "tonalRamp": ["oklch(15.0% 0.070 18.7)", "oklch(26.4% 0.070 18.7)", "oklch(37.9% 0.070 18.7)", "oklch(49.3% 0.070 18.7)", "oklch(60.7% 0.070 18.7)", "oklch(72.1% 0.070 18.7)", "oklch(83.6% 0.070 18.7)", "oklch(95.0% 0.070 18.7)"]
+      },
+      "dark-danger-hover": {
+        "role": "danger",
+        "displayName": "Night Seal Lift",
+        "canonical": "#f7cdcd",
+        "tonalRamp": ["oklch(15.0% 0.048 18.1)", "oklch(26.4% 0.048 18.1)", "oklch(37.9% 0.048 18.1)", "oklch(49.3% 0.048 18.1)", "oklch(60.7% 0.048 18.1)", "oklch(72.1% 0.048 18.1)", "oklch(83.6% 0.048 18.1)", "oklch(95.0% 0.048 18.1)"]
+      },
+      "dark-danger-foreground": {
+        "role": "danger",
+        "displayName": "Night Seal Ink",
+        "canonical": "#2a1010",
+        "tonalRamp": ["oklch(15.0% 0.043 21.4)", "oklch(26.4% 0.043 21.4)", "oklch(37.9% 0.043 21.4)", "oklch(49.3% 0.043 21.4)", "oklch(60.7% 0.043 21.4)", "oklch(72.1% 0.043 21.4)", "oklch(83.6% 0.043 21.4)", "oklch(95.0% 0.043 21.4)"]
+      },
+      "dark-danger-soft": {
+        "role": "danger",
+        "displayName": "Night Seal Wash",
+        "canonical": "#3c2222",
+        "tonalRamp": ["oklch(15.0% 0.040 19.8)", "oklch(26.4% 0.040 19.8)", "oklch(37.9% 0.040 19.8)", "oklch(49.3% 0.040 19.8)", "oklch(60.7% 0.040 19.8)", "oklch(72.1% 0.040 19.8)", "oklch(83.6% 0.040 19.8)", "oklch(95.0% 0.040 19.8)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page titles and tally counts. Counts add tabular numerals."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section headings in the dashboard and settings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Table cells, field values, ledes, and descriptions."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Form labels, buttons, table headers, and the active nav item."
+      }
+    },
+    "shadows": [
+      {
+        "name": "overlay-light",
+        "value": "0 1px 2px rgb(22 22 20 / 6%), 0 12px 28px rgb(22 22 20 / 8%)",
+        "purpose": "Dialogs, menus, and toasts on Warm Paper."
+      },
+      {
+        "name": "overlay-dark",
+        "value": "0 1px 2px rgb(0 0 0 / 35%), 0 16px 36px rgb(0 0 0 / 40%)",
+        "purpose": "Dialogs, menus, and toasts on Night Paper."
+      }
+    ],
+    "motion": [
+      {
+        "name": "color-state",
+        "value": "150ms ease-out",
+        "purpose": "Button color changes. Nav and table rows use 150ms with the default ease."
+      },
+      {
+        "name": "page-enter",
+        "value": "160ms ease-out",
+        "purpose": "Page fade from opacity 0.72 to 1."
+      },
+      {
+        "name": "drawer",
+        "value": "200ms ease-out",
+        "purpose": "Mobile sidebar travel and scrim fade."
+      },
+      {
+        "name": "reduced",
+        "value": "0.01ms",
+        "purpose": "Animation and transition duration when reduced motion is requested."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one spruce action on a page, such as Create event or Sign in.",
+      "html": "<button class=\"ds-btn-primary\" type=\"button\">Create event</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; border: none; border-radius: var(--radius-md, 6px); background: var(--accent, #0f5c4c); color: var(--accent-foreground, #f4fbf8); font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); font-size: 0.875rem; font-weight: 500; line-height: 1.4286; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out; } .ds-btn-primary:hover { background: var(--accent-hover, #0c4a3d); } .ds-btn-primary:focus-visible { outline: 2px solid var(--ring, #0f5c4c); outline-offset: 2px; } .ds-btn-primary:disabled { cursor: not-allowed; background: var(--disabled, #ecebe7); color: var(--muted, #5c5c56); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Cancel, retry, and Edit event. Sheet fill with a hairline rule.",
+      "html": "<button class=\"ds-btn-secondary\" type=\"button\">Cancel</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; border: 1px solid var(--border, #dddcd7); border-radius: var(--radius-md, 6px); background: var(--surface, #fcfcfb); color: var(--foreground, #1c1c1a); font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); font-size: 0.875rem; font-weight: 500; line-height: 1.4286; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out; } .ds-btn-secondary:hover { background: var(--hover, #e6e6e2); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--ring, #0f5c4c); outline-offset: 2px; } .ds-btn-secondary:disabled { cursor: not-allowed; background: var(--disabled, #ecebe7); color: var(--muted, #5c5c56); }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "The confirming action inside a destructive dialog.",
+      "html": "<button class=\"ds-btn-danger\" type=\"button\">Delete event</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; border: none; border-radius: var(--radius-md, 6px); background: var(--danger, #8d2f2f); color: var(--danger-foreground, #fff7f7); font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); font-size: 0.875rem; font-weight: 500; line-height: 1.4286; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out; } .ds-btn-danger:hover { background: var(--danger-hover, #742626); } .ds-btn-danger:focus-visible { outline: 2px solid var(--ring, #0f5c4c); outline-offset: 2px; } .ds-btn-danger:disabled { cursor: not-allowed; background: var(--disabled, #ecebe7); color: var(--muted, #5c5c56); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "text-field",
+      "description": "Labeled sheet field. Invalid fields take a Seal border and a Seal message.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Event name</span><input class=\"ds-input\" type=\"text\" value=\"Ashraq Launch\" /><span class=\"ds-field-error\">Event name is required.</span></label>",
+      "css": ".ds-field { display: grid; gap: 6px; font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); } .ds-field-label { font-size: 0.875rem; font-weight: 500; color: var(--foreground, #1c1c1a); } .ds-input { height: 40px; width: 240px; padding: 0 12px; border: 1px solid var(--border, #dddcd7); border-radius: var(--radius-md, 6px); background: var(--surface, #fcfcfb); color: var(--foreground, #1c1c1a); font: 400 0.875rem/1.4286 var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); caret-color: var(--accent, #0f5c4c); } .ds-input::placeholder { color: var(--muted, #5c5c56); } .ds-input:focus-visible { outline: 2px solid var(--ring, #0f5c4c); outline-offset: 2px; } .ds-input:disabled { background: var(--disabled, #ecebe7); } .ds-field-error { font-size: 0.875rem; color: var(--danger, #8d2f2f); } .ds-input[aria-invalid=\"true\"], .ds-field:has(.ds-field-error) .ds-input { border-color: var(--danger, #8d2f2f); }"
+    },
+    {
+      "name": "Primary Nav",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sidebar items on the galley slab. Active is Selected Sheet, not spruce.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><a class=\"ds-nav-link is-active\" href=\"#\">Overview</a><a class=\"ds-nav-link\" href=\"#\">Events</a><div class=\"ds-person\"><span class=\"ds-avatar\">AD</span><span><span class=\"ds-person-name\">Administrator</span><span class=\"ds-person-role\">Administrator</span></span></div></nav>",
+      "css": ".ds-nav { display: grid; gap: 2px; width: 224px; padding: 12px; background: var(--sidebar, #e9e9e6); font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); } .ds-nav-link { display: flex; align-items: center; height: 36px; padding: 0 10px; border-radius: var(--radius-md, 6px); color: var(--muted, #5c5c56); font-size: 0.875rem; line-height: 1.4286; text-decoration: none; transition: background-color 150ms, color 150ms; } .ds-nav-link:hover { background: var(--hover, #e6e6e2); color: var(--foreground, #1c1c1a); } .ds-nav-link:focus-visible { outline: 2px solid var(--ring, #0f5c4c); outline-offset: 2px; } .ds-nav-link.is-active { background: var(--selected, #deded8); color: var(--foreground, #1c1c1a); font-weight: 500; } .ds-person { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border, #dddcd7); } .ds-avatar { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--radius-md, 6px); background: var(--selected, #deded8); color: var(--foreground, #1c1c1a); font-size: 0.75rem; font-weight: 500; } .ds-person-name { display: block; font-size: 0.875rem; font-weight: 500; color: var(--foreground, #1c1c1a); } .ds-person-role { display: block; font-size: 0.75rem; color: var(--muted, #5c5c56); }"
+    },
+    {
+      "name": "Status Stamp",
+      "kind": "chip",
+      "refersTo": "status-active",
+      "description": "Draft, Active, and Archived. Only Active uses spruce.",
+      "html": "<span class=\"ds-stamps\"><span class=\"ds-stamp ds-stamp-draft\">Draft</span><span class=\"ds-stamp ds-stamp-active\">Active</span><span class=\"ds-stamp ds-stamp-archived\">Archived</span></span>",
+      "css": ".ds-stamps { display: flex; gap: 8px; font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); } .ds-stamp { display: inline-flex; align-items: center; height: 24px; padding: 0 8px; border-radius: var(--radius-md, 6px); font-size: 0.75rem; font-weight: 500; } .ds-stamp-draft { background: var(--selected, #deded8); color: var(--foreground, #1c1c1a); } .ds-stamp-active { background: var(--accent-soft, #e3f2ed); color: var(--accent, #0f5c4c); } .ds-stamp-archived { border: 1px solid var(--border, #dddcd7); color: var(--muted, #5c5c56); }"
+    },
+    {
+      "name": "Specification",
+      "kind": "custom",
+      "refersTo": "specification-row",
+      "description": "A ruled job specification. Labels are Proof Gray; values are ink.",
+      "html": "<dl class=\"ds-spec\"><div class=\"ds-spec-row\"><dt>Event code</dt><dd>ashraq-launch</dd></div><div class=\"ds-spec-row\"><dt>Timezone</dt><dd>Asia/Dubai</dd></div></dl>",
+      "css": ".ds-spec { width: min(100%, 36rem); border-top: 1px solid var(--border, #dddcd7); font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); } .ds-spec-row { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border, #dddcd7); } .ds-spec-row dt { font-size: 0.875rem; color: var(--muted, #5c5c56); } .ds-spec-row dd { margin: 0; font-size: 0.875rem; line-height: 1.4286; color: var(--foreground, #1c1c1a); } @media (min-width: 640px) { .ds-spec-row { grid-template-columns: 180px 1fr; gap: 24px; } }"
+    },
+    {
+      "name": "Tally",
+      "kind": "custom",
+      "refersTo": "tally-count",
+      "description": "Three counts divided by hairlines. Figures are tabular display type.",
+      "html": "<dl class=\"ds-tally\"><div><dt>Total events</dt><dd>12</dd></div><div><dt>Active events</dt><dd>4</dd></div><div><dt>Draft events</dt><dd>7</dd></div></dl>",
+      "css": ".ds-tally { display: grid; grid-template-columns: repeat(3, 1fr); width: min(100%, 40rem); border-top: 1px solid var(--border, #dddcd7); border-bottom: 1px solid var(--border, #dddcd7); font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); } .ds-tally > div { padding: 20px 16px; } .ds-tally > div + div { border-left: 1px solid var(--border, #dddcd7); } .ds-tally dt { font-size: 0.875rem; color: var(--muted, #5c5c56); } .ds-tally dd { margin: 4px 0 0; font-size: 1.75rem; font-weight: 600; line-height: 1.5; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--foreground, #1c1c1a); }"
+    },
+    {
+      "name": "Dialog",
+      "kind": "custom",
+      "refersTo": "dialog",
+      "description": "Confirmation on the sheet, with the overlay shadow and a scrim behind it.",
+      "html": "<div class=\"ds-dialog\"><h2>Delete this event?</h2><p>This removes the event record.</p><div class=\"ds-dialog-actions\"><button class=\"ds-dialog-cancel\" type=\"button\">Cancel</button><button class=\"ds-dialog-confirm\" type=\"button\">Delete event</button></div></div>",
+      "css": ".ds-dialog { width: min(28rem, calc(100vw - 2rem)); padding: 20px; border: 1px solid var(--border, #dddcd7); border-radius: var(--radius-md, 6px); background: var(--surface, #fcfcfb); color: var(--foreground, #1c1c1a); box-shadow: var(--shadow, 0 1px 2px rgb(22 22 20 / 6%), 0 12px 28px rgb(22 22 20 / 8%)); font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); } .ds-dialog h2 { margin: 0; font-size: 1rem; font-weight: 600; line-height: 1.5; } .ds-dialog p { margin: 8px 0 0; font-size: 0.875rem; line-height: 1.4286; color: var(--muted, #5c5c56); } .ds-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; } .ds-dialog-cancel, .ds-dialog-confirm { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 12px; border-radius: var(--radius-md, 6px); font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color 150ms ease-out; } .ds-dialog-cancel { border: 1px solid var(--border, #dddcd7); background: var(--surface, #fcfcfb); color: var(--foreground, #1c1c1a); } .ds-dialog-cancel:hover { background: var(--hover, #e6e6e2); } .ds-dialog-confirm { border: none; background: var(--danger, #8d2f2f); color: var(--danger-foreground, #fff7f7); } .ds-dialog-confirm:hover { background: var(--danger-hover, #742626); } .ds-dialog-cancel:focus-visible, .ds-dialog-confirm:focus-visible { outline: 2px solid var(--ring, #0f5c4c); outline-offset: 2px; }"
+    },
+    {
+      "name": "Wordmark",
+      "kind": "custom",
+      "refersTo": "wordmark",
+      "description": "ENTOURAGE lockup. Wide tracking stays on this name alone.",
+      "html": "<span class=\"ds-wordmark\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" width=\"28\" height=\"28\"><rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"></rect><path d=\"M7 8.5h10M7 12h7.5M7 15.5h10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"></path></svg><span><span class=\"ds-wordmark-name\">ENTOURAGE</span><span class=\"ds-wordmark-sub\">Event Platform</span></span></span>",
+      "css": ".ds-wordmark { display: inline-flex; align-items: center; gap: 10px; color: var(--foreground, #1c1c1a); font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); } .ds-wordmark-name { display: block; font-size: 13px; font-weight: 600; letter-spacing: 0.16em; } .ds-wordmark-sub { display: block; font-size: 0.75rem; color: var(--muted, #5c5c56); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Typesetter's Galley",
+    "overview": "Entourage is a typesetter's galley for an event platform. The page is warm paper. Work sits on a slightly lighter sheet, separated by hairline rules, set in charcoal ink. One spruce accent is reserved for the primary action, the keyboard focus ring, the text caret, the selection wash, and the Active status stamp. Light and dark are the same structure: paper, sheet, rule, and ink stay apart in both themes.\n\nDensity is that of a desk tool. Page titles are one size. Body and labels share a single grotesque. Dates in tables and counts in the tally use tabular figures. Corners are 6px, with 4px only where a control sits inside a 6px track. Shadows appear on overlays — dialogs, menus, and toasts — and nowhere on the resting page.\n\nThe signed-in shell is a 248px sidebar and one content column. Lists are full-width tables. An opened event is a ruled specification, with unbuilt modules left in the rail as muted, non-interactive labels.",
+    "keyCharacteristics": [
+      "Stepped warm-neutral ramp, with paper, sheet, rule, and ink kept apart in both themes",
+      "One spruce accent, plus a danger ramp kept for destructive actions and errors",
+      "Geist Sans at 400, 500, and 600, with tabular figures on table dates and tally counts",
+      "6px corners, 4px inset segments, and shadow only on overlays",
+      "A 248px sidebar and ruled specifications, not a card grid"
+    ],
+    "rules": [
+      {
+        "name": "The Spruce Rule",
+        "body": "Spruce marks the primary action, the focus ring, the caret, the selection wash, and the Active stamp. It does not color navigation, tally numbers, or structure.",
+        "section": "colors"
+      },
+      {
+        "name": "The Separate Inks Rule",
+        "body": "Paper, sheet, rule, and ink are four different steps in both themes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Seal Rule",
+        "body": "Destructive confirmation, invalid field borders, and error text use the danger ramp: Seal (#8d2f2f), Seal Deep (#742626), Seal Paper (#fff7f7), and Seal Wash (#f7e8e8) in light; Night Seal (#f0b4b4), Night Seal Lift (#f7cdcd), Night Seal Ink (#2a1010), and Night Seal Wash (#3c2222) in dark. Light seal deepens on hover. Dark seal lightens. This ramp is not a brand accent.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Grotesque Rule",
+        "body": "Geist Sans carries every label, title, and count. The loaded weights are 400, 500, and 600.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Table dates and tally counts use tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Wordmark Tracking Rule",
+        "body": "Letter-spacing of 0.16em belongs to the ENTOURAGE wordmark. Page titles and counts use -0.02em. All other text stays at normal tracking.",
+        "section": "typography"
+      },
+      {
+        "name": "The Galley Rule",
+        "body": "The signed-in frame is a fixed 248px sidebar and a single column capped at 72rem. Below 768px the sidebar becomes an overlay drawer.",
+        "section": "layout"
+      },
+      {
+        "name": "The Overlay Shadow Rule",
+        "body": "The shadow token is for dialogs, menus, and toasts. Resting pages, tables, the sidebar, and specification rows are flat.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Six Pixel Rule",
+        "body": "Controls, stamps, dialogs, menus, and choice rows use a 6px corner. Segments nested inside a 6px track use 4px.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do keep spruce on the primary action, the 2px focus ring at 2px offset, the caret, the selection wash, and the Active stamp.",
+      "Do divide tally counts and specification rows with a 1px rule.",
+      "Do set tabular numerals on table dates and tally counts.",
+      "Do leave unbuilt event modules in the rail, muted and not links, with the line \"Not built yet\".",
+      "Do collapse motion when reduced motion is requested. Color transitions are 150ms, the page fade is 160ms from opacity 0.72 to 1, and the mobile drawer is 200ms."
+    ],
+    "donts": [
+      "Don't structure a page as a card grid or as icon-and-number tiles.",
+      "Don't put the overlay shadow on a resting surface.",
+      "Don't introduce a second brand hue. Destructive actions and field errors use the danger ramp only.",
+      "Don't add a second type family or apply the wordmark's 0.16em tracking to any other text.",
+      "Don't use gradients, glass, neon, or decorative motion."
+    ]
+  }
+}
