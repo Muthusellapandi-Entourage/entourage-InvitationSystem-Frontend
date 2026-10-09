@@ -1,5 +1,9 @@
 namespace Entourage.Application.DTOs;
 
+public sealed record TextBoxDto(int X, int Y, int Width, int Height);
+
+public sealed record GuestBandDto(int Y, int Height, string Align, string Valign, int Spacing, int Inset);
+
 public sealed record GuestFieldDto(
     bool Enabled,
     string Font,
@@ -8,7 +12,13 @@ public sealed record GuestFieldDto(
     string Color,
     string Alignment,
     int LeftPadding,
-    int TopSpacing);
+    int TopSpacing,
+    TextBoxDto? Box = null,
+    string? BackgroundColor = null,
+    int? BackgroundOpacity = null,
+    int? PadX = null,
+    int? PadY = null,
+    string? Weight = null);
 
 public sealed record InvitationDesignDto(
     Guid? HeaderAssetId,
@@ -16,7 +26,12 @@ public sealed record InvitationDesignDto(
     GuestFieldDto GuestPosition,
     Guid? DetailsAssetId,
     Guid? AcceptAssetId,
-    Guid? DeclineAssetId)
+    Guid? DeclineAssetId,
+    int? Width = null,
+    int? Height = null,
+    string? GroupAlign = null,
+    string? GroupVertical = null,
+    GuestBandDto? GuestBand = null)
 {
     public static InvitationDesignDto CreateDefault() => new(
         null,

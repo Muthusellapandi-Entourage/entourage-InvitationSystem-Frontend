@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react'
-import { useId, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type PointerEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { apiBaseUrl } from '@/api/client'
 import { Button, buttonClassName } from '@/components/ui/Button'
@@ -7,12 +7,17 @@ import { SelectField } from '@/components/ui/SelectField'
 import { Skeleton } from '@/components/ui/Skeleton'
 import { TextField } from '@/components/ui/TextField'
 import {
+  clampGuestBand,
+  effectiveGuestBand,
   invitationFonts,
+  type FontWeight,
+  type GroupVertical,
+  type GuestBand,
   type GuestFieldDesign,
   type InvitationDesign,
   type TextAlign,
 } from '@/invitations/design'
-import { buildInvitationTable, renderInvitationHtml, wrapInvitationDocument } from '@/invitations/emailHtml'
+import { buildInvitationTable, renderInvitationHtml, wrapInvitationPreview } from '@/invitations/emailHtml'
 import { useInvitationDocument } from '@/invitations/useInvitationDocument'
 import { cn } from '@/lib/cn'
 import type { InvitationResponseItem } from '@/types/invitation'
@@ -34,6 +39,12 @@ const alignOptions = [
   { value: 'left', label: 'Left' },
   { value: 'center', label: 'Center' },
   { value: 'right', label: 'Right' },
+]
+
+const verticalOptions = [
+  { value: 'top', label: 'Top' },
+  { value: 'middle', label: 'Middle' },
+  { value: 'bottom', label: 'Bottom' },
 ]
 
 type InvitationDesignerProps = {
@@ -66,12 +77,13 @@ export function InvitationDesigner({
   repliesLoading,
 }: InvitationDesignerProps) {
   const [step, setStep] = useState<StepId>('header')
-  const [openField, setOpenField] = useState<'guestName' | 'guestPosition' | null>('guestName')
   const [hidePosition, setHidePosition] = useState(false)
+  const [advanced, setAdvanced] = useState(false)
+  const band = effectiveGuestBand(design)
   const table = useMemo(() => buildInvitationTable(design), [design])
   const previewHtml = useMemo(
     () =>
-      renderInvitationHtml(wrapInvitationDocument(table, design), {
+      renderInvitationHtml(wrapInvitationPreview(table, design), {
         guestName: 'Sara Ahmed',
         guestPosition: hidePosition ? '' : 'Senior Manager',
         acceptUrl: '#',
@@ -94,6 +106,18 @@ export function InvitationDesigner({
 
   function updateGuest(key: 'guestName' | 'guestPosition', patch: Partial<GuestFieldDesign>) {
     onChange({ ...design, [key]: { ...design[key], ...patch } })
+  }
+
+  function updateBand(patch: Partial<GuestBand>) {
+    const next = clampGuestBand({ ...band, ...patch })
+    onChange({
+      ...design,
+      guestBand: next,
+      groupAlign: next.align,
+      groupVertical: next.valign,
+      guestName: { ...design.guestName, alignment: next.align },
+      guestPosition: { ...design.guestPosition, alignment: next.align, topSpacing: next.spacing },
+    })
   }
 
   return (
@@ -142,12 +166,44 @@ export function InvitationDesigner({
               })}
             </ol>
           </nav>
+          <div className="grid grid-cols-2 gap-3 border-t border-border px-4 py-4">
+            <TextField
+              label="Width"
+              type="number"
+              min={200}
+              max={2400}
+              value={design.width}
+              hint="Pixels"
+              onChange={(event) =>
+                onChange({ ...design, width: clampNumber(event.target.value, design.width, 200, 2400) })
+              }
+            />
+            <TextField
+              label="Height"
+              type="number"
+              min={200}
+              max={4000}
+              value={design.height ?? ''}
+              placeholder="Auto"
+              hint="Blank fits the content"
+              onChange={(event) => {
+                if (event.target.value.trim() === '') {
+                  onChange({ ...design, height: null })
+                  return
+                }
+                onChange({
+                  ...design,
+                  height: clampNumber(event.target.value, design.height ?? 800, 200, 4000),
+                })
+              }}
+            />
+          </div>
           <div className="border-t border-border px-4 py-5">
             {step === 'header' ? (
               <ImageStep
                 title="Header image"
                 description="Upload your invitation header image."
-                hint="Recommended: 560px wide. WEBP, PNG, or JPG."
+                hint={`Recommended: ${design.width}px wide. WEBP, PNG, or JPG.`}
                 assetId={design.headerAssetId}
                 uploading={uploading === 'header'}
                 onUpload={(file) => onUpload('header', file)}
@@ -159,25 +215,81 @@ export function InvitationDesigner({
                 <div>
                   <h2 className="text-base font-semibold">Guest information</h2>
                   <p className="mt-2 text-sm text-muted">
-                    The preview uses Sara Ahmed, Senior Manager. A guest without a position skips that line.
+                    This band is always as wide as the invitation. Drag it up or down, or pull the top and bottom edges
+                    to change its height. The sample reads Sara Ahmed, Senior Manager.
                   </p>
                 </div>
-                <GuestRow
+                <div className="grid grid-cols-2 gap-3">
+                  <TextField
+                    label="Height"
+                    type="number"
+                    min={48}
+                    max={800}
+                    value={band.height}
+                    hint="Pixels"
+                    onChange={(event) => updateBand({ height: clampNumber(event.target.value, band.height, 48, 800) })}
+                  />
+                  <TextField
+                    label="Vertical position"
+                    type="number"
+                    min={0}
+                    max={2000}
+                    value={band.y}
+                    hint="Space under the header"
+                    onChange={(event) => updateBand({ y: clampNumber(event.target.value, band.y, 0, 2000) })}
+                  />
+                </div>
+                <SelectField
+                  label="Text alignment"
+                  hint="Aligns the name and title inside the full width of the invitation."
+                  value={band.align}
+                  options={alignOptions}
+                  onChange={(event) => updateBand({ align: event.target.value as TextAlign })}
+                />
+                <SelectField
+                  label="Vertical placement"
+                  hint="Where the name and title sit inside the band."
+                  value={band.valign}
+                  options={verticalOptions}
+                  onChange={(event) => updateBand({ valign: event.target.value as GroupVertical })}
+                />
+                <TextField
+                  label="Space between name and title"
+                  type="number"
+                  min={0}
+                  max={80}
+                  value={band.spacing}
+                  hint="Pixels. Hidden when a guest has no title."
+                  onChange={(event) => updateBand({ spacing: clampNumber(event.target.value, band.spacing, 0, 80) })}
+                />
+                <button
+                  type="button"
+                  className="w-fit text-sm text-muted underline-offset-4 hover:underline"
+                  aria-expanded={advanced}
+                  onClick={() => setAdvanced((current) => !current)}
+                >
+                  {advanced ? 'Hide extra spacing' : 'Extra spacing'}
+                </button>
+                {advanced ? (
+                  <TextField
+                    label="Side margin"
+                    type="number"
+                    min={0}
+                    max={120}
+                    value={band.inset}
+                    hint="Equal space on the left and right. Center stays in the middle."
+                    onChange={(event) => updateBand({ inset: clampNumber(event.target.value, band.inset, 0, 120) })}
+                  />
+                ) : null}
+                <TypeSettings
                   label="Guest name"
-                  tag="GuestName"
-                  topLabel="Top padding"
                   field={design.guestName}
-                  open={openField === 'guestName'}
-                  onToggle={() => setOpenField((current) => (current === 'guestName' ? null : 'guestName'))}
                   onChange={(patch) => updateGuest('guestName', patch)}
                 />
-                <GuestRow
+                <TypeSettings
                   label="Guest position"
-                  tag="GuestPosition"
-                  topLabel="Top spacing"
                   field={design.guestPosition}
-                  open={openField === 'guestPosition'}
-                  onToggle={() => setOpenField((current) => (current === 'guestPosition' ? null : 'guestPosition'))}
+                  enabledToggle
                   onChange={(patch) => updateGuest('guestPosition', patch)}
                 />
               </div>
@@ -186,7 +298,7 @@ export function InvitationDesigner({
               <ImageStep
                 title="Event information"
                 description="Upload your event details image."
-                hint="Put the date, time, and venue in this image. Recommended: 560px wide. WEBP, PNG, or JPG."
+                hint={`Put the date, time, and venue in this image. Recommended: ${design.width}px wide. WEBP, PNG, or JPG.`}
                 assetId={design.detailsAssetId}
                 uploading={uploading === 'details'}
                 onUpload={(file) => onUpload('details', file)}
@@ -210,6 +322,19 @@ export function InvitationDesigner({
                   onRemove={() => setAsset('accept', null)}
                   action="Accept invitation"
                 />
+                <Button
+                  variant="secondary"
+                  disabled={!design.acceptAssetId && !design.declineAssetId}
+                  onClick={() =>
+                    onChange({
+                      ...design,
+                      acceptAssetId: design.declineAssetId,
+                      declineAssetId: design.acceptAssetId,
+                    })
+                  }
+                >
+                  Swap Accept/Decline images
+                </Button>
                 <ImageStep
                   title="Decline button"
                   description="Upload the decline image."
@@ -235,15 +360,308 @@ export function InvitationDesigner({
             ) : null}
           </div>
         </aside>
-        <section className="order-1 h-[32rem] bg-[#e8e8e4] lg:sticky lg:top-14 lg:order-2 lg:h-[calc(100dvh-3.5rem)]" aria-label="Invitation preview">
-          <iframe
-            title="Invitation preview"
-            className="h-full w-full border-0 bg-[#e8e8e4]"
-            sandbox=""
-            srcDoc={previewHtml}
+        <section className="order-1 flex h-[32rem] flex-col bg-[#e8e8e4] lg:sticky lg:top-14 lg:order-2 lg:h-[calc(100dvh-3.5rem)]" aria-label="Invitation preview">
+          <p className="px-4 pt-3 text-center text-sm text-[#3f3c38]">
+            {design.width} × {design.height ?? 'auto'} px
+          </p>
+          <InvitationCanvas
+            html={previewHtml}
+            width={design.width}
+            height={design.height}
+            band={band}
+            editing={step === 'guest' && (design.guestName.enabled || design.guestPosition.enabled)}
+            onCommit={updateBand}
           />
         </section>
       </div>
+    </div>
+  )
+}
+
+function InvitationCanvas({
+  html,
+  width,
+  height,
+  band,
+  editing,
+  onCommit,
+}: {
+  html: string
+  width: number
+  height: number | null
+  band: GuestBand
+  editing: boolean
+  onCommit: (patch: Partial<GuestBand>) => void
+}) {
+  const paneRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLIFrameElement>(null)
+  const dragRef = useRef<{
+    mode: 'move' | 'n' | 's'
+    originY: number
+    originHeight: number
+    originTop: number
+    pointerY: number
+    y: number
+    height: number
+  } | null>(null)
+  const [pane, setPane] = useState({ width: 640, height: 640 })
+  const [contentHeight, setContentHeight] = useState<number | null>(null)
+  const [seen, setSeen] = useState<{ top: number; height: number } | null>(null)
+  const [draft, setDraft] = useState<{ top: number; height: number } | null>(null)
+
+  useEffect(() => {
+    const node = paneRef.current
+    if (!node) return
+    const measure = () => setPane({ width: node.clientWidth, height: node.clientHeight })
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const scale = Math.min(1, Math.max(0.1, (pane.width - 48) / width), height ? Math.max(0.1, (pane.height - 24) / height) : 1)
+  const frameHeight = height ?? contentHeight ?? Math.max(480, Math.round(pane.height / scale))
+  const scaleRef = useRef(scale)
+  scaleRef.current = scale
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => readBand())
+    return () => cancelAnimationFrame(id)
+  }, [html, editing, frameHeight])
+
+  function readBand() {
+    const doc = frameRef.current?.contentDocument
+    const HtmlElement = doc?.defaultView?.HTMLElement
+    const canvas = doc?.querySelector('[data-invitation-canvas]')
+    const row = doc?.querySelector('[data-guest-band="true"]')
+    if (!doc || !HtmlElement || !(canvas instanceof HtmlElement) || !(row instanceof HtmlElement)) return
+    setContentHeight((current) => {
+      const next = Math.ceil(canvas.offsetHeight)
+      return current === next ? current : next
+    })
+    setSeen(measureBand(row, canvas))
+  }
+
+  function paint(y: number, bandHeight: number) {
+    const doc = frameRef.current?.contentDocument
+    const HtmlElement = doc?.defaultView?.HTMLElement
+    if (!doc || !HtmlElement) return
+    const spacer = doc.querySelector('[data-guest-band="spacer"] td')
+    const cell = doc.querySelector('[data-guest-band-cell]')
+    if (spacer instanceof HtmlElement) {
+      spacer.setAttribute('height', String(y))
+      spacer.style.height = `${y}px`
+    }
+    if (cell instanceof HtmlElement) {
+      cell.setAttribute('height', String(bandHeight))
+      cell.style.height = `${bandHeight}px`
+    }
+  }
+
+  function beginDrag(event: PointerEvent<HTMLElement>, mode: 'move' | 'n' | 's') {
+    if (!seen) return
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    dragRef.current = {
+      mode,
+      originY: band.y,
+      originHeight: band.height,
+      originTop: seen.top,
+      pointerY: event.clientY,
+      y: band.y,
+      height: band.height,
+    }
+    setDraft({ top: seen.top, height: seen.height })
+  }
+
+  function moveDrag(event: PointerEvent<HTMLElement>) {
+    const drag = dragRef.current
+    if (!drag) return
+    const dy = (event.clientY - drag.pointerY) / (scaleRef.current || 1)
+    let y = drag.originY
+    let bandHeight = drag.originHeight
+    if (drag.mode === 'move') y = drag.originY + dy
+    if (drag.mode === 's') bandHeight = drag.originHeight + dy
+    if (drag.mode === 'n') {
+      y = drag.originY + dy
+      bandHeight = drag.originHeight - dy
+    }
+    const next = clampGuestBand({ ...band, y, height: bandHeight })
+    drag.y = next.y
+    drag.height = next.height
+    setDraft({ top: drag.originTop + (next.y - drag.originY), height: next.height })
+    paint(next.y, next.height)
+  }
+
+  function endDrag(event: PointerEvent<HTMLElement>) {
+    const drag = dragRef.current
+    if (!drag) return
+    dragRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    setDraft(null)
+    onCommit({ y: drag.y, height: drag.height })
+  }
+
+  const box = draft ?? seen
+
+  return (
+    <div ref={paneRef} className="flex min-h-0 flex-1 justify-center overflow-auto px-4 pb-6">
+      <div className="relative" style={{ width: width * scale, height: frameHeight * scale }}>
+        <iframe
+          ref={frameRef}
+          title="Invitation preview"
+          sandbox="allow-same-origin"
+          srcDoc={html}
+          onLoad={readBand}
+          className="pointer-events-none absolute top-0 left-0"
+          style={{
+            width,
+            height: frameHeight,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            border: 0,
+            background: '#e8e8e4',
+          }}
+        />
+        {editing && box ? (
+          <div className="absolute inset-0">
+            <div
+              role="group"
+              aria-label="Guest information"
+              className="absolute touch-none"
+              style={{
+                left: 0,
+                top: box.top * scale,
+                width: width * scale,
+                height: box.height * scale,
+                outline: '2px solid #3dbea2',
+                cursor: 'move',
+              }}
+              onPointerDown={(event) => beginDrag(event, 'move')}
+              onPointerMove={moveDrag}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+            >
+              <span className="pointer-events-none absolute -top-4 left-1 rounded-sm bg-[#143f36] px-1 text-[10px] leading-4 text-white">
+                Guest information
+              </span>
+              {(['n', 's'] as const).map((edge) => (
+                <button
+                  key={edge}
+                  type="button"
+                  aria-label={edge === 'n' ? 'Make the guest band shorter from the top' : 'Make the guest band taller'}
+                  className="absolute left-1/2 h-2.5 w-8 -translate-x-1/2 border border-[#1c1b19] bg-white"
+                  style={{ top: edge === 'n' ? 0 : '100%', transform: 'translate(-50%, -50%)', cursor: 'ns-resize' }}
+                  onPointerDown={(event) => beginDrag(event, edge)}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function measureBand(row: HTMLElement, canvas: HTMLElement) {
+  const HtmlElement = row.ownerDocument.defaultView?.HTMLElement
+  let top = 0
+  let node: HTMLElement | null = row
+  while (node && node !== canvas) {
+    top += node.offsetTop
+    const parent: Element | null = node.offsetParent
+    if (!HtmlElement || !(parent instanceof HtmlElement)) break
+    node = parent
+  }
+  return { top: Math.max(0, Math.round(top)), height: Math.max(48, Math.round(row.offsetHeight)) }
+}
+
+function TypeSettings({
+  label,
+  field,
+  enabledToggle = false,
+  onChange,
+}: {
+  label: string
+  field: GuestFieldDesign
+  enabledToggle?: boolean
+  onChange: (patch: Partial<GuestFieldDesign>) => void
+}) {
+  const checkboxId = useId()
+  const [more, setMore] = useState(false)
+  const weight = field.weight ?? (field.font === 'Manifa Bold' ? 'bold' : 'regular')
+  return (
+    <div className="grid gap-3 border-t border-border pt-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-medium">{label}</h3>
+        {enabledToggle ? (
+          <label htmlFor={checkboxId} className="inline-flex items-center gap-2 text-sm">
+            <input
+              id={checkboxId}
+              type="checkbox"
+              className="size-4 accent-accent"
+              checked={field.enabled}
+              onChange={(event) => onChange({ enabled: event.target.checked })}
+            />
+            Show
+          </label>
+        ) : null}
+      </div>
+      {field.enabled ? (
+        <>
+          <SelectField
+            label="Font"
+            hint="Manifa is used when that font is installed."
+            value={field.font}
+            options={invitationFonts.map((font) => ({ value: font, label: font }))}
+            onChange={(event) => onChange({ font: event.target.value as GuestFieldDesign['font'] })}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <TextField
+              label="Size"
+              type="number"
+              min={8}
+              max={72}
+              value={field.fontSize}
+              onChange={(event) => onChange({ fontSize: clampNumber(event.target.value, field.fontSize, 8, 72) })}
+            />
+            <SelectField
+              label="Weight"
+              value={weight}
+              options={[
+                { value: 'regular', label: 'Regular' },
+                { value: 'bold', label: 'Bold' },
+              ]}
+              onChange={(event) => onChange({ weight: event.target.value as FontWeight })}
+            />
+          </div>
+          <ColorField value={field.color} onChange={(color) => onChange({ color })} />
+          <button
+            type="button"
+            className="w-fit text-sm text-muted underline-offset-4 hover:underline"
+            aria-expanded={more}
+            onClick={() => setMore((current) => !current)}
+          >
+            {more ? 'Hide phone size' : 'Phone size'}
+          </button>
+          {more ? (
+            <TextField
+              label="Size on a phone"
+              type="number"
+              min={8}
+              max={48}
+              value={field.mobileFontSize}
+              onChange={(event) =>
+                onChange({ mobileFontSize: clampNumber(event.target.value, field.mobileFontSize, 8, 48) })
+              }
+            />
+          ) : null}
+        </>
+      ) : null}
     </div>
   )
 }
@@ -318,108 +736,22 @@ function ImageStep({
   )
 }
 
-function GuestRow({
-  label,
-  tag,
-  topLabel,
-  field,
-  open,
-  onToggle,
+function ColorField({
+  label = 'Color',
+  value,
   onChange,
 }: {
-  label: string
-  tag: string
-  topLabel: string
-  field: GuestFieldDesign
-  open: boolean
-  onToggle: () => void
-  onChange: (patch: Partial<GuestFieldDesign>) => void
+  label?: string
+  value: string
+  onChange: (value: string) => void
 }) {
-  const checkboxId = useId()
-  return (
-    <div className="border-t border-border pt-4">
-      <div className="flex items-center justify-between gap-3">
-        <button type="button" className="text-sm font-medium" aria-expanded={open} onClick={onToggle}>
-          {label}
-        </button>
-        <label htmlFor={checkboxId} className="inline-flex items-center gap-2 text-sm">
-          <input
-            id={checkboxId}
-            type="checkbox"
-            className="size-4 accent-accent"
-            checked={field.enabled}
-            onChange={(event) => onChange({ enabled: event.target.checked })}
-          />
-          Enabled
-        </label>
-      </div>
-      {open ? (
-        <div className="mt-4 grid gap-3">
-          <TextField label="Dynamic tag" value={tag} readOnly />
-          <SelectField
-            label="Font"
-            hint="Manifa is used when that font is installed."
-            value={field.font}
-            options={invitationFonts.map((font) => ({ value: font, label: font }))}
-            onChange={(event) => onChange({ font: event.target.value as GuestFieldDesign['font'] })}
-          />
-          <TextField
-            label="Font size"
-            type="number"
-            min={8}
-            max={72}
-            value={field.fontSize}
-            onChange={(event) => onChange({ fontSize: clampNumber(event.target.value, field.fontSize, 8, 72) })}
-          />
-          <TextField
-            label="Mobile font size"
-            type="number"
-            min={8}
-            max={48}
-            value={field.mobileFontSize}
-            onChange={(event) =>
-              onChange({ mobileFontSize: clampNumber(event.target.value, field.mobileFontSize, 8, 48) })
-            }
-          />
-          <ColorField value={field.color} onChange={(color) => onChange({ color })} />
-          <SelectField
-            label="Alignment"
-            value={field.alignment}
-            options={alignOptions}
-            onChange={(event) => onChange({ alignment: event.target.value as TextAlign })}
-          />
-          <TextField
-            label="Left padding"
-            type="number"
-            min={0}
-            max={160}
-            value={field.leftPadding}
-            hint="Pixels"
-            onChange={(event) => onChange({ leftPadding: clampNumber(event.target.value, field.leftPadding, 0, 160) })}
-          />
-          <TextField
-            label={topLabel}
-            type="number"
-            min={0}
-            max={120}
-            value={field.topSpacing}
-            hint="Pixels"
-            onChange={(event) => onChange({ topSpacing: clampNumber(event.target.value, field.topSpacing, 0, 120) })}
-          />
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function ColorField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const id = useId()
   const [draft, setDraft] = useState(value)
   const shown = draft === value ? value : draft
   return (
     <div className="grid gap-1.5">
       <label htmlFor={id} className="text-sm font-medium">
-        Color
+        {label}
       </label>
       <div className="flex items-center gap-2">
         <input
