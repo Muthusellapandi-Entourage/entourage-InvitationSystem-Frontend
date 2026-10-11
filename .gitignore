@@ -17,3 +17,4 @@ Backend/appsettings.Development.json
 .impeccable/review/
 .impeccable/build/
 .impeccable/mocks/
+.cursor/mcp.json

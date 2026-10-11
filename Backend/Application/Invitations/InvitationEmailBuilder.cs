@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using Entourage.Application.DTOs;
@@ -44,56 +45,97 @@ public static class InvitationEmailBuilder
             """;
     }
 
+    /// <summary>
+    /// The invitation background. Outlook honours the bgcolor attribute, other
+    /// clients use the inline style; both are emitted on every section cell so
+    /// the colour reaches all four edges without extra padding.
+    /// </summary>
+    private readonly record struct CanvasFill(string Attribute, string Style, string MixBase)
+    {
+        public const string Default = "#313131";
+        public const string Transparent = "transparent";
+
+        public static CanvasFill From(InvitationDesignDto design)
+        {
+            var value = design.BackgroundColor;
+            if (string.Equals(value, Transparent, StringComparison.OrdinalIgnoreCase))
+            {
+                return new CanvasFill(string.Empty, string.Empty, "#E8E8E4");
+            }
+
+            var color = value is not null && TryParseHex(value, out _, out _, out _) ? value.ToUpperInvariant() : Default;
+            return new CanvasFill($" bgcolor=\"{color}\"", $"background-color:{color};", color);
+        }
+    }
+
     public static string BuildTable(InvitationDesignDto design, IReadOnlyDictionary<Guid, string> assetUrls)
     {
         var width = design.Width is >= 200 and <= 2400 ? design.Width.Value : 560;
         int? height = design.Height is >= 200 and <= 4000 ? design.Height : null;
+        var fill = CanvasFill.From(design);
         var html = new StringBuilder();
         var heightAttribute = height is null ? string.Empty : $" height=\"{height}\"";
         var heightStyle = height is null ? string.Empty : $"height:{height}px;";
         var shrink = height is null ? "max-width:100%;" : string.Empty;
         html.Append("<table data-invitation-canvas=\"true\" role=\"presentation\" width=\"").Append(width).Append('"').Append(heightAttribute);
-        html.Append(" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" align=\"center\" style=\"width:")
+        html.Append(" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" align=\"center\"").Append(fill.Attribute).Append(" style=\"width:")
             .Append(width).Append("px;").Append(heightStyle).Append(shrink)
-            .Append("border-collapse:collapse;background:#313131;margin:0 auto;\">");
+            .Append("border-collapse:collapse;").Append(fill.Style).Append("margin:0 auto;\">");
 
         var sections = 0;
-        sections += AppendImage(html, Url(design.HeaderAssetId, assetUrls), "Header", width);
-        var guest = AppendGuest(html, design);
+        sections += AppendImage(html, Url(design.HeaderAssetId, assetUrls), "Header", width, "header", design.HeaderImage, fill);
+        var guest = AppendGuest(html, design, fill);
         sections += guest;
-        sections += AppendImage(html, Url(design.DetailsAssetId, assetUrls), "Event information", width);
-        sections += AppendButtons(html, design, assetUrls);
+        sections += AppendImage(html, Url(design.DetailsAssetId, assetUrls), "Event information", width, "details", design.DetailsImage, fill);
+        sections += AppendButtons(html, design, assetUrls, fill);
 
         if (sections == 0)
         {
             var filler = height is null ? "120px" : "100%";
-            html.Append("<tr><td style=\"height:").Append(filler).Append(";background:#313131;font-size:0;line-height:0;\">&nbsp;</td></tr>");
+            html.Append("<tr><td").Append(fill.Attribute).Append(" style=\"height:").Append(filler).Append(';').Append(fill.Style)
+                .Append("font-size:0;line-height:0;\">&nbsp;</td></tr>");
         }
         else if (height is not null && guest == 0)
         {
-            html.Append("""<tr><td height="100%" style="height:100%;background:#313131;font-size:0;line-height:0;">&nbsp;</td></tr>""");
+            html.Append("<tr><td").Append(fill.Attribute).Append(" height=\"100%\" style=\"height:100%;").Append(fill.Style)
+                .Append("font-size:0;line-height:0;\">&nbsp;</td></tr>");
         }
 
         html.Append("</table>");
         return html.ToString();
     }
 
-    private static int AppendImage(StringBuilder html, string? src, string alt, int width)
+    private static int AppendImage(
+        StringBuilder html,
+        string? src,
+        string alt,
+        int canvasWidth,
+        string slot,
+        ImagePlacementDto? placement,
+        CanvasFill fill)
     {
         if (string.IsNullOrEmpty(src))
         {
             return 0;
         }
 
-        html.Append("""<tr><td style="background:#313131;padding:0;line-height:0;font-size:0;">""");
-        html.Append("<img src=\"").Append(WebUtility.HtmlEncode(src)).Append("\" alt=\"").Append(WebUtility.HtmlEncode(alt));
-        html.Append("\" width=\"").Append(width);
-        html.Append("\" style=\"display:block;width:100%;max-width:").Append(width).Append("px;height:auto;border:0;\" />");
-        html.Append("</td></tr>");
+        var frame = EffectiveImage(placement, canvasWidth, canvasWidth);
+        html.Append("<tr data-image-slot=\"").Append(slot).Append("\"><td").Append(fill.Attribute)
+            .Append(" style=\"").Append(fill.Style).Append("padding:0;line-height:0;font-size:0;\">");
+        html.Append("<table role=\"presentation\" width=\"").Append(canvasWidth)
+            .Append("\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:").Append(canvasWidth)
+            .Append("px;border-collapse:collapse;\"><tr><td data-image-y=\"").Append(slot)
+            .Append("\" colspan=\"3\" height=\"").Append(frame.Y).Append("\" style=\"height:").Append(frame.Y)
+            .Append("px;font-size:0;line-height:0;mso-line-height-rule:exactly;\">&nbsp;</td></tr><tr><td data-image-x=\"")
+            .Append(slot).Append("\" width=\"").Append(frame.X).Append("\" style=\"width:").Append(frame.X)
+            .Append("px;font-size:0;line-height:0;\">&nbsp;</td><td width=\"").Append(frame.Width)
+            .Append("\" style=\"width:").Append(frame.Width).Append("px;\">");
+        AppendSizedImage(html, src, alt, slot, frame);
+        html.Append("</td><td style=\"font-size:0;line-height:0;\">&nbsp;</td></tr></table></td></tr>");
         return 1;
     }
 
-    private static int AppendGuest(StringBuilder html, InvitationDesignDto design)
+    private static int AppendGuest(StringBuilder html, InvitationDesignDto design, CanvasFill fill)
     {
         if (!design.GuestName.Enabled && !design.GuestPosition.Enabled)
         {
@@ -115,13 +157,13 @@ public static class InvitationEmailBuilder
         if (design.GuestName.Enabled)
         {
             AppendGuestLine(html, design.GuestName, band, 0, "guest-name", "inv-guest-name",
-                "Dear <span data-dynamic-tag=\"GuestName\">{{GuestName}}</span>,");
+                "Dear <span data-dynamic-tag=\"GuestName\">{{GuestName}}</span>,", fill.MixBase);
         }
 
         if (design.GuestPosition.Enabled)
         {
             AppendGuestLine(html, design.GuestPosition, band, band.Spacing, "guest-position", "inv-guest-position",
-                "{{GuestPosition}}");
+                "{{GuestPosition}}", fill.MixBase);
         }
 
         html.Append("</table></td></tr>");
@@ -158,7 +200,8 @@ public static class InvitationEmailBuilder
         int spacing,
         string marker,
         string cssClass,
-        string content)
+        string content,
+        string mixBase)
     {
         var position = marker == "guest-position";
         var tagAttribute = position ? " data-dynamic-tag=\"GuestPosition\"" : string.Empty;
@@ -174,45 +217,192 @@ public static class InvitationEmailBuilder
         html.Append("<td data-").Append(marker).Append("=\"true\" align=\"").Append(band.Align)
             .Append("\" style=\"padding:").Append(spacing).Append("px ").Append(band.Inset)
             .Append("px 0;text-align:").Append(band.Align).Append(";\">");
+        var fill = !position && field.NameBackground == true ? NameFill(field, mixBase) : null;
+        if (fill is not null)
+        {
+            html.Append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" align=\"")
+                .Append(band.Align).Append("\" style=\"border-collapse:collapse;\"><tr><td bgcolor=\"")
+                .Append(fill.Value.Solid).Append("\" style=\"background-color:").Append(fill.Value.Css)
+                .Append(";padding:").Append(field.PadY ?? 0).Append("px ").Append(field.PadX ?? 0).Append("px;\">");
+        }
+
         html.Append("<span class=\"").Append(cssClass).Append('"').Append(tagAttribute)
             .Append(" style=\"").Append(FontStyle(field)).Append("\">")
-            .Append(content).Append("</span></td></tr>");
+            .Append(content).Append("</span>");
+        if (fill is not null)
+        {
+            html.Append("</td></tr></table>");
+        }
+
+        html.Append("</td></tr>");
+    }
+
+    private static (string Solid, string Css)? NameFill(GuestFieldDto field, string mixBase)
+    {
+        if (field.NameBackground != true || string.IsNullOrEmpty(field.BackgroundColor) || field.BackgroundOpacity is <= 0)
+        {
+            return null;
+        }
+
+        var opacity = Math.Clamp(field.BackgroundOpacity ?? 100, 0, 100);
+        if (opacity == 0)
+        {
+            return null;
+        }
+
+        if (!TryParseHex(field.BackgroundColor, out var red, out var green, out var blue))
+        {
+            return null;
+        }
+
+        if (opacity >= 100)
+        {
+            return (field.BackgroundColor, field.BackgroundColor);
+        }
+
+        if (!TryParseHex(mixBase, out var baseRed, out var baseGreen, out var baseBlue))
+        {
+            (baseRed, baseGreen, baseBlue) = (0x31, 0x31, 0x31);
+        }
+
+        var amount = opacity / 100d;
+        int Mix(int channel, int under) => (int)Math.Round(channel * amount + under * (1 - amount), MidpointRounding.AwayFromZero);
+        var solid = string.Create(CultureInfo.InvariantCulture, $"#{Mix(red, baseRed):X2}{Mix(green, baseGreen):X2}{Mix(blue, baseBlue):X2}");
+        var css = string.Create(CultureInfo.InvariantCulture, $"rgba({red},{green},{blue},{amount:0.##})");
+        return (solid, css);
+    }
+
+    private static bool TryParseHex(string hex, out int red, out int green, out int blue)
+    {
+        red = green = blue = 0;
+        if (hex.Length != 7 || hex[0] != '#')
+        {
+            return false;
+        }
+
+        return int.TryParse(hex.AsSpan(1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out red)
+            && int.TryParse(hex.AsSpan(3, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out green)
+            && int.TryParse(hex.AsSpan(5, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out blue);
+    }
+
+    private static ImagePlacementDto EffectiveImage(ImagePlacementDto? placement, int canvasWidth, int fallbackWidth)
+    {
+        if (placement is null)
+        {
+            return new ImagePlacementDto(0, 0, Math.Min(canvasWidth, fallbackWidth), null, true);
+        }
+
+        var width = Math.Clamp(placement.Width, 20, 2400);
+        return new ImagePlacementDto(
+            Math.Clamp(placement.X, 0, Math.Max(0, canvasWidth)),
+            Math.Clamp(placement.Y, 0, 2000),
+            width,
+            placement.Height is null ? null : Math.Clamp(placement.Height.Value, 20, 4000),
+            placement.LockRatio);
     }
 
     private static int AppendButtons(
         StringBuilder html,
         InvitationDesignDto design,
-        IReadOnlyDictionary<Guid, string> assetUrls)
+        IReadOnlyDictionary<Guid, string> assetUrls,
+        CanvasFill fill)
     {
-        var accept = Url(design.AcceptAssetId, assetUrls);
-        var decline = Url(design.DeclineAssetId, assetUrls);
-        if (accept is null && decline is null)
+        var width = design.Width is >= 200 and <= 2400 ? design.Width.Value : 560;
+        var acceptSrc = Url(design.AcceptAssetId, assetUrls);
+        var declineSrc = Url(design.DeclineAssetId, assetUrls);
+        var frames = RsvpFrames(width, acceptSrc is not null, declineSrc is not null, design.AcceptImage, design.DeclineImage);
+        var items = new List<(string Slot, string Src, string Href, string Alt, ImagePlacementDto Frame)>();
+        if (frames.Accept is not null && acceptSrc is not null)
+        {
+            items.Add(("accept", acceptSrc, "{{AcceptUrl}}", "Accept invitation", frames.Accept));
+        }
+
+        if (frames.Decline is not null && declineSrc is not null)
+        {
+            items.Add(("decline", declineSrc, "{{DeclineUrl}}", "Decline invitation", frames.Decline));
+        }
+
+        if (items.Count == 0)
         {
             return 0;
         }
 
-        html.Append("""
-            <tr><td style="background:#313131;padding:28px 16px 36px;text-align:center;">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto;"><tr>
-            """);
+        items.Sort((left, right) =>
+        {
+            var byX = left.Frame.X.CompareTo(right.Frame.X);
+            return byX != 0 ? byX : string.Compare(left.Slot, right.Slot, StringComparison.Ordinal);
+        });
 
-        AppendButton(html, accept, "{{AcceptUrl}}", "Accept invitation");
-        AppendButton(html, decline, "{{DeclineUrl}}", "Decline invitation");
-        html.Append("</tr></table></td></tr>");
+        html.Append("<tr><td").Append(fill.Attribute).Append(" style=\"").Append(fill.Style)
+            .Append("padding:0;line-height:0;font-size:0;\"><table role=\"presentation\" width=\"")
+            .Append(width)
+            .Append("\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:")
+            .Append(width)
+            .Append("px;border-collapse:collapse;\"><tr data-rsvp-row=\"true\">");
+        var cursor = 0;
+        foreach (var item in items)
+        {
+            var gap = Math.Max(0, item.Frame.X - cursor);
+            cursor += gap + item.Frame.Width;
+            var heightStyle = item.Frame.Height is null ? "height:auto;" : $"height:{item.Frame.Height}px;";
+            html.Append("<td data-image-gap=\"").Append(item.Slot).Append("\" width=\"").Append(gap)
+                .Append("\" style=\"width:").Append(gap).Append("px;font-size:0;line-height:0;\">&nbsp;</td>");
+            html.Append("<td data-image-pad=\"").Append(item.Slot).Append("\" width=\"").Append(item.Frame.Width)
+                .Append("\" valign=\"top\" style=\"width:").Append(item.Frame.Width).Append("px;padding:")
+                .Append(item.Frame.Y).Append("px 0 0 0;line-height:0;font-size:0;\"><a href=\"").Append(item.Href)
+                .Append("\" target=\"_top\" style=\"text-decoration:none;\"><img data-image-slot=\"").Append(item.Slot)
+                .Append("\" data-canvas-x=\"").Append(item.Frame.X).Append("\" data-canvas-y=\"").Append(item.Frame.Y)
+                .Append("\" src=\"").Append(WebUtility.HtmlEncode(item.Src)).Append("\" alt=\"").Append(WebUtility.HtmlEncode(item.Alt))
+                .Append("\" width=\"").Append(item.Frame.Width).Append('"');
+            if (item.Frame.Height is not null)
+            {
+                html.Append(" height=\"").Append(item.Frame.Height).Append('"');
+            }
+
+            html.Append(" style=\"display:block;width:").Append(item.Frame.Width).Append("px;").Append(heightStyle)
+                .Append("border:0;\" /></a></td>");
+        }
+
+        html.Append("<td style=\"font-size:0;line-height:0;\">&nbsp;</td></tr></table></td></tr>");
         return 1;
     }
 
-    private static void AppendButton(StringBuilder html, string? src, string href, string alt)
+    private static (ImagePlacementDto? Accept, ImagePlacementDto? Decline) RsvpFrames(
+        int canvas,
+        bool acceptOn,
+        bool declineOn,
+        ImagePlacementDto? acceptImage,
+        ImagePlacementDto? declineImage)
     {
-        if (string.IsNullOrEmpty(src))
-        {
-            return;
-        }
+        const int gap = 20;
+        var acceptWidth = Math.Min(220, canvas);
+        var declineWidth = Math.Min(220, canvas);
+        var pair = (acceptOn ? acceptImage?.Width ?? acceptWidth : 0)
+            + (acceptOn && declineOn ? gap : 0)
+            + (declineOn ? declineImage?.Width ?? declineWidth : 0);
+        var start = Math.Max(0, (int)Math.Round((canvas - Math.Min(pair, canvas)) / 2d, MidpointRounding.AwayFromZero));
+        var accept = acceptOn
+            ? acceptImage is null
+                ? new ImagePlacementDto(start, 0, acceptWidth, null, true)
+                : EffectiveImage(acceptImage, canvas, 220)
+            : null;
+        var declineX = accept is null ? start : accept.X + accept.Width + gap;
+        var decline = declineOn
+            ? declineImage is null
+                ? new ImagePlacementDto(declineX, 0, declineWidth, null, true)
+                : EffectiveImage(declineImage, canvas, 220)
+            : null;
+        return (accept, decline);
+    }
 
-        html.Append("<td style=\"padding:0 10px;\"><a href=\"").Append(href);
-        html.Append("\" target=\"_top\" style=\"text-decoration:none;\"><img src=\"").Append(WebUtility.HtmlEncode(src));
-        html.Append("\" alt=\"").Append(WebUtility.HtmlEncode(alt));
-        html.Append("\" style=\"display:block;border:0;height:auto;max-width:220px;\" /></a></td>");
+    private static void AppendSizedImage(StringBuilder html, string src, string alt, string slot, ImagePlacementDto frame)
+    {
+        var heightAttribute = frame.Height is null ? string.Empty : $" height=\"{frame.Height}\"";
+        var heightStyle = frame.Height is null ? "height:auto;" : $"height:{frame.Height}px;";
+        html.Append("<img data-image-slot=\"").Append(slot).Append("\" src=\"").Append(WebUtility.HtmlEncode(src));
+        html.Append("\" alt=\"").Append(WebUtility.HtmlEncode(alt)).Append("\" width=\"").Append(frame.Width).Append('"');
+        html.Append(heightAttribute).Append(" style=\"display:block;width:").Append(frame.Width).Append("px;max-width:100%;");
+        html.Append(heightStyle).Append("border:0;\" />");
     }
 
     private static string FontStyle(GuestFieldDto field)

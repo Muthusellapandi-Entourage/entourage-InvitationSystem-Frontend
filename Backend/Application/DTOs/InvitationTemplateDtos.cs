@@ -4,6 +4,10 @@ public sealed record TextBoxDto(int X, int Y, int Width, int Height);
 
 public sealed record GuestBandDto(int Y, int Height, string Align, string Valign, int Spacing, int Inset);
 
+public sealed record ImagePlacementDto(int X, int Y, int Width, int? Height, bool LockRatio);
+
+public sealed record DesignGuidesDto(int[]? Vertical, int[]? Horizontal);
+
 public sealed record GuestFieldDto(
     bool Enabled,
     string Font,
@@ -18,7 +22,8 @@ public sealed record GuestFieldDto(
     int? BackgroundOpacity = null,
     int? PadX = null,
     int? PadY = null,
-    string? Weight = null);
+    string? Weight = null,
+    bool? NameBackground = null);
 
 public sealed record InvitationDesignDto(
     Guid? HeaderAssetId,
@@ -31,7 +36,13 @@ public sealed record InvitationDesignDto(
     int? Height = null,
     string? GroupAlign = null,
     string? GroupVertical = null,
-    GuestBandDto? GuestBand = null)
+    GuestBandDto? GuestBand = null,
+    ImagePlacementDto? HeaderImage = null,
+    ImagePlacementDto? DetailsImage = null,
+    ImagePlacementDto? AcceptImage = null,
+    ImagePlacementDto? DeclineImage = null,
+    DesignGuidesDto? Guides = null,
+    string? BackgroundColor = null)
 {
     public static InvitationDesignDto CreateDefault() => new(
         null,
@@ -50,3 +61,5 @@ public sealed record InvitationTemplateDto(
 public sealed record EventAssetDto(Guid Id, string FileName, string Url);
 
 public sealed record EventAssetFile(string Path, string ContentType);
+
+public sealed record InvitationPreviewDto(string Url, DateTime ExpiresOn, string Html);

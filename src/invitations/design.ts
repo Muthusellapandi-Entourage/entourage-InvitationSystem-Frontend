@@ -26,6 +26,21 @@ export type GuestBand = {
   inset: number
 }
 
+export type ImageSlot = 'header' | 'details' | 'accept' | 'decline'
+
+export type ImagePlacement = {
+  x: number
+  y: number
+  width: number
+  height: number | null
+  lockRatio: boolean
+}
+
+export type DesignGuides = {
+  vertical: number[]
+  horizontal: number[]
+}
+
 export type GuestFieldDesign = {
   enabled: boolean
   font: InvitationFont
@@ -41,6 +56,7 @@ export type GuestFieldDesign = {
   padX: number
   padY: number
   weight: FontWeight | null
+  nameBackground: boolean
 }
 
 export type InvitationDesign = {
@@ -55,6 +71,22 @@ export type InvitationDesign = {
   groupAlign: TextAlign
   groupVertical: GroupVertical
   guestBand: GuestBand | null
+  headerImage: ImagePlacement | null
+  detailsImage: ImagePlacement | null
+  acceptImage: ImagePlacement | null
+  declineImage: ImagePlacement | null
+  guides: DesignGuides | null
+  /** Invitation background: a hex color, or 'transparent' for no fill. */
+  backgroundColor: string
+}
+
+export const defaultCanvasBackground = '#313131'
+
+export const transparentBackground = 'transparent'
+
+/** Resolves the colour used behind the invitation content; null when transparent. */
+export function canvasFill(design: Pick<InvitationDesign, 'backgroundColor'>): string | null {
+  return design.backgroundColor === transparentBackground ? null : design.backgroundColor
 }
 
 export type InvitationTemplate = {
@@ -87,6 +119,7 @@ export function defaultInvitationDesign(): InvitationDesign {
       padX: 0,
       padY: 0,
       weight: null,
+      nameBackground: false,
     },
     guestPosition: {
       enabled: true,
@@ -103,6 +136,7 @@ export function defaultInvitationDesign(): InvitationDesign {
       padX: 0,
       padY: 0,
       weight: null,
+      nameBackground: false,
     },
     detailsAssetId: null,
     acceptAssetId: null,
@@ -112,6 +146,12 @@ export function defaultInvitationDesign(): InvitationDesign {
     groupAlign: 'left',
     groupVertical: 'top',
     guestBand: null,
+    headerImage: null,
+    detailsImage: null,
+    acceptImage: null,
+    declineImage: null,
+    guides: null,
+    backgroundColor: defaultCanvasBackground,
   }
 }
 
@@ -130,6 +170,15 @@ export function normalizeInvitationDesign(value: Partial<InvitationDesign> | nul
     groupAlign: value.groupAlign === 'center' || value.groupAlign === 'right' ? value.groupAlign : 'left',
     groupVertical: value.groupVertical === 'middle' || value.groupVertical === 'bottom' ? value.groupVertical : 'top',
     guestBand: normalizeGuestBand(value.guestBand),
+    headerImage: normalizeImagePlacement(value.headerImage),
+    detailsImage: normalizeImagePlacement(value.detailsImage),
+    acceptImage: normalizeImagePlacement(value.acceptImage),
+    declineImage: normalizeImagePlacement(value.declineImage),
+    guides: normalizeGuides(value.guides),
+    backgroundColor:
+      value.backgroundColor === transparentBackground
+        ? transparentBackground
+        : (normalizeColor(value.backgroundColor) ?? defaultCanvasBackground),
   }
 }
 
@@ -148,7 +197,133 @@ function normalizeGuestField(base: GuestFieldDesign, value: Partial<GuestFieldDe
     padX: value?.padX == null ? 0 : clampInt(value.padX, 0, 80, 0),
     padY: value?.padY == null ? 0 : clampInt(value.padY, 0, 80, 0),
     weight: value?.weight === 'bold' || value?.weight === 'regular' ? value.weight : null,
+    nameBackground: value?.nameBackground === true,
   }
+}
+
+export function clampImagePlacement(placement: ImagePlacement, canvasWidth: number): ImagePlacement {
+  const width = clampInt(placement.width, 20, 2400, Math.min(canvasWidth, 220))
+  return {
+    x: clampInt(placement.x, 0, Math.max(0, canvasWidth), 0),
+    y: clampInt(placement.y, 0, 2000, 0),
+    width,
+    height: placement.height == null ? null : clampInt(placement.height, 20, 4000, 20),
+    lockRatio: placement.lockRatio !== false,
+  }
+}
+
+export function effectiveImagePlacement(
+  placement: ImagePlacement | null,
+  canvasWidth: number,
+  fallbackWidth: number,
+): ImagePlacement {
+  if (!placement) {
+    return { x: 0, y: 0, width: Math.min(canvasWidth, fallbackWidth), height: null, lockRatio: true }
+  }
+  return clampImagePlacement(placement, canvasWidth)
+}
+
+const rsvpGap = 20
+const rsvpFallbackWidth = 220
+
+export function rsvpFrames(design: Pick<InvitationDesign, 'width' | 'acceptAssetId' | 'declineAssetId' | 'acceptImage' | 'declineImage'>): {
+  accept: ImagePlacement | null
+  decline: ImagePlacement | null
+} {
+  const canvas = design.width
+  const acceptOn = Boolean(design.acceptAssetId)
+  const declineOn = Boolean(design.declineAssetId)
+  const acceptWidth = Math.min(rsvpFallbackWidth, canvas)
+  const declineWidth = Math.min(rsvpFallbackWidth, canvas)
+  const pair =
+    (acceptOn ? (design.acceptImage?.width ?? acceptWidth) : 0) +
+    (acceptOn && declineOn ? rsvpGap : 0) +
+    (declineOn ? (design.declineImage?.width ?? declineWidth) : 0)
+  const start = Math.max(0, Math.round((canvas - Math.min(pair, canvas)) / 2))
+  const accept = acceptOn
+    ? design.acceptImage
+      ? clampImagePlacement(design.acceptImage, canvas)
+      : { x: start, y: 0, width: acceptWidth, height: null, lockRatio: true }
+    : null
+  const declineX = accept ? accept.x + accept.width + rsvpGap : start
+  const decline = declineOn
+    ? design.declineImage
+      ? clampImagePlacement(design.declineImage, canvas)
+      : { x: declineX, y: 0, width: declineWidth, height: null, lockRatio: true }
+    : null
+  return { accept, decline }
+}
+
+export type SnapKind = 'guide' | 'center' | 'edge' | 'element'
+
+export type SnapTarget = { value: number; kind: SnapKind }
+
+export type SnapEdge = 'start' | 'center' | 'end'
+
+const snapRank: Record<SnapKind, number> = { guide: 0, center: 0, edge: 1, element: 2 }
+
+/**
+ * Snaps one axis of a box (origin + size, in design px) to the closest target.
+ * Guides and the canvas centre always win over canvas edges, which win over
+ * other elements. Element edges only pull within half the threshold so that
+ * busy invitations do not feel sticky.
+ */
+export function snapAxis(
+  origin: number,
+  size: number,
+  targets: SnapTarget[],
+  threshold: number,
+  edges: SnapEdge[] = ['start', 'center', 'end'],
+): { origin: number; target: SnapTarget | null } {
+  const points = edges.map((edge) => (edge === 'start' ? 0 : edge === 'center' ? size / 2 : size))
+  let best: { origin: number; target: SnapTarget } | null = null
+  let bestScore = Number.POSITIVE_INFINITY
+  for (const point of points) {
+    for (const target of targets) {
+      const dist = Math.abs(origin + point - target.value)
+      const limit = target.kind === 'element' ? threshold / 2 : threshold
+      if (dist > limit) continue
+      const score = dist + snapRank[target.kind] * threshold
+      if (score < bestScore) {
+        bestScore = score
+        best = { origin: target.value - point, target }
+      }
+    }
+  }
+  return best ?? { origin, target: null }
+}
+
+function normalizeGuides(value: unknown): DesignGuides | null {
+  if (!value || typeof value !== 'object') return null
+  const guides = value as Partial<DesignGuides>
+  const vertical = normalizeGuideList(guides.vertical)
+  const horizontal = normalizeGuideList(guides.horizontal)
+  if (vertical.length === 0 && horizontal.length === 0) return null
+  return { vertical, horizontal }
+}
+
+function normalizeGuideList(value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  const next = value
+    .filter((item): item is number => typeof item === 'number' && Number.isFinite(item))
+    .map((item) => clampInt(Math.round(item), 0, 4000, 0))
+  return [...new Set(next)].sort((left, right) => left - right).slice(0, 40)
+}
+
+function normalizeImagePlacement(value: unknown): ImagePlacement | null {
+  if (!value || typeof value !== 'object') return null
+  const placement = value as Partial<ImagePlacement>
+  if (typeof placement.width !== 'number') return null
+  return clampImagePlacement(
+    {
+      x: typeof placement.x === 'number' ? placement.x : 0,
+      y: typeof placement.y === 'number' ? placement.y : 0,
+      width: placement.width,
+      height: typeof placement.height === 'number' ? placement.height : null,
+      lockRatio: placement.lockRatio !== false,
+    },
+    2400,
+  )
 }
 
 export function effectiveGuestBand(design: InvitationDesign): GuestBand {

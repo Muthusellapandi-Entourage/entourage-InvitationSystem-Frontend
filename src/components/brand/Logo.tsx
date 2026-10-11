@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/cn'
 
-function LogoMark({ className }: { className?: string }) {
+export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className={cn('size-7 shrink-0', className)}>
       <rect x="2.5" y="2.5" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.5" />

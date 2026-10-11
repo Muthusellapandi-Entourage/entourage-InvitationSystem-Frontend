@@ -45,6 +45,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IEventAssetService, EventAssetService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IInvitationPreviewStore, InvitationPreviewStore>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

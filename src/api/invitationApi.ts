@@ -28,6 +28,13 @@ export const invitationApi = {
     return apiClient<InvitationTemplate>(`/api/events/${eventId}/invitation/template`)
   },
 
+  createPreview(eventId: string, design: InvitationDesign) {
+    return apiClient<{ url: string; expiresOn: string; html: string }>(`/api/events/${eventId}/invitation/previews`, {
+      method: 'POST',
+      body: JSON.stringify(design),
+    })
+  },
+
   saveTemplate(eventId: string, design: InvitationDesign) {
     return apiClient<InvitationTemplate>(`/api/events/${eventId}/invitation/template`, {
       method: 'PUT',

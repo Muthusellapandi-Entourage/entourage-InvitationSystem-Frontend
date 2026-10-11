@@ -23,4 +23,11 @@ public interface IInvitationService
         string slug,
         RecordInvitationResponseRequest request,
         CancellationToken cancellationToken);
+
+    Task<string> BuildPreviewHtmlAsync(
+        Guid eventId,
+        InvitationDesignDto design,
+        string assetOrigin,
+        string appOrigin,
+        CancellationToken cancellationToken);
 }

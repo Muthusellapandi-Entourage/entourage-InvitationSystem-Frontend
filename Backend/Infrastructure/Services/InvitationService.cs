@@ -191,6 +191,37 @@ public sealed class InvitationService(
         return ToResponseDto(existing);
     }
 
+    public async Task<string> BuildPreviewHtmlAsync(
+        Guid eventId,
+        InvitationDesignDto design,
+        string assetOrigin,
+        string appOrigin,
+        CancellationToken cancellationToken)
+    {
+        await EnsureEventExistsAsync(eventId, cancellationToken);
+        await ValidationGuard.EnsureValidAsync(designValidator, design, cancellationToken);
+
+        var assetIds = new[] { design.HeaderAssetId, design.DetailsAssetId, design.AcceptAssetId, design.DeclineAssetId }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+        await assets.EnsureOwnedAsync(eventId, assetIds, cancellationToken);
+
+        var urls = assetIds.ToDictionary(id => id, id => $"{assetOrigin.TrimEnd('/')}/api/public/assets/{id}");
+        var html = InvitationEmailBuilder.Build(design, urls);
+        var slug = await db.Events.AsNoTracking()
+            .Where(item => item.Id == eventId)
+            .Select(item => item.Slug)
+            .FirstAsync(cancellationToken);
+        var guestPage = $"{appOrigin.TrimEnd('/')}/invite/{Uri.EscapeDataString(slug)}";
+        return html
+            .Replace("{{GuestName}}", "Sara Ahmed", StringComparison.Ordinal)
+            .Replace("{{GuestPosition}}", "Senior Manager", StringComparison.Ordinal)
+            .Replace("{{AcceptUrl}}", $"{guestPage}/rsvp?status=accept", StringComparison.Ordinal)
+            .Replace("{{DeclineUrl}}", $"{guestPage}/rsvp?status=decline", StringComparison.Ordinal);
+    }
+
     private async Task<Invitation> FindPublishedAsync(string slug, CancellationToken cancellationToken)
     {
         var normalized = slug.Trim().ToLowerInvariant();

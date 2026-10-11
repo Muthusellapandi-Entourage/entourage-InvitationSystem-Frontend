@@ -40,6 +40,36 @@ public sealed class InvitationDesignValidator : AbstractValidator<InvitationDesi
             RuleFor(design => design.GuestBand!.Spacing).InclusiveBetween(0, 80);
             RuleFor(design => design.GuestBand!.Inset).InclusiveBetween(0, 120);
         });
+        When(design => design.HeaderImage is not null, () => RuleFor(design => design.HeaderImage!).SetValidator(new ImagePlacementValidator()));
+        When(design => design.DetailsImage is not null, () => RuleFor(design => design.DetailsImage!).SetValidator(new ImagePlacementValidator()));
+        When(design => design.AcceptImage is not null, () => RuleFor(design => design.AcceptImage!).SetValidator(new ImagePlacementValidator()));
+        When(design => design.DeclineImage is not null, () => RuleFor(design => design.DeclineImage!).SetValidator(new ImagePlacementValidator()));
+        RuleFor(design => design.BackgroundColor)
+            .Must(value => value is null || value == "transparent" || System.Text.RegularExpressions.Regex.IsMatch(value, "^#[0-9A-Fa-f]{6}$"))
+            .WithMessage("Use a canvas background like #313131, or transparent.");
+        When(design => design.Guides is not null, () =>
+        {
+            RuleFor(design => design.Guides!.Vertical)
+                .Must(values => values is null || (values.Length <= 40 && values.All(value => value is >= 0 and <= 4000)))
+                .WithMessage("Vertical guides must stay between 0 and 4000.");
+            RuleFor(design => design.Guides!.Horizontal)
+                .Must(values => values is null || (values.Length <= 40 && values.All(value => value is >= 0 and <= 4000)))
+                .WithMessage("Horizontal guides must stay between 0 and 4000.");
+        });
+    }
+}
+
+public sealed class ImagePlacementValidator : AbstractValidator<ImagePlacementDto>
+{
+    public ImagePlacementValidator()
+    {
+        RuleFor(placement => placement.X).InclusiveBetween(0, 2400);
+        RuleFor(placement => placement.Y).InclusiveBetween(0, 2000);
+        RuleFor(placement => placement.Width).InclusiveBetween(20, 2400);
+        When(placement => placement.Height.HasValue, () =>
+        {
+            RuleFor(placement => placement.Height!.Value).InclusiveBetween(20, 4000);
+        });
     }
 }
 
