@@ -12,7 +12,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { Button } from '@/components/ui/Button'
 import { NumberField } from '@/components/ui/NumberField'
 import { cn } from '@/lib/cn'
-import { clampImagePlacement, effectiveImagePlacement, type ImagePlacement, type ImageSlot } from '@/invitations/design'
+import { clampImagePlacement, effectiveImagePlacement, type ImagePlacement } from '@/invitations/design'
 import { FieldLabel } from './designerControls'
 import type { ImageMetrics } from './InvitationCanvas'
 
@@ -24,9 +24,14 @@ export function ImageSettings({
   canvasHeight = null,
   metrics,
   showFit = false,
+  noun = 'invitation',
+  alignNote = 'Aligns the image to the invitation edges. Text alignment is set in the guest step.',
+  xLabel = 'Horizontal position',
+  yLabel = 'Space above',
+  yHint = 'From the content above',
   onChange,
 }: {
-  slot: ImageSlot
+  slot: string
   placement: ImagePlacement | null
   resolved?: ImagePlacement | null
   canvasWidth: number
@@ -34,12 +39,18 @@ export function ImageSettings({
   canvasHeight?: number | null
   metrics: ImageMetrics | null
   showFit?: boolean
+  noun?: string
+  alignNote?: string
+  xLabel?: string
+  yLabel?: string
+  yHint?: string
   onChange: (placement: ImagePlacement | null) => void
 }) {
   const fallback = slot === 'accept' || slot === 'decline' ? 220 : canvasWidth
+  const yMax = canvasHeight ?? 2000
   const frame = resolved ?? effectiveImagePlacement(placement, canvasWidth, fallback)
   function write(patch: Partial<ImagePlacement>) {
-    onChange(clampImagePlacement({ ...frame, ...patch }, canvasWidth))
+    onChange(clampImagePlacement({ ...frame, ...patch }, canvasWidth, yMax))
   }
 
   // Vertical alignment works in the section the image sits in: `y` is the gap
@@ -90,7 +101,7 @@ export function ImageSettings({
 
   return (
     <div className="grid gap-4">
-      <p className="text-sm text-muted">Drag the image on the invitation. Corners keep its shape unless you unlock it.</p>
+      <p className="text-sm text-muted">Drag the image on the {noun}. Corners keep its shape unless you unlock it.</p>
       <div className="grid grid-cols-2 gap-3">
         <NumberField
           label="Width"
@@ -123,7 +134,7 @@ export function ImageSettings({
           }}
         />
         <NumberField
-          label="Horizontal position"
+          label={xLabel}
           min={0}
           max={canvasWidth}
           value={frame.x}
@@ -133,11 +144,11 @@ export function ImageSettings({
           }}
         />
         <NumberField
-          label="Space above"
+          label={yLabel}
           min={0}
-          max={2000}
+          max={yMax}
           value={frame.y}
-          hint="From the content above"
+          hint={yHint}
           onChange={(next) => {
             if (next !== null) write({ y: next })
           }}
@@ -159,8 +170,8 @@ export function ImageSettings({
         Keep the image shape
       </label>
       <div className="grid gap-2">
-        <FieldLabel>Position on the invitation</FieldLabel>
-        <p className="-mt-1 text-xs text-muted">Aligns the image to the invitation edges. Text alignment is set in the guest step.</p>
+        <FieldLabel>Position on the {noun}</FieldLabel>
+        <p className="-mt-1 text-xs text-muted">{alignNote}</p>
         <div className="grid gap-2 sm:grid-cols-2">
           <AlignGroup label="Horizontal">
             <AlignButton
@@ -200,7 +211,7 @@ export function ImageSettings({
               onClick={() => alignVertical('middle')}
             />
             <AlignButton
-              label={canAlignBottom ? 'Align bottom' : 'Align bottom (set a fixed invitation height first)'}
+              label={canAlignBottom ? 'Align bottom' : 'Align bottom (set a fixed height first)'}
               icon={<AlignEndHorizontal />}
               disabled={!canAlignBottom}
               onClick={() => alignVertical('bottom')}
@@ -212,7 +223,7 @@ export function ImageSettings({
         {showFit ? (
           <Button
             variant="secondary"
-            title="Stretch the image to the full invitation width"
+            title={`Stretch the image to the full ${noun} width`}
             onClick={() => onChange({ x: 0, y: frame.y, width: canvasWidth, height: null, lockRatio: true })}
           >
             <Maximize2 className="size-4" aria-hidden="true" />

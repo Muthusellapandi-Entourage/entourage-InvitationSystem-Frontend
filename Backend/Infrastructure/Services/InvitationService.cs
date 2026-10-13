@@ -17,6 +17,7 @@ public sealed class InvitationService(
     AppDbContext db,
     IValidator<InvitationWriteRequest> writeValidator,
     IValidator<InvitationDesignDto> designValidator,
+    IValidator<BadgeDesignDto> badgeValidator,
     IValidator<RecordInvitationResponseRequest> responseValidator,
     IEventAssetService assets) : IInvitationService
 {
@@ -115,8 +116,55 @@ public sealed class InvitationService(
                     : InvitationReplyMode.Both;
         invitation.UpdatedOn = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
-        await assets.DeleteUnreferencedAsync(eventId, assetIds, cancellationToken);
+        await assets.DeleteUnreferencedAsync(eventId, await DesignAssetIds.KeepSet(db, eventId, cancellationToken), cancellationToken);
         return new InvitationTemplateDto(design, invitation.Html, invitation.UpdatedOn);
+    }
+
+    public async Task<BadgeTemplateDto> GetBadgeAsync(Guid eventId, CancellationToken cancellationToken)
+    {
+        await EnsureEventExistsAsync(eventId, cancellationToken);
+        var invitation = await db.Invitations.AsNoTracking()
+            .FirstOrDefaultAsync(item => item.EventId == eventId, cancellationToken);
+        if (invitation is null || string.IsNullOrWhiteSpace(invitation.BadgeDesignJson))
+        {
+            return new BadgeTemplateDto(BadgeDesignDto.CreateDefault(), invitation?.UpdatedOn);
+        }
+
+        var design = JsonSerializer.Deserialize<BadgeDesignDto>(invitation.BadgeDesignJson, DesignJsonOptions)
+            ?? BadgeDesignDto.CreateDefault();
+        return new BadgeTemplateDto(design, invitation.UpdatedOn);
+    }
+
+    public async Task<BadgeTemplateDto> SaveBadgeAsync(
+        Guid eventId,
+        BadgeDesignDto design,
+        CancellationToken cancellationToken)
+    {
+        await EnsureEventExistsAsync(eventId, cancellationToken);
+        await ValidationGuard.EnsureValidAsync(badgeValidator, design, cancellationToken);
+
+        var owned = design.BackgroundAssetId is Guid backgroundId ? new[] { backgroundId } : Array.Empty<Guid>();
+        await assets.EnsureOwnedAsync(eventId, owned, cancellationToken);
+
+        var invitation = await db.Invitations.FirstOrDefaultAsync(item => item.EventId == eventId, cancellationToken);
+        if (invitation is null)
+        {
+            invitation = new Invitation
+            {
+                Id = Guid.CreateVersion7(),
+                EventId = eventId,
+                OrganizationName = string.Empty,
+                DateLine = string.Empty,
+                VenueLine = string.Empty,
+            };
+            db.Invitations.Add(invitation);
+        }
+
+        invitation.BadgeDesignJson = JsonSerializer.Serialize(design, DesignJsonOptions);
+        invitation.UpdatedOn = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        await assets.DeleteUnreferencedAsync(eventId, await DesignAssetIds.KeepSet(db, eventId, cancellationToken), cancellationToken);
+        return new BadgeTemplateDto(design, invitation.UpdatedOn);
     }
 
     public async Task<IReadOnlyList<InvitationResponseDto>> ListResponsesAsync(

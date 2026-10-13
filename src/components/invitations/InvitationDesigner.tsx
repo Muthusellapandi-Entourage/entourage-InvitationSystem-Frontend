@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { ApiError, apiBaseUrl } from '@/api/client'
 import { invitationApi } from '@/api/invitationApi'
 import { LogoMark } from '@/components/brand/Logo'
+import { GuestTypeDesignSelect, type GuestTypeOption } from '@/components/events/GuestTypeDesignSelect'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import {
@@ -74,6 +75,12 @@ type InvitationDesignerProps = {
   onSave: () => void
   replies: InvitationResponseItem[] | undefined
   repliesLoading: boolean
+  backTo?: string
+  backLabel?: string
+  context?: string
+  guestTypes?: GuestTypeOption[]
+  guestTypeId?: string
+  onGuestTypeChange?: (guestTypeId: string) => void
 }
 
 export function InvitationDesigner({
@@ -88,6 +95,12 @@ export function InvitationDesigner({
   onSave,
   replies,
   repliesLoading,
+  backTo,
+  backLabel = 'Back to event',
+  context,
+  guestTypes,
+  guestTypeId = '',
+  onGuestTypeChange,
 }: InvitationDesignerProps) {
   const [step, setStep] = useState<StepId>('artwork')
   const [sample, setSample] = useState<SampleGuest>({ name: 'Sara Ahmed', title: 'Senior Manager' })
@@ -144,7 +157,8 @@ export function InvitationDesigner({
     onChange({ ...design, [key]: { ...design[key], ...patch } })
   }
 
-  function updateImage(slot: ImageSlot, placement: ImagePlacement | null) {
+  function updateImage(slot: string, placement: ImagePlacement | null) {
+    if (slot !== 'header' && slot !== 'details' && slot !== 'accept' && slot !== 'decline') return
     onChange({ ...design, [imageKey[slot]]: placement ? clampImagePlacement(placement, design.width) : null })
   }
 
@@ -186,7 +200,7 @@ export function InvitationDesigner({
     }
     if (next.slot === 'header') setStep('artwork')
     else if (next.slot === 'details') setStep('event')
-    else {
+    else if (next.slot === 'accept' || next.slot === 'decline') {
       setRsvpImage(next.slot)
       setStep('rsvp')
     }
@@ -214,10 +228,14 @@ export function InvitationDesigner({
           <span className="text-sm font-semibold">Invitation builder</span>
         </div>
         <span className="h-5 w-px bg-border" aria-hidden="true" />
-        <Link to={`/events/${eventId}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+        <Link to={backTo ?? `/events/${eventId}`} className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
           <ArrowLeft className="size-4" aria-hidden="true" />
-          Back to event
+          {backLabel}
         </Link>
+        {guestTypes && onGuestTypeChange ? (
+          <GuestTypeDesignSelect value={guestTypeId} types={guestTypes} onChange={onGuestTypeChange} />
+        ) : null}
+        {context ? <p className="min-w-0 flex-1 truncate text-sm text-muted">{context}</p> : null}
         <div className="ml-auto flex items-center gap-2">
           <Button variant="secondary" onClick={onSave} disabled={saving || uploading !== null}>
             {saving ? 'Saving…' : 'Save draft'}

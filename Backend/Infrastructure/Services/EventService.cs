@@ -120,6 +120,13 @@ public sealed class EventService(
             throw AppException.NotFound("Event not found.");
         }
 
+        var guests = await db.Guests.Where(entry => entry.EventId == id).ToListAsync(cancellationToken);
+        if (guests.Count > 0)
+        {
+            db.Guests.RemoveRange(guests);
+            await db.SaveChangesAsync(cancellationToken);
+        }
+
         db.Events.Remove(item);
         await db.SaveChangesAsync(cancellationToken);
     }

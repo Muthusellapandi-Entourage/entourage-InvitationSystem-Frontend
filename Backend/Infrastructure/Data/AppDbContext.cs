@@ -16,6 +16,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<EventAsset> EventAssets => Set<EventAsset>();
 
+    public DbSet<GuestType> GuestTypes => Set<GuestType>();
+
+    public DbSet<Guest> Guests => Set<Guest>();
+
+    public DbSet<GuestInvitationIssue> GuestInvitationIssues => Set<GuestInvitationIssue>();
+
+    public DbSet<GuestBadgeIssue> GuestBadgeIssues => Set<GuestBadgeIssue>();
+
+    public DbSet<SeatingPlan> SeatingPlans => Set<SeatingPlan>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -81,6 +91,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(item => item.AcceptLabel).HasMaxLength(40);
             entity.Property(item => item.DeclineLabel).HasMaxLength(40);
             entity.Property(item => item.DesignJson);
+            entity.Property(item => item.BadgeDesignJson);
             entity.Property(item => item.Html);
             entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
             entity.HasOne(item => item.Event)
@@ -112,6 +123,88 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(item => item.ContentType).HasMaxLength(100).IsRequired();
             entity.Property(item => item.RelativePath).HasMaxLength(300).IsRequired();
             entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Event)
+                .WithMany()
+                .HasForeignKey(item => item.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GuestType>(entity =>
+        {
+            entity.ToTable("GuestTypes");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.EventId, item.Name }).IsUnique();
+            entity.HasIndex(item => new { item.EventId, item.SortOrder });
+            entity.Property(item => item.Name).HasMaxLength(80).IsRequired();
+            entity.Property(item => item.InvitationDesignJson);
+            entity.Property(item => item.InvitationHtml);
+            entity.Property(item => item.BadgeDesignJson);
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Event)
+                .WithMany()
+                .HasForeignKey(item => item.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Guest>(entity =>
+        {
+            entity.ToTable("Guests");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId);
+            entity.HasIndex(item => item.GuestTypeId);
+            entity.HasIndex(item => item.CheckInCode).IsUnique();
+            entity.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Email).HasMaxLength(256);
+            entity.Property(item => item.Position).HasMaxLength(200);
+            entity.Property(item => item.CheckInCode).HasMaxLength(64).IsRequired();
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Event)
+                .WithMany()
+                .HasForeignKey(item => item.EventId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.GuestType)
+                .WithMany()
+                .HasForeignKey(item => item.GuestTypeId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<GuestInvitationIssue>(entity =>
+        {
+            entity.ToTable("GuestInvitationIssues");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.GuestId);
+            entity.Property(item => item.GuestTypeName).HasMaxLength(80).IsRequired();
+            entity.Property(item => item.Html).IsRequired();
+            entity.Property(item => item.IssuedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Guest)
+                .WithMany()
+                .HasForeignKey(item => item.GuestId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GuestBadgeIssue>(entity =>
+        {
+            entity.ToTable("GuestBadgeIssues");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.GuestId);
+            entity.Property(item => item.GuestTypeName).HasMaxLength(80).IsRequired();
+            entity.Property(item => item.QrPayload).HasMaxLength(64).IsRequired();
+            entity.Property(item => item.GeneratedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Guest)
+                .WithMany()
+                .HasForeignKey(item => item.GuestId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SeatingPlan>(entity =>
+        {
+            entity.ToTable("SeatingPlans");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId).IsUnique();
+            entity.Property(item => item.DesignJson).IsRequired();
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
             entity.HasOne(item => item.Event)
                 .WithMany()
                 .HasForeignKey(item => item.EventId)

@@ -6,7 +6,11 @@ import { CreateEventPage } from '@/pages/Events/CreateEventPage'
 import { EventOverviewPage } from '@/pages/Events/EventOverviewPage'
 import { EventSettingsPage } from '@/pages/Events/EventSettingsPage'
 import { EventsPage } from '@/pages/Events/EventsPage'
+import { BadgePage } from '@/pages/Events/BadgePage'
+import { GuestTypesPage } from '@/pages/Events/GuestTypesPage'
+import { GuestsPage } from '@/pages/Events/GuestsPage'
 import { InvitationPage } from '@/pages/Events/InvitationPage'
+import { SeatingPage } from '@/pages/Events/SeatingPage'
 import { InviteConfirmPage } from '@/pages/Invite/InviteConfirmPage'
 import { InvitePage } from '@/pages/Invite/InvitePage'
 import { InviteRsvpPage } from '@/pages/Invite/InviteRsvpPage'
@@ -26,6 +30,10 @@ export function AppRoutes() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="events/:eventId/invitations" element={<InvitationPage />} />
+        <Route path="events/:eventId/guest-types/:guestTypeId/invitation" element={<InvitationPage />} />
+        <Route path="events/:eventId/badges" element={<BadgePage />} />
+        <Route path="events/:eventId/seating" element={<SeatingPage />} />
+        <Route path="events/:eventId/guest-types/:guestTypeId/badge" element={<BadgePage />} />
         <Route element={<DashboardLayout />}>
           <Route index element={<OverviewPage />} />
           <Route path="events" element={<EventsPage />} />
@@ -33,6 +41,8 @@ export function AppRoutes() {
           <Route path="events/:eventId" element={<EventLayout />}>
             <Route index element={<EventOverviewPage />} />
             <Route path="settings" element={<EventSettingsPage />} />
+            <Route path="guest-types" element={<GuestTypesPage />} />
+            <Route path="guests" element={<GuestsPage />} />
           </Route>
           <Route path="settings" element={<SettingsPage />} />
           <Route path="profile" element={<ProfilePage />} />

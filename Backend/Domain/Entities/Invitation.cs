@@ -54,6 +54,8 @@ public sealed class Invitation
 
     public string? DesignJson { get; set; }
 
+    public string? BadgeDesignJson { get; set; }
+
     public string? Html { get; set; }
 
     public DateTime UpdatedOn { get; set; }

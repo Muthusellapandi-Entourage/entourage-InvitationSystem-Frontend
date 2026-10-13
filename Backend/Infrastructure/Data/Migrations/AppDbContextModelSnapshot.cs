@@ -118,6 +118,162 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.ToTable("EventAssets", (string)null);
                 });
 
+            modelBuilder.Entity("Entourage.Domain.Entities.Guest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CheckInCode")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("GuestTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("Position")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckInCode")
+                        .IsUnique();
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("GuestTypeId");
+
+                    b.ToTable("Guests", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestBadgeIssue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("GeneratedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("GuestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("GuestTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("GuestTypeName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("QrPayload")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuestId");
+
+                    b.ToTable("GuestBadgeIssues", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestInvitationIssue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("GuestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("GuestTypeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("GuestTypeName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Html")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("IssuedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuestId");
+
+                    b.ToTable("GuestInvitationIssues", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BadgeDesignJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("InvitationDesignJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("InvitationHtml")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId", "Name")
+                        .IsUnique();
+
+                    b.HasIndex("EventId", "SortOrder");
+
+                    b.ToTable("GuestTypes", (string)null);
+                });
+
             modelBuilder.Entity("Entourage.Domain.Entities.Invitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -143,6 +299,9 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("BadgeDesignJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("BodyIntro")
                         .IsRequired()
@@ -283,6 +442,30 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.ToTable("InvitationResponses", (string)null);
                 });
 
+            modelBuilder.Entity("Entourage.Domain.Entities.SeatingPlan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DesignJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("SeatingPlans", (string)null);
+                });
+
             modelBuilder.Entity("Entourage.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -358,6 +541,57 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.Navigation("Event");
                 });
 
+            modelBuilder.Entity("Entourage.Domain.Entities.Guest", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("Entourage.Domain.Entities.GuestType", "GuestType")
+                        .WithMany()
+                        .HasForeignKey("GuestTypeId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Event");
+
+                    b.Navigation("GuestType");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestBadgeIssue", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.Guest", "Guest")
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guest");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestInvitationIssue", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.Guest", "Guest")
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guest");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestType", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
             modelBuilder.Entity("Entourage.Domain.Entities.Invitation", b =>
                 {
                     b.HasOne("Entourage.Domain.Entities.Event", "Event")
@@ -376,6 +610,17 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                         .HasForeignKey("InvitationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.SeatingPlan", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
                 });
 #pragma warning restore 612, 618
         }

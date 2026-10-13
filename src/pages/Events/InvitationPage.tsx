@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
+import { guestTypeApi } from '@/api/guestTypeApi'
 import { invitationApi } from '@/api/invitationApi'
 import { InvitationDesigner, type AssetSlot } from '@/components/invitations/InvitationDesigner'
 import { buttonClassName } from '@/components/ui/Button'
@@ -20,40 +21,65 @@ const assetKey = {
 } as const
 
 export function InvitationPage() {
-  const { eventId = '' } = useParams()
+  const { eventId = '', guestTypeId } = useParams()
+  const navigate = useNavigate()
   const eventQuery = useEvent(eventId)
   const event = eventQuery.data
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<InvitationDesign | null>(null)
   const [uploading, setUploading] = useState<AssetSlot | null>(null)
+  const typeQuery = useQuery({
+    queryKey: ['guest-types', eventId],
+    queryFn: () => guestTypeApi.list(eventId),
+    enabled: Boolean(eventId),
+  })
+  const guestType = typeQuery.data?.find((type) => type.id === guestTypeId)
   useDocumentTitle(event ? `${event.name} invitation` : 'Create invitation')
 
   const templateQuery = useQuery({
-    queryKey: ['invitation-template', eventId],
-    queryFn: () => invitationApi.getTemplate(eventId),
-    enabled: Boolean(eventId),
+    queryKey: guestTypeId ? ['guest-type-invitation', eventId, guestTypeId] : ['invitation-template', eventId],
+    queryFn: () =>
+      guestTypeId ? guestTypeApi.getInvitation(eventId, guestTypeId) : invitationApi.getTemplate(eventId),
+    enabled: Boolean(eventId) && (!guestTypeId || Boolean(guestType)),
   })
 
   const responsesQuery = useQuery({
     queryKey: ['invitation-responses', eventId],
     queryFn: () => invitationApi.responses(eventId),
-    enabled: Boolean(eventId),
+    enabled: Boolean(eventId) && !guestTypeId,
   })
 
+  useEffect(() => {
+    setDraft(null)
+  }, [eventId, guestTypeId])
+
+  const serverDesign = templateQuery.data ? normalizeInvitationDesign(templateQuery.data.design) : null
+  const dirty = draft !== null && serverDesign !== null && JSON.stringify(normalizeInvitationDesign(draft)) !== JSON.stringify(serverDesign)
+  useEffect(() => {
+    if (!dirty) return
+    const onLeave = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+    }
+    window.addEventListener('beforeunload', onLeave)
+    return () => window.removeEventListener('beforeunload', onLeave)
+  }, [dirty])
+
   const saveMutation = useMutation({
-    mutationFn: (design: InvitationDesign) => invitationApi.saveTemplate(eventId, design),
+    mutationFn: (design: InvitationDesign) =>
+      guestTypeId ? guestTypeApi.saveInvitation(eventId, guestTypeId, design) : invitationApi.saveTemplate(eventId, design),
     onSuccess: async (saved) => {
       setDraft(normalizeInvitationDesign(saved.design))
-      toast.success('Invitation template saved.')
-      await queryClient.invalidateQueries({ queryKey: ['invitation-template', eventId] })
-      await queryClient.invalidateQueries({ queryKey: ['public-invitation'] })
+      toast.success(guestTypeId ? 'Invitation design saved for this guest type.' : 'Invitation template saved.')
+      await queryClient.invalidateQueries({ queryKey: guestTypeId ? ['guest-type-invitation', eventId, guestTypeId] : ['invitation-template', eventId] })
+      await queryClient.invalidateQueries({ queryKey: ['guest-types', eventId] })
+      if (!guestTypeId) await queryClient.invalidateQueries({ queryKey: ['public-invitation'] })
     },
     onError: (error) => {
       toast.error(messageFrom(error, 'The template could not be saved.'))
     },
   })
 
-  if (eventQuery.isLoading || templateQuery.isLoading) {
+  if (eventQuery.isLoading || templateQuery.isLoading || (guestTypeId && typeQuery.isLoading)) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted" aria-live="polite">
         Loading invitation
@@ -61,7 +87,7 @@ export function InvitationPage() {
     )
   }
 
-  if (eventQuery.isError || !event || templateQuery.isError || !templateQuery.data) {
+  if (eventQuery.isError || !event || templateQuery.isError || !templateQuery.data || (guestTypeId && !guestType)) {
     const missing = eventQuery.error instanceof ApiError && eventQuery.error.status === 404
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background px-6">
@@ -104,8 +130,18 @@ export function InvitationPage() {
       onUpload={(slot, file) => void upload(slot, file)}
       saving={saveMutation.isPending}
       onSave={() => saveMutation.mutate(design)}
-      replies={responsesQuery.data}
-      repliesLoading={responsesQuery.isLoading}
+      replies={guestTypeId ? [] : responsesQuery.data}
+      repliesLoading={guestTypeId ? false : responsesQuery.isLoading}
+      backTo={guestTypeId ? `/events/${event.id}/guest-types` : undefined}
+      backLabel={guestTypeId ? 'Guest types' : undefined}
+      context="Design: HTML invitation"
+      guestTypes={typeQuery.data?.map((type) => ({ id: type.id, name: type.name }))}
+      guestTypeId={guestTypeId}
+      onGuestTypeChange={(nextId) => {
+        if (nextId === (guestTypeId ?? '')) return
+        if (dirty && !window.confirm('This design has unsaved changes. Load another guest type without saving?')) return
+        navigate(nextId ? `/events/${event.id}/guest-types/${nextId}/invitation` : `/events/${event.id}/invitations`)
+      }}
     />
   )
 }

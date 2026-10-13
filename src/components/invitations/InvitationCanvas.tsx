@@ -26,7 +26,7 @@ export type ImageMetrics = {
   naturalHeight: number
 }
 
-export type CanvasSelection = { kind: 'band' } | { kind: 'image'; slot: ImageSlot } | null
+export type CanvasSelection = { kind: 'band' } | { kind: 'image'; slot: string } | null
 
 export const imageLabels: Record<ImageSlot, string> = {
   header: 'Invitation header',
@@ -63,7 +63,7 @@ type BandDrag = {
 }
 
 type ImageDrag = {
-  slot: ImageSlot
+  slot: string
   mode: string
   started: boolean
   pointerX: number
@@ -98,12 +98,19 @@ type InvitationCanvasProps = {
   height: number | null
   band: GuestBand
   bandVisible: boolean
-  placements: Record<ImageSlot, ImagePlacement | null>
+  placements: Record<string, ImagePlacement | null | undefined>
   selection: CanvasSelection
   editable: boolean
   onSelect: (selection: NonNullable<CanvasSelection>) => void
   onBandCommit: (patch: Partial<GuestBand>) => void
-  onImageCommit: (slot: ImageSlot, placement: ImagePlacement) => void
+  onImageCommit: (slot: string, placement: ImagePlacement) => void
+  /** Labels for overlay handles. Invitation slots keep their built-in names. */
+  labels?: Record<string, string>
+  /** Clears the selection when the canvas background is pressed. */
+  onDeselect?: () => void
+  frameTitle?: string
+  /** Highest Y the drag may commit. Defaults to the invitation limit. */
+  yMax?: number
   onImageMetrics: (metrics: ImageMetrics | null) => void
   zoom: CanvasZoom
   onZoomChange: (zoom: CanvasZoom) => void
@@ -148,6 +155,10 @@ export function InvitationCanvas({
   mobile,
   heading,
   headingAside,
+  labels,
+  onDeselect,
+  frameTitle = 'Invitation preview',
+  yMax = 2000,
 }: InvitationCanvasProps) {
   const paneRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
@@ -157,7 +168,7 @@ export function InvitationCanvas({
   const [pane, setPane] = useState({ width: 640, height: 640 })
   const [contentHeight, setContentHeight] = useState<number | null>(null)
   const [bandBox, setBandBox] = useState<{ top: number; height: number } | null>(null)
-  const [imageBoxes, setImageBoxes] = useState<Partial<Record<ImageSlot, Box>>>({})
+  const [imageBoxes, setImageBoxes] = useState<Partial<Record<string, Box>>>({})
   const [bandDraft, setBandDraft] = useState<{ top: number; height: number } | null>(null)
   const [imageDraft, setImageDraft] = useState<Box | null>(null)
   const [guideDrag, setGuideDrag] = useState<GuideDrag | null>(null)
@@ -243,11 +254,16 @@ export function InvitationCanvas({
     setContentHeight((current) => (current === measuredHeight ? current : measuredHeight))
     const row = doc.querySelector('[data-guest-band="true"]')
     setBandBox(bandVisible && row instanceof HtmlElement ? measureBand(row, canvas) : null)
-    const boxes: Partial<Record<ImageSlot, Box>> = {}
+    const boxes: Partial<Record<string, Box>> = {}
     for (const image of doc.querySelectorAll('img[data-image-slot]')) {
       if (!(image instanceof HtmlElement)) continue
-      const slot = image.getAttribute('data-image-slot') as ImageSlot | null
+      const slot = image.getAttribute('data-image-slot')
       if (slot) boxes[slot] = measureElement(image, canvas)
+    }
+    for (const element of doc.querySelectorAll('[data-canvas-box]')) {
+      if (!(element instanceof HtmlElement)) continue
+      const id = element.getAttribute('data-canvas-box')
+      if (id) boxes[id] = measureElement(element, canvas)
     }
     setImageBoxes(boxes)
     const selectedBox = selectedSlot ? boxes[selectedSlot] : undefined
@@ -255,7 +271,7 @@ export function InvitationCanvas({
       metricsRef.current(null)
       return
     }
-    const image = doc.querySelector(`img[data-image-slot="${selectedSlot}"]`)
+    const image = doc.querySelector(`img[data-image-slot="${selectedSlot}"], [data-canvas-box="${selectedSlot}"] img`)
     const ImageElement = doc.defaultView?.HTMLImageElement
     const natural = ImageElement && image instanceof ImageElement ? image : null
     metricsRef.current({
@@ -271,7 +287,7 @@ export function InvitationCanvas({
   // ---------------------------------------------------------------------------
   // Snapping
 
-  function snapTargets(axis: Axis, excludeSlot: ImageSlot | null, excludeBand: boolean): SnapTarget[] {
+  function snapTargets(axis: Axis, excludeSlot: string | null, excludeBand: boolean): SnapTarget[] {
     const targets: SnapTarget[] =
       axis === 'vertical'
         ? [
@@ -301,9 +317,14 @@ export function InvitationCanvas({
         )
       }
     }
-    for (const image of doc.querySelectorAll('img[data-image-slot]')) {
+    const boxes = [
+      ...doc.querySelectorAll('img[data-image-slot]'),
+      ...doc.querySelectorAll('[data-canvas-box]'),
+    ]
+    for (const image of boxes) {
       if (!(image instanceof HtmlElement)) continue
-      if (image.getAttribute('data-image-slot') === excludeSlot) continue
+      const id = image.getAttribute('data-image-slot') ?? image.getAttribute('data-canvas-box')
+      if (id === excludeSlot) continue
       const measured = measureElement(image, canvas)
       if (axis === 'vertical') {
         targets.push(
@@ -430,7 +451,7 @@ export function InvitationCanvas({
   // ---------------------------------------------------------------------------
   // Images
 
-  function paintImage(slot: ImageSlot, frame: ImagePlacement) {
+  function paintImage(slot: string, frame: ImagePlacement) {
     const found = frameDocument()
     if (!found) return
     const { doc, HtmlElement } = found
@@ -462,6 +483,13 @@ export function InvitationCanvas({
         image.style.height = 'auto'
       }
     }
+    const canvasBox = doc.querySelector(`[data-canvas-box="${slot}"]`)
+    if (canvasBox instanceof HtmlElement) {
+      canvasBox.style.left = `${frame.x}px`
+      canvasBox.style.top = `${frame.y}px`
+      canvasBox.style.width = `${frame.width}px`
+      canvasBox.style.height = frame.height ? `${frame.height}px` : 'auto'
+    }
     if (reply instanceof HtmlElement) layoutReplyRow(doc, HtmlElement)
   }
 
@@ -475,7 +503,7 @@ export function InvitationCanvas({
     setSelectedGuide(null)
     const doc = frameRef.current?.contentDocument
     const ImageElement = doc?.defaultView?.HTMLImageElement
-    const image = doc?.querySelector(`img[data-image-slot="${slot}"]`)
+    const image = doc?.querySelector(`img[data-image-slot="${slot}"], [data-canvas-box="${slot}"] img`)
     const natural = ImageElement && image instanceof ImageElement ? image : null
     const ratio =
       natural && natural.naturalWidth > 0 && natural.naturalHeight > 0
@@ -570,7 +598,7 @@ export function InvitationCanvas({
       x = separated
     }
     setSnapMark({ x: markX, y: markY })
-    const clamped = clampImagePlacement({ x, y, width: nextWidth, height: Math.round(nextHeight), lockRatio: drag.lock }, width)
+    const clamped = clampImagePlacement({ x, y, width: nextWidth, height: Math.round(nextHeight), lockRatio: drag.lock }, width, yMax)
     drag.x = clamped.x
     drag.y = clamped.y
     drag.width = clamped.width
@@ -649,7 +677,8 @@ export function InvitationCanvas({
     }
   }
 
-  function separateReply(slot: ImageSlot, x: number, nextWidth: number, originX: number) {
+  function separateReply(slot: string, x: number, nextWidth: number, originX: number) {
+    if (slot !== 'accept' && slot !== 'decline') return x
     const doc = frameRef.current?.contentDocument
     const HtmlElement = doc?.defaultView?.HTMLElement
     const otherName = slot === 'accept' ? 'decline' : 'accept'
@@ -771,8 +800,14 @@ export function InvitationCanvas({
   const guideCount = (guides?.vertical.length ?? 0) + (guides?.horizontal.length ?? 0)
   const zoomLabel = zoom === 'fit' ? 'Fit' : `${Math.round(zoom * 100)}%`
 
+  function elementLabel(slot: string) {
+    if (labels?.[slot]) return labels[slot]
+    if (slot === 'header' || slot === 'details' || slot === 'accept' || slot === 'decline') return imageLabels[slot]
+    return slot
+  }
+
   return (
-    <section className="flex min-h-0 flex-1 flex-col" aria-label="Invitation preview">
+    <section className="flex min-h-0 flex-1 flex-col" aria-label={frameTitle}>
       <div className="flex items-center justify-between gap-3 px-6 pt-5 pb-3">
         <h2 className="text-base font-semibold">{heading}</h2>
         {headingAside}
@@ -796,11 +831,14 @@ export function InvitationCanvas({
             <div
               className={cn('relative', mobile && 'rounded-[28px] ring-8 ring-foreground/90')}
               style={{ width: width * scale, height: frameHeight * scale, boxShadow: 'var(--shadow)' }}
-              onPointerDown={() => setSelectedGuide(null)}
+              onPointerDown={() => {
+                setSelectedGuide(null)
+                onDeselect?.()
+              }}
             >
               <iframe
                 ref={frameRef}
-                title="Invitation preview"
+                title={frameTitle}
                 sandbox="allow-same-origin"
                 srcDoc={html}
                 onLoad={readFrame}
@@ -818,14 +856,15 @@ export function InvitationCanvas({
               {/* Element layer: click to select, drag the selected element. */}
               {editable ? (
                 <div className="absolute inset-0 z-10">
-                  {(Object.keys(imageBoxes) as ImageSlot[]).map((slot) => {
+                  {Object.keys(imageBoxes).map((slot) => {
                     const box = imageBoxes[slot]
                     if (!box || slot === selectedSlot) return null
+                    const name = elementLabel(slot)
                     return (
                       <button
                         key={slot}
                         type="button"
-                        aria-label={`Select ${imageLabels[slot].toLowerCase()}`}
+                        aria-label={`Select ${name.toLowerCase()}`}
                         className="absolute appearance-none bg-transparent outline-offset-[-1px] hover:outline hover:outline-1 hover:outline-dashed hover:outline-accent/70 focus-visible:outline"
                         style={{ left: box.left * scale, top: box.top * scale, width: box.width * scale, height: box.height * scale }}
                         onPointerDown={(event) => {
@@ -888,7 +927,7 @@ export function InvitationCanvas({
                   {selectedSlot && selectedBox ? (
                     <div
                       role="group"
-                      aria-label={imageLabels[selectedSlot]}
+                      aria-label={elementLabel(selectedSlot)}
                       className="absolute touch-none"
                       style={{
                         left: selectedBox.left * scale,
@@ -904,13 +943,13 @@ export function InvitationCanvas({
                       onPointerCancel={endImageDrag}
                     >
                       <span className="pointer-events-none absolute -top-5 left-0 rounded-sm bg-accent px-1.5 text-[11px] leading-5 text-accent-foreground">
-                        {imageLabels[selectedSlot]}
+                        {elementLabel(selectedSlot)}
                       </span>
                       {imageHandles.map((handle) => (
                         <button
                           key={handle}
                           type="button"
-                          aria-label={`Resize ${imageLabels[selectedSlot].toLowerCase()} (${handle})`}
+                          aria-label={`Resize ${elementLabel(selectedSlot).toLowerCase()} (${handle})`}
                           className="absolute size-2.5 border border-foreground bg-surface"
                           style={{
                             left: handle.includes('w') ? 0 : handle.includes('e') ? '100%' : '50%',

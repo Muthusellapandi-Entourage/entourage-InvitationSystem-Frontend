@@ -1,4 +1,4 @@
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Settings } from 'lucide-react'
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
 import { buttonClassName } from '@/components/ui/Button'
@@ -10,14 +10,14 @@ import { cn } from '@/lib/cn'
 
 const modules = [
   { label: 'Overview', path: '', enabled: true },
+  { label: 'Guest types', path: 'guest-types', enabled: true },
+  { label: 'Guests', path: 'guests', enabled: true },
   { label: 'Invitations', path: 'invitations', enabled: true },
-  { label: 'E-Badges', path: 'badges', enabled: false },
-  { label: 'Guests', path: 'guests', enabled: false },
+  { label: 'E-Badges', path: 'badges', enabled: true },
   { label: 'RSVP', path: 'rsvp', enabled: false },
   { label: 'Check-in', path: 'check-in', enabled: false },
-  { label: 'Seating', path: 'seating', enabled: false },
+  { label: 'Seating', path: 'seating', enabled: true },
   { label: 'Analytics', path: 'analytics', enabled: false },
-  { label: 'Settings', path: 'settings', enabled: true },
 ]
 
 export function EventLayout() {
@@ -74,13 +74,8 @@ export function EventLayout() {
         {modules.map((module) => {
           if (!module.enabled) {
             return (
-              <span
-                key={module.label}
-                className="inline-flex min-w-36 shrink-0 cursor-not-allowed flex-col px-3 py-2 text-muted"
-                aria-disabled="true"
-              >
-                <span className="text-sm">{module.label}</span>
-                <span className="text-xs">Not built yet</span>
+              <span key={module.label} className="shrink-0 px-3 py-2 text-sm text-muted" aria-disabled="true">
+                {module.label}
               </span>
             )
           }
@@ -94,7 +89,7 @@ export function EventLayout() {
               className={({ isActive }) =>
                 cn(
                   '-mb-px shrink-0 border-b px-3 py-2 text-sm transition-colors duration-150',
-                  isActive ? 'border-foreground font-medium text-foreground' : 'border-transparent text-muted hover:text-foreground',
+                  isActive ? 'border-accent font-medium text-foreground' : 'border-transparent text-muted hover:text-foreground',
                 )
               }
             >
@@ -102,6 +97,18 @@ export function EventLayout() {
             </NavLink>
           )
         })}
+        <NavLink
+          to={`/events/${event.id}/settings`}
+          aria-label="Settings"
+          className={({ isActive }) =>
+            cn(
+              'ml-auto inline-flex size-9 items-center justify-center rounded-md hover:bg-hover',
+              isActive ? 'text-foreground' : 'text-muted hover:text-foreground',
+            )
+          }
+        >
+          <Settings className="size-4" aria-hidden="true" />
+        </NavLink>
       </nav>
       <div className="pt-8">
         <Outlet />

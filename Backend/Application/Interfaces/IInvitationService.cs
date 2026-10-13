@@ -30,4 +30,8 @@ public interface IInvitationService
         string assetOrigin,
         string appOrigin,
         CancellationToken cancellationToken);
+
+    Task<BadgeTemplateDto> GetBadgeAsync(Guid eventId, CancellationToken cancellationToken);
+
+    Task<BadgeTemplateDto> SaveBadgeAsync(Guid eventId, BadgeDesignDto design, CancellationToken cancellationToken);
 }

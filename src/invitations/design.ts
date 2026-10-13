@@ -201,11 +201,11 @@ function normalizeGuestField(base: GuestFieldDesign, value: Partial<GuestFieldDe
   }
 }
 
-export function clampImagePlacement(placement: ImagePlacement, canvasWidth: number): ImagePlacement {
+export function clampImagePlacement(placement: ImagePlacement, canvasWidth: number, canvasHeight = 2000): ImagePlacement {
   const width = clampInt(placement.width, 20, 2400, Math.min(canvasWidth, 220))
   return {
     x: clampInt(placement.x, 0, Math.max(0, canvasWidth), 0),
-    y: clampInt(placement.y, 0, 2000, 0),
+    y: clampInt(placement.y, 0, Math.max(0, canvasHeight), 0),
     width,
     height: placement.height == null ? null : clampInt(placement.height, 20, 4000, 20),
     lockRatio: placement.lockRatio !== false,

@@ -44,6 +44,8 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IGuestDirectoryService, GuestDirectoryService>();
+builder.Services.AddScoped<ISeatingPlanService, SeatingPlanService>();
 builder.Services.AddScoped<IEventAssetService, EventAssetService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IInvitationPreviewStore, InvitationPreviewStore>();
