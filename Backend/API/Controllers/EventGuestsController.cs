@@ -9,17 +9,93 @@ namespace Entourage.Api.Controllers;
 [ApiController]
 [Authorize(Roles = "Administrator")]
 [Route("api/events/{eventId:guid}/guests")]
-public sealed class EventGuestsController(IGuestDirectoryService guests, IConfiguration configuration) : ControllerBase
+public sealed class EventGuestsController(
+    IGuestDirectoryService guests,
+    IGuestGroupService groups,
+    IGuestMailer mailer,
+    IConfiguration configuration) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IReadOnlyList<GuestDto>>>> List(
         Guid eventId,
         [FromQuery] Guid? guestTypeId,
         [FromQuery] bool unassigned,
+        [FromQuery] Guid? guestGroupId,
+        [FromQuery] bool ungrouped,
         CancellationToken cancellationToken)
     {
-        var items = await guests.ListGuestsAsync(eventId, guestTypeId, unassigned, cancellationToken);
+        var items = await guests.ListGuestsAsync(eventId, guestTypeId, unassigned, cancellationToken, guestGroupId, ungrouped);
         return Ok(new ApiResponse<IReadOnlyList<GuestDto>>(true, items));
+    }
+
+    [HttpDelete("{guestId:guid}")]
+    public async Task<ActionResult<ApiResponse<DeleteGuestsResult>>> Delete(
+        Guid eventId,
+        Guid guestId,
+        CancellationToken cancellationToken)
+    {
+        var result = await groups.DeleteGuestsAsync(eventId, new GuestIdsRequest([guestId]), cancellationToken);
+        return Ok(new ApiResponse<DeleteGuestsResult>(true, result, result.Message));
+    }
+
+    [HttpPost("delete")]
+    public async Task<ActionResult<ApiResponse<DeleteGuestsResult>>> DeleteMany(
+        Guid eventId,
+        GuestIdsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await groups.DeleteGuestsAsync(eventId, request, cancellationToken);
+        return Ok(new ApiResponse<DeleteGuestsResult>(true, result, result.Message));
+    }
+
+    /// <summary>Email each guest their invitation through the configured SMTP server.</summary>
+    [HttpPost("email")]
+    public async Task<ActionResult<ApiResponse<BulkEmailResult>>> Email(
+        Guid eventId,
+        EmailGuestsRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await mailer.SendInvitationsAsync(
+            eventId,
+            new GuestIdsRequest(request.GuestIds ?? []),
+            AssetOrigin(),
+            AppOrigin(),
+            cancellationToken,
+            request.Reminder);
+        return Ok(new ApiResponse<BulkEmailResult>(true, result, result.Message));
+    }
+
+    [HttpPut("{guestId:guid}/rsvp")]
+    public async Task<ActionResult<ApiResponse<GuestActivityDto?>>> SetRsvp(
+        Guid eventId,
+        Guid guestId,
+        SetGuestRsvpRequest request,
+        CancellationToken cancellationToken)
+    {
+        var activity = await groups.SetRsvpAsync(eventId, guestId, request, cancellationToken);
+        return Ok(new ApiResponse<GuestActivityDto?>(true, activity, $"Status set to {request.Status}."));
+    }
+
+    [HttpGet("{guestId:guid}/activity")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<GuestActivityDto>>>> Activity(
+        Guid eventId,
+        Guid guestId,
+        CancellationToken cancellationToken)
+    {
+        var items = await groups.ListActivityAsync(eventId, guestId, cancellationToken);
+        return Ok(new ApiResponse<IReadOnlyList<GuestActivityDto>>(true, items));
+    }
+
+    [HttpPost("{guestId:guid}/activity")]
+    [Entourage.Api.Filters.AllowOnArchivedEvent]
+    public async Task<ActionResult<ApiResponse<GuestActivityDto>>> LogActivity(
+        Guid eventId,
+        Guid guestId,
+        LogGuestActivityRequest request,
+        CancellationToken cancellationToken)
+    {
+        var item = await groups.LogActivityAsync(eventId, guestId, request, cancellationToken);
+        return Ok(new ApiResponse<GuestActivityDto>(true, item));
     }
 
     [HttpPost]
@@ -73,6 +149,8 @@ public sealed class EventGuestsController(IGuestDirectoryService guests, IConfig
         return Ok(new ApiResponse<GuestOperationResult>(true, result, result.Message));
     }
 
+    // Only reads designs, so downloads also work on archived events.
+    [Entourage.Api.Filters.AllowOnArchivedEvent]
     [HttpPost("badges/prepare")]
     public async Task<ActionResult<ApiResponse<BadgeBatchDto>>> PrepareBadges(
         Guid eventId,

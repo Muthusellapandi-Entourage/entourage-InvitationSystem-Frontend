@@ -204,6 +204,11 @@ function escapeHtml(value: string) {
     .replaceAll('"', '&quot;')
 }
 
+/** True for single-image designs, where each guest's name is a generated image. */
+export function usesGuestNameImage(html: string) {
+  return html.includes('{{GuestNameImage}}')
+}
+
 export function renderInvitationHtml(
   html: string,
   options: {
@@ -212,9 +217,17 @@ export function renderInvitationHtml(
     acceptUrl: string
     declineUrl: string
     assetOrigin: string
+    /** Single-image designs: the guest's own name image (URL or data: URL). */
+    nameImage?: string
+    /** Text shown when images are blocked; defaults to "Dear <name>,". */
+    nameImageAlt?: string
   },
 ) {
   let output = html
+  if (usesGuestNameImage(output)) {
+    output = output.replaceAll('{{GuestNameImage}}', escapeHtml(options.nameImage ?? ''))
+    output = output.replaceAll('{{GuestNameAlt}}', escapeHtml(options.nameImageAlt ?? `Dear ${options.guestName},`))
+  }
   if (options.assetOrigin) {
     output = output.replaceAll('src="/api/public/assets/', `src="${options.assetOrigin}/api/public/assets/`)
   }

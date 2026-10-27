@@ -31,7 +31,17 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<bool>("AskDeclineReason")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CustomDomain")
+                        .HasMaxLength(253)
+                        .HasColumnType("nvarchar(253)");
+
+                    b.Property<DateTime?>("CustomDomainVerifiedOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
@@ -43,6 +53,14 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<string>("FrontDeskToken")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("LiveShareToken")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -56,6 +74,12 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
 
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
+
+                    b.Property<Guid?>("ThankYouAssetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RsvpPageJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -75,6 +99,18 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.HasIndex("CreatedBy");
 
                     b.HasIndex("CreatedOn");
+
+                    b.HasIndex("CustomDomain")
+                        .IsUnique()
+                        .HasFilter("[CustomDomain] IS NOT NULL");
+
+                    b.HasIndex("LiveShareToken")
+                        .IsUnique()
+                        .HasFilter("[LiveShareToken] IS NOT NULL");
+
+                    b.HasIndex("FrontDeskToken")
+                        .IsUnique()
+                        .HasFilter("[FrontDeskToken] IS NOT NULL");
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -118,6 +154,48 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.ToTable("EventAssets", (string)null);
                 });
 
+            modelBuilder.Entity("Entourage.Domain.Entities.EventFont", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("nvarchar(180)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("RelativePath")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.ToTable("EventFonts", (string)null);
+                });
+
             modelBuilder.Entity("Entourage.Domain.Entities.Guest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -129,7 +207,23 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<int>("CheckInCount")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DeclineReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("FirstCheckedInOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastCheckedInOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("SeatedOn")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
@@ -139,8 +233,16 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.Property<Guid>("EventId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("GuestGroupId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("GuestTypeId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("InviteToken")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -150,6 +252,14 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.Property<string>("Position")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("RsvpStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("RsvpUpdatedOn")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("UpdatedOn")
                         .HasColumnType("datetime2");
@@ -161,9 +271,70 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
 
                     b.HasIndex("EventId");
 
+                    b.HasIndex("GuestGroupId");
+
                     b.HasIndex("GuestTypeId");
 
+                    b.HasIndex("InviteToken")
+                        .IsUnique();
+
                     b.ToTable("Guests", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestActivity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid>("GuestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuestId", "CreatedOn");
+
+                    b.ToTable("GuestActivities", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("GuestGroups", (string)null);
                 });
 
             modelBuilder.Entity("Entourage.Domain.Entities.GuestBadgeIssue", b =>
@@ -442,6 +613,150 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.ToTable("InvitationResponses", (string)null);
                 });
 
+            modelBuilder.Entity("Entourage.Domain.Entities.EventMicrosite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DesignJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("PublicEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId")
+                        .IsUnique();
+
+                    b.ToTable("EventMicrosites", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.EventMicrosite", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.WalletSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CertificateExpiresOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrganizationName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PassTypeId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ProtectedCertificate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProtectedCertificatePassword")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("TeamId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("WwdrCertificate")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WalletSettings", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.MailSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("EnableSsl")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("FromEmail")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("FromName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("GraphClientId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("GraphTenantId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Host")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProtectedGraphSecret")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("ProtectedPassword")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Username")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MailSettings", (string)null);
+                });
+
             modelBuilder.Entity("Entourage.Domain.Entities.SeatingPlan", b =>
                 {
                     b.Property<Guid>("Id")
@@ -541,6 +856,17 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.Navigation("Event");
                 });
 
+            modelBuilder.Entity("Entourage.Domain.Entities.EventFont", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
             modelBuilder.Entity("Entourage.Domain.Entities.Guest", b =>
                 {
                     b.HasOne("Entourage.Domain.Entities.Event", "Event")
@@ -549,6 +875,11 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
+                    b.HasOne("Entourage.Domain.Entities.GuestGroup", "GuestGroup")
+                        .WithMany()
+                        .HasForeignKey("GuestGroupId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("Entourage.Domain.Entities.GuestType", "GuestType")
                         .WithMany()
                         .HasForeignKey("GuestTypeId")
@@ -556,7 +887,31 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
 
                     b.Navigation("Event");
 
+                    b.Navigation("GuestGroup");
+
                     b.Navigation("GuestType");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestActivity", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.Guest", "Guest")
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guest");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.GuestGroup", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
                 });
 
             modelBuilder.Entity("Entourage.Domain.Entities.GuestBadgeIssue", b =>

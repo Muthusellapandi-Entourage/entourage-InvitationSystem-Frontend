@@ -36,4 +36,26 @@ public sealed record EventDto(
     bool IsActive,
     Guid CreatedBy,
     DateTime CreatedOn,
-    DateTime UpdatedOn);
+    DateTime UpdatedOn,
+    string? CustomDomain = null,
+    DateTime? CustomDomainVerifiedOn = null);
+
+/// <summary>The event's own web address and how to point it at this server.</summary>
+/// <param name="Domain">e.g. "excellenceawards2026.com"; null when none is set.</param>
+/// <param name="VerifiedOn">When the domain was last confirmed to reach this server.</param>
+/// <param name="InUse">True when invitations use the domain (it is set and confirmed).</param>
+/// <param name="DnsTarget">What the domain's DNS should point to (a host name for CNAME, or an IP address for an A record).</param>
+/// <param name="ExampleUrl">A sample personal invitation link on the domain.</param>
+public sealed record EventDomainDto(
+    string? Domain,
+    DateTime? VerifiedOn,
+    bool InUse,
+    string? DnsTarget,
+    string? DnsRecordType,
+    string? ExampleUrl);
+
+public sealed record SetEventDomainRequest(string Domain);
+
+/// <param name="Reachable">The domain answered with this event's check code.</param>
+/// <param name="Secure">It answered over HTTPS (http only otherwise).</param>
+public sealed record EventDomainCheckDto(bool Reachable, bool Secure, string Message, EventDomainDto Domain);

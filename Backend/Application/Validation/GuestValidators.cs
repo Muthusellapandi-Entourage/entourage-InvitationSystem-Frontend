@@ -64,7 +64,7 @@ public sealed class GuestIdsRequestValidator : AbstractValidator<GuestIdsRequest
 {
     public GuestIdsRequestValidator()
     {
-        RuleFor(request => request.GuestIds).NotNull().Must(ids => ids.Length > 0 && ids.Length <= 2000).WithMessage("Select between 1 and 2000 guests.");
+        RuleFor(request => request.GuestIds).NotNull().Must(ids => ids.Length > 0 && ids.Length <= 5000).WithMessage("Select between 1 and 5000 guests.");
     }
 }
 
@@ -81,6 +81,44 @@ public sealed class ImportGuestsRequestValidator : AbstractValidator<ImportGuest
             row.RuleFor(item => item.Email).MaximumLength(256);
             row.RuleFor(item => item.Position).MaximumLength(200);
             row.RuleFor(item => item.GuestType).MaximumLength(80);
+            row.RuleFor(item => item.Group).MaximumLength(120);
         });
+    }
+}
+
+public sealed class SaveGuestGroupRequestValidator : AbstractValidator<SaveGuestGroupRequest>
+{
+    public SaveGuestGroupRequestValidator()
+    {
+        RuleFor(request => request.Name).NotEmpty().WithMessage("Enter a group name.").MaximumLength(120);
+    }
+}
+
+public sealed class SetGuestRsvpRequestValidator : AbstractValidator<SetGuestRsvpRequest>
+{
+    public SetGuestRsvpRequestValidator()
+    {
+        RuleFor(request => request.Status)
+            .Must(status => status is "Pending" or "Accepted" or "Declined")
+            .WithMessage("Choose Pending, Accepted or Declined.");
+    }
+}
+
+public sealed class LogGuestActivityRequestValidator : AbstractValidator<LogGuestActivityRequest>
+{
+    public LogGuestActivityRequestValidator()
+    {
+        // Only browser-side actions may be logged from the client; everything else is recorded by the server.
+        RuleFor(request => request.Kind).Must(kind => kind == "Downloaded").WithMessage("Unknown activity.");
+        RuleFor(request => request.Detail).MaximumLength(300);
+    }
+}
+
+public sealed class MoveGuestsToGroupRequestValidator : AbstractValidator<MoveGuestsToGroupRequest>
+{
+    public MoveGuestsToGroupRequestValidator()
+    {
+        RuleFor(request => request.GuestIds).NotNull().Must(ids => ids.Length > 0 && ids.Length <= 5000)
+            .WithMessage("Select between 1 and 5000 guests.");
     }
 }

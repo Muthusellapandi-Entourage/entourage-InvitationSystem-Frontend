@@ -10,6 +10,8 @@ type AuthContextValue = {
   status: AuthStatus
   user: User | null
   login: (email: string, password: string) => Promise<void>
+  /** Exchanges the ID token from "Sign in with Microsoft" for an app session. */
+  loginWithMicrosoft: (idToken: string) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -57,6 +59,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       async login(email, password) {
         const session = await authApi.login(email, password)
+        tokenRef.current = session.accessToken
+        writeSession({ accessToken: session.accessToken, expiresAt: session.expiresAt })
+        setUser(session.user)
+        setStatus('authenticated')
+      },
+      async loginWithMicrosoft(idToken) {
+        const session = await authApi.microsoft(idToken)
         tokenRef.current = session.accessToken
         writeSession({ accessToken: session.accessToken, expiresAt: session.expiresAt })
         setUser(session.user)

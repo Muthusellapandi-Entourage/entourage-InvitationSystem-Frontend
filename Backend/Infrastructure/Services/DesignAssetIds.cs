@@ -24,10 +24,72 @@ internal static class DesignAssetIds
         foreach (var type in types)
         {
             Collect(type.InvitationDesignJson, ids, "headerAssetId", "detailsAssetId", "acceptAssetId", "declineAssetId");
+            CollectSlices(type.InvitationDesignJson, ids);
             Collect(type.BadgeDesignJson, ids, "backgroundAssetId");
         }
 
+        // The thank-you artwork and the RSVP page's background and logo too.
+        var rsvp = await db.Events.AsNoTracking()
+            .Where(item => item.Id == eventId)
+            .Select(item => new { item.ThankYouAssetId, item.RsvpPageJson })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (rsvp?.ThankYouAssetId is Guid thankYouId)
+        {
+            ids.Add(thankYouId);
+        }
+
+        var page = RsvpPageService.Read(rsvp?.RsvpPageJson);
+        foreach (var id in new[] { page.BackgroundAssetId, page.LogoAssetId }.OfType<Guid>())
+        {
+            ids.Add(id);
+        }
+
+        // Microsite images must survive invitation and badge saves.
+        var microsite = await db.EventMicrosites.AsNoTracking()
+            .Where(item => item.EventId == eventId)
+            .Select(item => item.DesignJson)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(microsite))
+        {
+            try
+            {
+                var design = JsonSerializer.Deserialize<Entourage.Application.DTOs.MicrositeDesignDto>(microsite, Web);
+                foreach (var id in MicrositeRenderer.AssetIds(design))
+                {
+                    ids.Add(id);
+                }
+            }
+            catch (JsonException)
+            {
+                // A damaged design must not cause its images to be deleted elsewhere; keep nothing extra.
+            }
+        }
+
         return ids.ToArray();
+    }
+
+    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
+
+    /// <summary>Keeps every image a "single image" design uses (source, strips, button pieces).</summary>
+    public static void CollectSlices(string? json, HashSet<Guid> ids)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+
+        try
+        {
+            var design = JsonSerializer.Deserialize<Entourage.Application.DTOs.InvitationDesignDto>(json, Web);
+            foreach (var id in Entourage.Application.Invitations.InvitationEmailBuilder.SliceAssetIds(design?.Slices))
+            {
+                ids.Add(id);
+            }
+        }
+        catch (JsonException)
+        {
+            // A damaged document must not cause another template's images to be deleted.
+        }
     }
 
     public static void Collect(string? json, HashSet<Guid> ids, params string[] names)

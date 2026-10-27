@@ -211,5 +211,7 @@ public sealed class EventService(
             item.IsActive,
             item.CreatedBy,
             item.CreatedOn,
-            item.UpdatedOn);
+            item.UpdatedOn,
+            item.CustomDomain,
+            item.CustomDomainVerifiedOn);
 }

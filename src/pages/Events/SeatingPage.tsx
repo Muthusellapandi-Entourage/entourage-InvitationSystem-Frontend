@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useParams } from 'react-router-dom'
+import { Link, useBlocker, useParams } from 'react-router-dom'
+import { LeaveDialog } from '@/components/seating/LeaveDialog'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { guestApi } from '@/api/guestApi'
@@ -12,6 +12,15 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useEvent } from '@/hooks/useEvents'
 import { parseDesign, type SeatingDesign } from '@/seating/model'
+
+function persistedLayoutIds(saved: string) {
+  try {
+    const parsed = JSON.parse(saved) as { layouts?: { id?: string }[] }
+    return (parsed.layouts ?? []).flatMap((layout) => (typeof layout.id === 'string' ? [layout.id] : []))
+  } catch {
+    return []
+  }
+}
 
 export function SeatingPage() {
   const { eventId = '' } = useParams()
@@ -71,6 +80,35 @@ export function SeatingPage() {
     },
   })
 
+  const dirty = design !== null && JSON.stringify(design) !== saved
+  const [leaveError, setLeaveError] = useState<string | null>(null)
+  // Any in-app exit (header links, sidebar, browser back/forward) with unsaved changes asks first.
+  // Moving within the same page (e.g. a query string change) is not an exit.
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && currentLocation.pathname !== nextLocation.pathname)
+
+  async function saveAndLeave() {
+    if (!design || blocker.state !== 'blocked') return
+    setLeaveError(null)
+    try {
+      await saveMutation.mutateAsync(design)
+      blocker.proceed()
+    } catch (error) {
+      setLeaveError(error instanceof ApiError ? error.message : 'The layout could not be saved. You can try again or leave without saving.')
+    }
+  }
+
+  function adopt(plan:{ designJson: string | null; updatedOn: string | null }, message: string) {
+    const next = parseDesign(plan.designJson)
+    applied.current = plan.updatedOn ?? 'empty'
+    setDesign(next)
+    setSaved(JSON.stringify(next))
+    past.current = []
+    future.current = []
+    setHistory({ undo: false, redo: false })
+    queryClient.setQueryData(['seating', eventId], plan)
+    toast.success(message)
+  }
+
   function commit(next: SeatingDesign) {
     setDesign((current) => {
       if (!current) return next
@@ -80,6 +118,18 @@ export function SeatingPage() {
       setHistory({ undo: true, redo: false })
       return next
     })
+  }
+
+  function preview(next: SeatingDesign) {
+    setDesign(next)
+  }
+
+  function commitFrom(before: SeatingDesign, after: SeatingDesign) {
+    past.current.push(before)
+    if (past.current.length > 80) past.current.shift()
+    future.current = []
+    setDesign(after)
+    setHistory({ undo: true, redo: false })
   }
 
   if (eventQuery.isLoading || planQuery.isLoading) {
@@ -103,17 +153,43 @@ export function SeatingPage() {
   }
 
   return (
+    <>
+    <LeaveDialog
+      open={blocker.state === 'blocked'}
+      saving={saveMutation.isPending}
+      error={leaveError}
+      onSave={() => void saveAndLeave()}
+      onDiscard={() => {
+        setLeaveError(null)
+        if (blocker.state === 'blocked') blocker.proceed()
+      }}
+      onStay={() => {
+        setLeaveError(null)
+        if (blocker.state === 'blocked') blocker.reset()
+      }}
+    />
     <SeatingDesigner
       eventId={event.id}
       eventName={event.name}
       guests={guestQuery.data ?? []}
       design={design}
-      dirty={JSON.stringify(design) !== saved}
+      dirty={dirty}
       saving={saveMutation.isPending}
       onChange={commit}
+      onPreview={preview}
+      onCommitFrom={commitFrom}
       onSave={() => saveMutation.mutate(design)}
       canUndo={history.undo}
       canRedo={history.redo}
+      persistedLayoutIds={persistedLayoutIds(saved)}
+      onDeleteLayout={async (layoutId) => {
+        const plan = await seatingApi.deleteLayout(eventId, layoutId)
+        adopt(plan, 'Layout deleted.')
+      }}
+      onResetLayout={async (layoutId) => {
+        const plan = await seatingApi.resetLayout(eventId, layoutId)
+        adopt(plan, 'Layout reset.')
+      }}
       onUndo={() => {
         const previous = past.current.pop()
         if (!previous) return
@@ -133,5 +209,6 @@ export function SeatingPage() {
         setHistory({ undo: true, redo: future.current.length > 0 })
       }}
     />
+    </>
   )
 }

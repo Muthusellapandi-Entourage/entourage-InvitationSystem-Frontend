@@ -25,8 +25,66 @@ public sealed class GuestDirectoryService(
     IValidator<ImportGuestsRequest> importValidator,
     IValidator<InvitationDesignDto> designValidator,
     IValidator<BadgeDesignDto> badgeValidator,
-    IEventAssetService assets) : IGuestDirectoryService
+    IEventAssetService assets,
+    GuestNameImageService? nameImages = null) : IGuestDirectoryService
 {
+    /// <summary>Uploaded fonts a sliced design uses must belong to this event.</summary>
+    private async Task EnsureFontsOwnedAsync(Guid eventId, InvitationDesignDto design, CancellationToken cancellationToken)
+    {
+        var ids = new[] { design.Slices?.Name.FontId, design.Slices?.Name.PositionFontId }.OfType<Guid>().Distinct().ToArray();
+        if (ids.Length == 0)
+        {
+            return;
+        }
+
+        var found = await db.EventFonts.CountAsync(item => item.EventId == eventId && ids.Contains(item.Id), cancellationToken);
+        if (found != ids.Length)
+        {
+            throw AppException.Validation(new Dictionary<string, string[]>
+            {
+                ["font"] = ["The chosen font is no longer on this event. Upload it again or pick another font."],
+            });
+        }
+    }
+
+    /// <summary>
+    /// Exact PNG of the name strip for one guest (or a sample name), drawn the same way as in emails.
+    /// Used by the designer preview, "View invitation" and PDF downloads.
+    /// </summary>
+    public async Task<byte[]> RenderNameImageAsync(Guid eventId, InvitationDesignDto design, string name, string? position, CancellationToken cancellationToken)
+    {
+        await EnsureEventExistsAsync(eventId, cancellationToken);
+        if (design.Slices is null)
+        {
+            throw AppException.Validation(new Dictionary<string, string[]> { ["design"] = ["This invitation is not a single-image design."] });
+        }
+
+        await ValidationGuard.EnsureValidAsync(designValidator, design, cancellationToken);
+        await assets.EnsureOwnedAsync(eventId, InvitationEmailBuilder.AllAssetIds(design), cancellationToken);
+        await EnsureFontsOwnedAsync(eventId, design, cancellationToken);
+        if (nameImages is null)
+        {
+            throw new AppException("Name images are not available on this server.", StatusCodes.Status400BadRequest);
+        }
+
+        return await nameImages.RenderAsync(eventId, design, name, position, cancellationToken)
+            ?? throw AppException.Validation(new Dictionary<string, string[]> { ["design"] = ["Mark one slice as the guest name area."] });
+    }
+
+    /// <summary>The name image for a guest, using their guest type's saved design.</summary>
+    public async Task<byte[]> RenderGuestNameImageAsync(Guid eventId, Guid guestId, CancellationToken cancellationToken)
+    {
+        var guest = await FindGuestAsync(eventId, guestId, cancellationToken);
+        var type = guest.GuestTypeId is Guid typeId ? await FindTypeAsync(eventId, typeId, cancellationToken) : null;
+        var design = type?.InvitationDesignJson is { } json ? JsonSerializer.Deserialize<InvitationDesignDto>(json, DesignJsonOptions) : null;
+        if (design?.Slices is null)
+        {
+            throw AppException.NotFound("This guest's invitation does not use a generated name image.");
+        }
+
+        return await RenderNameImageAsync(eventId, design, guest.Name, guest.Position, cancellationToken);
+    }
+
     private static readonly JsonSerializerOptions DesignJsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<IReadOnlyList<GuestTypeDto>> ListTypesAsync(Guid eventId, CancellationToken cancellationToken)
@@ -219,12 +277,9 @@ public sealed class GuestDirectoryService(
     {
         await ValidationGuard.EnsureValidAsync(designValidator, design, cancellationToken);
         var type = await FindTypeAsync(eventId, guestTypeId, cancellationToken);
-        var assetIds = new[] { design.HeaderAssetId, design.DetailsAssetId, design.AcceptAssetId, design.DeclineAssetId }
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToArray();
+        var assetIds = InvitationEmailBuilder.AllAssetIds(design);
         await assets.EnsureOwnedAsync(eventId, assetIds, cancellationToken);
+        await EnsureFontsOwnedAsync(eventId, design, cancellationToken);
         var urls = assetIds.ToDictionary(id => id, id => $"/api/public/assets/{id}");
         type.InvitationDesignJson = JsonSerializer.Serialize(design, DesignJsonOptions);
         type.InvitationHtml = InvitationEmailBuilder.Build(design, urls);
@@ -268,7 +323,9 @@ public sealed class GuestDirectoryService(
         Guid eventId,
         Guid? guestTypeId,
         bool unassigned,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? guestGroupId = null,
+        bool ungrouped = false)
     {
         await EnsureEventExistsAsync(eventId, cancellationToken);
         var query = db.Guests.AsNoTracking().Where(item => item.EventId == eventId);
@@ -279,6 +336,15 @@ public sealed class GuestDirectoryService(
         else if (guestTypeId.HasValue)
         {
             query = query.Where(item => item.GuestTypeId == guestTypeId);
+        }
+
+        if (ungrouped)
+        {
+            query = query.Where(item => item.GuestGroupId == null);
+        }
+        else if (guestGroupId.HasValue)
+        {
+            query = query.Where(item => item.GuestGroupId == guestGroupId);
         }
 
         var guests = await query.OrderBy(item => item.Name).ToListAsync(cancellationToken);
@@ -296,11 +362,13 @@ public sealed class GuestDirectoryService(
             EnsureAssignable(type);
         }
 
+        var groupId = await ResolveGroupIdAsync(eventId, request.GuestGroupId, cancellationToken);
         var guest = new Guest
         {
             Id = Guid.CreateVersion7(),
             EventId = eventId,
             GuestTypeId = type?.Id,
+            GuestGroupId = groupId,
             Name = request.Name.Trim(),
             Email = BlankToNull(request.Email),
             Position = BlankToNull(request.Position),
@@ -309,6 +377,7 @@ public sealed class GuestDirectoryService(
             UpdatedOn = DateTime.UtcNow,
         };
         db.Guests.Add(guest);
+        GuestActivityLog.Add(db, guest.Id, GuestActivityKinds.Added, "Added by admin · Status Pending", guest.CreatedOn);
         await db.SaveChangesAsync(cancellationToken);
         return (await MapGuestsAsync(eventId, [guest], cancellationToken)).Single();
     }
@@ -336,10 +405,22 @@ public sealed class GuestDirectoryService(
             await EnsureTypeChangeAcknowledgedAsync(guest, request.AcknowledgeTypeChange, cancellationToken);
         }
 
+        var newGroupId = await ResolveGroupIdAsync(eventId, request.GuestGroupId, cancellationToken);
+        var changes = new List<string>();
+        if (guest.Name != request.Name.Trim()) changes.Add("name");
+        if (guest.Email != BlankToNull(request.Email)) changes.Add("email");
+        if (guest.Position != BlankToNull(request.Position)) changes.Add("position");
+        if (guest.GuestTypeId != type?.Id) changes.Add($"type → {type?.Name ?? "none"}");
+        if (guest.GuestGroupId != newGroupId) changes.Add("group");
         guest.Name = request.Name.Trim();
         guest.Email = BlankToNull(request.Email);
         guest.Position = BlankToNull(request.Position);
         guest.GuestTypeId = type?.Id;
+        guest.GuestGroupId = newGroupId;
+        if (changes.Count > 0)
+        {
+            GuestActivityLog.Add(db, guest.Id, GuestActivityKinds.Edited, $"Changed {string.Join(", ", changes)}");
+        }
         guest.UpdatedOn = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return (await MapGuestsAsync(eventId, [guest], cancellationToken)).Single();
@@ -389,8 +470,24 @@ public sealed class GuestDirectoryService(
     {
         await EnsureEventExistsAsync(eventId, cancellationToken);
         await ValidationGuard.EnsureValidAsync(importValidator, request, cancellationToken);
+        var targetGroupId = await ResolveGroupIdAsync(eventId, request.GuestGroupId, cancellationToken);
         var types = await db.GuestTypes.Where(item => item.EventId == eventId).ToListAsync(cancellationToken);
-        var plan = PlanImport(eventId, request, types);
+        // Emails already on this event, so an import cannot add the same person twice.
+        var existingEmails = await db.Guests.AsNoTracking()
+            .Where(item => item.EventId == eventId && item.Email != null)
+            .Select(item => new { item.Email, item.Name })
+            .ToListAsync(cancellationToken);
+        var taken = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var guest in existingEmails)
+        {
+            var key = EmailKey(guest.Email);
+            if (key is not null)
+            {
+                taken.TryAdd(key, guest.Name);
+            }
+        }
+
+        var plan = PlanImport(eventId, request, types, taken);
         if (!request.Commit || plan.Errors.Count > 0)
         {
             return new ImportGuestsResultDto(
@@ -425,6 +522,29 @@ public sealed class GuestDirectoryService(
         }
 
         var now = DateTime.UtcNow;
+        // Groups named in a "Group" column: reuse the event's group with that name, or create it.
+        var groupsByKey = (await db.GuestGroups.Where(item => item.EventId == eventId).ToListAsync(cancellationToken))
+            .GroupBy(item => Key(item.Name))
+            .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
+        foreach (var rawGroup in plan.Ready.Select(row => row.RawGroup).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (groupsByKey.ContainsKey(Key(rawGroup)))
+            {
+                continue;
+            }
+
+            var group = new GuestGroup
+            {
+                Id = Guid.CreateVersion7(),
+                EventId = eventId,
+                Name = rawGroup.Trim(),
+                CreatedOn = now,
+                UpdatedOn = now,
+            };
+            db.GuestGroups.Add(group);
+            groupsByKey[Key(rawGroup)] = group.Id;
+        }
+
         foreach (var row in plan.Ready)
         {
             var type = row.Type;
@@ -433,11 +553,14 @@ public sealed class GuestDirectoryService(
                 type = created;
             }
 
+            var importedId = Guid.CreateVersion7();
+            GuestActivityLog.Add(db, importedId, GuestActivityKinds.Added, "Imported from spreadsheet · Status Pending", now);
             db.Guests.Add(new Guest
             {
-                Id = Guid.CreateVersion7(),
+                Id = importedId,
                 EventId = eventId,
                 GuestTypeId = type?.Id,
+                GuestGroupId = row.RawGroup is not null ? groupsByKey[Key(row.RawGroup)] : targetGroupId,
                 Name = row.Name,
                 Email = row.Email,
                 Position = row.Position,
@@ -466,7 +589,20 @@ public sealed class GuestDirectoryService(
         CancellationToken cancellationToken)
     {
         await ValidationGuard.EnsureValidAsync(guestIdsValidator, request, cancellationToken);
-        var slug = await EventSlugAsync(eventId, cancellationToken);
+        var (_, domain) = await EventSiteAsync(eventId, cancellationToken);
+        // Invitations go out only while the event is Active: not while it is still being set up, nor after it.
+        var status = await db.Events.AsNoTracking().Where(item => item.Id == eventId).Select(item => item.Status).FirstAsync(cancellationToken);
+        if (status != Entourage.Domain.Enums.EventStatus.Active)
+        {
+            throw new AppException(
+                status == Entourage.Domain.Enums.EventStatus.Draft
+                    ? "This event is still a draft. Set it to Active before sending or recording invitations."
+                    : "This event is archived. Invitations can no longer be sent.",
+                StatusCodes.Status409Conflict);
+        }
+
+        // With a confirmed event domain, images and links in the email all use that domain.
+        var origin = domain is not null ? EventDomains.Origin(domain) : assetOrigin.TrimEnd('/');
         var guests = await LoadGuestsAsync(eventId, request.GuestIds, cancellationToken);
         var types = await TypesByIdAsync(eventId, cancellationToken);
         var ready = new List<(Guest Guest, GuestType Type, string Html)>();
@@ -488,13 +624,34 @@ public sealed class GuestDirectoryService(
                 continue;
             }
 
-            var assetIds = new[] { design.HeaderAssetId, design.DetailsAssetId, design.AcceptAssetId, design.DeclineAssetId }
-                .Where(id => id.HasValue)
-                .Select(id => id!.Value)
-                .Distinct()
-                .ToArray();
-            var urls = assetIds.ToDictionary(id => id, id => $"{assetOrigin.TrimEnd('/')}/api/public/assets/{id}");
-            var html = Personalize(InvitationEmailBuilder.Build(design, urls), guest, slug, appOrigin);
+            var assetIds = InvitationEmailBuilder.AllAssetIds(design);
+            var urls = assetIds.ToDictionary(id => id, id => $"{origin}/api/public/assets/{id}");
+            var html = Personalize(InvitationEmailBuilder.Build(design, urls), guest, origin, domain);
+            if (design.Slices is not null)
+            {
+                // "Single image" design: draw this guest's name onto the name strip and link that picture.
+                if (nameImages is null)
+                {
+                    blocked.Add(new GuestBlockDto(guest.Id, guest.Name, "Name images are not available on this server."));
+                    continue;
+                }
+
+                var png = await nameImages.RenderAsync(eventId, design, guest.Name, guest.Position, cancellationToken);
+                if (png is null)
+                {
+                    blocked.Add(new GuestBlockDto(guest.Id, guest.Name, $"The {type.Name} invitation has no guest name area. Open the designer and mark one."));
+                    continue;
+                }
+
+                var path = await nameImages.SaveAsync(eventId, png, cancellationToken);
+                html = html
+                    .Replace(InvitationEmailBuilder.GuestNameImageToken, $"{origin}{path}", StringComparison.Ordinal)
+                    .Replace(
+                        InvitationEmailBuilder.GuestNameAltToken,
+                        WebUtility.HtmlEncode(GuestNameRenderer.Greeting(design.Slices.Name.Template, guest.Name)),
+                        StringComparison.Ordinal);
+            }
+
             ready.Add((guest, type, html));
         }
 
@@ -515,6 +672,7 @@ public sealed class GuestDirectoryService(
                 Html = html,
                 IssuedOn = now,
             });
+            GuestActivityLog.Add(db, guest.Id, GuestActivityKinds.InvitationRecorded, $"Invitation ({type.Name})", now);
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -571,6 +729,7 @@ public sealed class GuestDirectoryService(
                 QrPayload = item.QrPayload,
                 GeneratedOn = now,
             });
+            GuestActivityLog.Add(db, item.GuestId, GuestActivityKinds.BadgeGenerated, $"E-badge ({item.GuestTypeName})", now);
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -683,8 +842,21 @@ public sealed class GuestDirectoryService(
         };
     }
 
-    private ImportPlan PlanImport(Guid eventId, ImportGuestsRequest request, List<GuestType> types)
+    /// <summary>Email compared without case or surrounding spaces; null when blank.</summary>
+    private static string? EmailKey(string? email)
     {
+        var trimmed = email?.Trim();
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed.ToLowerInvariant();
+    }
+
+    private ImportPlan PlanImport(
+        Guid eventId,
+        ImportGuestsRequest request,
+        List<GuestType> types,
+        IReadOnlyDictionary<string, string> existingEmails)
+    {
+        // First row in this file that used each email, to point duplicates back to it.
+        var seenEmails = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var byKey = types.GroupBy(type => Key(type.Name)).ToDictionary(group => group.Key, group => group.First());
         var mappings = new Dictionary<string, ImportTypeMapping>(StringComparer.Ordinal);
         foreach (var mapping in request.Mappings ?? [])
@@ -714,6 +886,28 @@ public sealed class GuestDirectoryService(
             {
                 errors.Add(new ImportRowErrorDto(row.Row, $"Row {row.Row} has an invalid email address."));
                 continue;
+            }
+
+            var emailKey = EmailKey(email);
+            if (emailKey is not null)
+            {
+                if (existingEmails.TryGetValue(emailKey, out var existingName))
+                {
+                    errors.Add(new ImportRowErrorDto(
+                        row.Row,
+                        $"Row {row.Row}: {email!.Trim()} is already used by {existingName} on this event."));
+                    continue;
+                }
+
+                if (seenEmails.TryGetValue(emailKey, out var firstRow))
+                {
+                    errors.Add(new ImportRowErrorDto(
+                        row.Row,
+                        $"Row {row.Row}: {email!.Trim()} is a duplicate of row {firstRow} in this file."));
+                    continue;
+                }
+
+                seenEmails[emailKey] = row.Row;
             }
 
             GuestType? type = null;
@@ -764,7 +958,7 @@ public sealed class GuestDirectoryService(
                 }
             }
 
-            ready.Add(new ReadyGuest(name, email, BlankToNull(row.Position), type, rawType));
+            ready.Add(new ReadyGuest(name, email, BlankToNull(row.Position), type, rawType, BlankToNull(row.Group)));
         }
 
         var resolved = byKey.ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
@@ -789,9 +983,21 @@ public sealed class GuestDirectoryService(
         var badges = await db.GuestBadgeIssues.AsNoTracking()
             .Where(item => ids.Contains(item.GuestId))
             .ToListAsync(cancellationToken);
+        var groupIds = guests.Where(item => item.GuestGroupId.HasValue).Select(item => item.GuestGroupId!.Value).Distinct().ToArray();
+        var groups = await db.GuestGroups.AsNoTracking()
+            .Where(item => item.EventId == eventId && groupIds.Contains(item.Id))
+            .ToDictionaryAsync(item => item.Id, item => item.Name, cancellationToken);
+        var emailedKinds = new[] { GuestActivityKinds.InvitationEmailed, GuestActivityKinds.ReminderEmailed };
+        var lastEmailed = await db.GuestActivities.AsNoTracking()
+            .Where(item => ids.Contains(item.GuestId) && emailedKinds.Contains(item.Kind))
+            .GroupBy(item => item.GuestId)
+            .Select(group => new { GuestId = group.Key, Last = group.Max(item => item.CreatedOn) })
+            .ToDictionaryAsync(item => item.GuestId, item => item.Last, cancellationToken);
+        var (_, domain) = await EventSiteAsync(eventId, cancellationToken);
         return guests.Select(guest =>
         {
             types.TryGetValue(guest.GuestTypeId ?? Guid.Empty, out var type);
+            var groupName = guest.GuestGroupId is Guid groupId ? groups.GetValueOrDefault(groupId) : null;
             var invitationRows = invitations.Where(item => item.GuestId == guest.Id).ToArray();
             var badgeRows = badges.Where(item => item.GuestId == guest.Id).ToArray();
             var lastInvitation = invitationRows.OrderByDescending(item => item.IssuedOn).FirstOrDefault();
@@ -810,7 +1016,15 @@ public sealed class GuestDirectoryService(
                 lastInvitation?.IssuedOn,
                 lastInvitation?.GuestTypeName,
                 lastBadge?.GeneratedOn,
-                lastBadge?.GuestTypeName);
+                lastBadge?.GuestTypeName,
+                guest.GuestGroupId,
+                groupName,
+                GuestRsvp.IsValid(guest.RsvpStatus) ? guest.RsvpStatus : GuestRsvp.Pending,
+                guest.RsvpUpdatedOn,
+                lastEmailed.TryGetValue(guest.Id, out var emailed) ? DateTime.SpecifyKind(emailed, DateTimeKind.Utc) : null,
+                domain is null ? null : EventDomains.InvitationUrl(domain, guest.InviteToken),
+                guest.DeclineReason,
+                guest.InviteToken);
         }).ToList();
     }
 
@@ -869,6 +1083,26 @@ public sealed class GuestDirectoryService(
         return guest;
     }
 
+    /// <summary>Null stays null (ungrouped); any other id must be a group on this event.</summary>
+    private async Task<Guid?> ResolveGroupIdAsync(Guid eventId, Guid? groupId, CancellationToken cancellationToken)
+    {
+        if (groupId is not Guid id)
+        {
+            return null;
+        }
+
+        var exists = await db.GuestGroups.AnyAsync(item => item.Id == id && item.EventId == eventId, cancellationToken);
+        if (!exists)
+        {
+            throw AppException.Validation(new Dictionary<string, string[]>
+            {
+                ["guestGroupId"] = ["This group is not on the event. Refresh the page and choose the group again."],
+            });
+        }
+
+        return id;
+    }
+
     private async Task EnsureEventExistsAsync(Guid eventId, CancellationToken cancellationToken)
     {
         var exists = await db.Events.AsNoTracking().AnyAsync(item => item.Id == eventId, cancellationToken);
@@ -876,20 +1110,6 @@ public sealed class GuestDirectoryService(
         {
             throw AppException.NotFound("Event not found.");
         }
-    }
-
-    private async Task<string> EventSlugAsync(Guid eventId, CancellationToken cancellationToken)
-    {
-        var slug = await db.Events.AsNoTracking()
-            .Where(item => item.Id == eventId)
-            .Select(item => item.Slug)
-            .FirstOrDefaultAsync(cancellationToken);
-        if (slug is null)
-        {
-            throw AppException.NotFound("Event not found.");
-        }
-
-        return slug;
     }
 
     private static void EnsureAssignable(GuestType type)
@@ -903,14 +1123,44 @@ public sealed class GuestDirectoryService(
         }
     }
 
-    private static string Personalize(string html, Guest guest, string slug, string appOrigin)
+    /// <summary>
+    /// Fills in the guest's name, position and RSVP links. With an event domain the buttons go to the
+    /// guest's own reply page (eventdomain/rsvp.html?g=…); otherwise to the same page on the API's address.
+    /// </summary>
+    /// <param name="apiOrigin">The API's address, used for the RSVP page when the event has no domain.</param>
+    internal static string Personalize(string html, Guest guest, string apiOrigin, string? domain)
     {
-        var guestPage = $"{appOrigin.TrimEnd('/')}/invite/{Uri.EscapeDataString(slug)}";
+        // Accept / Decline open the guest's RSVP confirm page; nothing is saved until they confirm there.
+        string accept;
+        string decline;
+        if (domain is not null)
+        {
+            accept = EventDomains.RsvpUrl(domain, guest.InviteToken, accept: true);
+            decline = EventDomains.RsvpUrl(domain, guest.InviteToken, accept: false);
+        }
+        else
+        {
+            var page = $"{apiOrigin.TrimEnd('/')}{RsvpPageService.ApiBase}?g={guest.InviteToken}";
+            accept = $"{page}&status=accept";
+            decline = $"{page}&status=decline";
+        }
+
         return html
             .Replace("{{GuestName}}", WebUtility.HtmlEncode(guest.Name), StringComparison.Ordinal)
             .Replace("{{GuestPosition}}", WebUtility.HtmlEncode(guest.Position ?? string.Empty), StringComparison.Ordinal)
-            .Replace("{{AcceptUrl}}", $"{guestPage}/rsvp?status=accept", StringComparison.Ordinal)
-            .Replace("{{DeclineUrl}}", $"{guestPage}/rsvp?status=decline", StringComparison.Ordinal);
+            .Replace("{{AcceptUrl}}", WebUtility.HtmlEncode(accept), StringComparison.Ordinal)
+            .Replace("{{DeclineUrl}}", WebUtility.HtmlEncode(decline), StringComparison.Ordinal);
+    }
+
+    /// <summary>The event's slug and its domain when one is set and confirmed (null otherwise).</summary>
+    private async Task<(string Slug, string? Domain)> EventSiteAsync(Guid eventId, CancellationToken cancellationToken)
+    {
+        var site = await db.Events.AsNoTracking()
+            .Where(item => item.Id == eventId)
+            .Select(item => new { item.Slug, item.CustomDomain, item.CustomDomainVerifiedOn })
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw AppException.NotFound("Event not found.");
+        return (site.Slug, site.CustomDomainVerifiedOn is null ? null : site.CustomDomain);
     }
 
     private static GuestTypeDto ToTypeDto(GuestType type, int guestCount) => new(
@@ -938,7 +1188,7 @@ public sealed class GuestDirectoryService(
     private static string Unreadable(string typeName, string kind) =>
         $"The {typeName} {kind} design could not be read. Open the {typeName} {kind} designer and save it again.";
 
-    private sealed record ReadyGuest(string Name, string? Email, string? Position, GuestType? Type, string? RawType);
+    private sealed record ReadyGuest(string Name, string? Email, string? Position, GuestType? Type, string? RawType, string? RawGroup = null);
 
     private sealed class ImportPlan(
         List<ReadyGuest> ready,

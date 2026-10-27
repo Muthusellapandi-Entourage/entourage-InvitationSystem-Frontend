@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Scissors } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -6,6 +7,7 @@ import { ApiError } from '@/api/client'
 import { guestTypeApi } from '@/api/guestTypeApi'
 import { invitationApi } from '@/api/invitationApi'
 import { InvitationDesigner, type AssetSlot } from '@/components/invitations/InvitationDesigner'
+import { SliceDesigner } from '@/components/invitations/SliceDesigner'
 import { buttonClassName } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -49,8 +51,11 @@ export function InvitationPage() {
     enabled: Boolean(eventId) && !guestTypeId,
   })
 
+  const [mode, setMode] = useState<'slices' | 'classic' | null>(null)
+
   useEffect(() => {
     setDraft(null)
+    setMode(null)
   }, [eventId, guestTypeId])
 
   const serverDesign = templateQuery.data ? normalizeInvitationDesign(templateQuery.data.design) : null
@@ -118,7 +123,51 @@ export function InvitationPage() {
     }
   }
 
+  // Single-image design is the default; the classic designer stays one click away.
+  const sliceMode = Boolean(guestTypeId) && mode !== 'classic'
+  const backTo = `/events/${event.id}/guest-types`
+
+  if (sliceMode) {
+    return (
+      <SliceDesigner
+        key={guestTypeId}
+        eventId={event.id}
+        title={`${guestType?.name ?? 'Guest type'} · ${event.name}`}
+        design={design}
+        saving={saveMutation.isPending}
+        onSave={(next) => {
+          setDraft(next)
+          saveMutation.mutate(next)
+        }}
+        onBack={() => {
+          if (dirty && !window.confirm('This design has unsaved changes. Leave without saving?')) return
+          navigate(backTo)
+        }}
+        backLabel="Guest types"
+        onUseClassic={() => {
+          if (
+            design.slices &&
+            !window.confirm('Switch to the classic designer? Saving there replaces the single-image design for this guest type.')
+          )
+            return
+          setMode('classic')
+        }}
+      />
+    )
+  }
+
   return (
+    <>
+    {guestTypeId ? (
+      <button
+        type="button"
+        onClick={() => setMode('slices')}
+        className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium shadow-lg hover:bg-hover"
+      >
+        <Scissors className="size-4 text-accent" aria-hidden="true" />
+        Use single-image design
+      </button>
+    ) : null}
     <InvitationDesigner
       eventId={event.id}
       eventName={event.name}
@@ -129,7 +178,7 @@ export function InvitationPage() {
       uploading={uploading}
       onUpload={(slot, file) => void upload(slot, file)}
       saving={saveMutation.isPending}
-      onSave={() => saveMutation.mutate(design)}
+      onSave={() => saveMutation.mutate({ ...design, slices: null })}
       replies={guestTypeId ? [] : responsesQuery.data}
       repliesLoading={guestTypeId ? false : responsesQuery.isLoading}
       backTo={guestTypeId ? `/events/${event.id}/guest-types` : undefined}
@@ -143,6 +192,7 @@ export function InvitationPage() {
         navigate(nextId ? `/events/${event.id}/guest-types/${nextId}/invitation` : `/events/${event.id}/invitations`)
       }}
     />
+    </>
   )
 }
 

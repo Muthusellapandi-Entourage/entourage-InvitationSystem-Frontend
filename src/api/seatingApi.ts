@@ -16,4 +16,16 @@ export const seatingApi = {
       body: JSON.stringify({ designJson }),
     })
   },
+
+  deleteLayout(eventId: string, layoutId: string) {
+    return apiClient<SeatingPlan>(`/api/events/${eventId}/seating/layouts/${encodeURIComponent(layoutId)}`, {
+      method: 'DELETE',
+    })
+  },
+
+  resetLayout(eventId: string, layoutId: string) {
+    return apiClient<SeatingPlan>(`/api/events/${eventId}/seating/layouts/${encodeURIComponent(layoutId)}/reset`, {
+      method: 'POST',
+    })
+  },
 }

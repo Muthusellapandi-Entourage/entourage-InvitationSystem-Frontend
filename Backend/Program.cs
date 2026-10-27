@@ -9,6 +9,7 @@ using Entourage.Infrastructure.Data;
 using Entourage.Infrastructure.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -33,6 +34,9 @@ if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("Default
 }
 
 builder.Services.Configure<JwtOptions>(jwtSection);
+builder.Services.Configure<MicrosoftAuthOptions>(builder.Configuration.GetSection(MicrosoftAuthOptions.SectionName));
+builder.Services.AddSingleton<MicrosoftKeys>();
+builder.Services.AddScoped<MicrosoftSignInService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -46,6 +50,27 @@ builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IGuestDirectoryService, GuestDirectoryService>();
 builder.Services.AddScoped<ISeatingPlanService, SeatingPlanService>();
+builder.Services.AddScoped<IGuestGroupService, GuestGroupService>();
+builder.Services.AddScoped<IEventFontService, EventFontService>();
+builder.Services.AddScoped<GuestNameImageService>();
+builder.Services.AddScoped<EventSiteService>();
+builder.Services.AddScoped<CheckInService>();
+builder.Services.AddScoped<AppleWalletService>();
+builder.Services.AddScoped<RsvpDashboardService>();
+builder.Services.AddScoped<MicrositeService>();
+builder.Services.AddScoped<RsvpPageService>();
+builder.Services.AddScoped<FrontDeskService>();
+// Used only to confirm an event domain reaches this server: short timeout, no cookies.
+builder.Services.AddHttpClient(EventSiteService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { UseCookies = false, MaxAutomaticRedirections = 3 });
+builder.Services.AddScoped<IMailSettingsService, MailSettingsService>();
+builder.Services.AddScoped<IGuestMailer, GuestMailer>();
+builder.Services.AddSingleton<SmtpMailTransport>();
+builder.Services.AddSingleton<GraphMailTransport>();
+builder.Services.AddSingleton<IMailTransport, MailTransportRouter>();
+builder.Services.AddHttpClient(GraphMailTransport.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(60));
+// Encrypts the saved SMTP password. Keys live in the app's key store, so they survive restarts.
+builder.Services.AddDataProtection().SetApplicationName("Entourage.InvitationSystem");
 builder.Services.AddScoped<IEventAssetService, EventAssetService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IInvitationPreviewStore, InvitationPreviewStore>();
@@ -110,7 +135,7 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
-builder.Services.AddControllers().AddJsonOptions(options =>
+builder.Services.AddControllers(options => options.Filters.Add<Entourage.Api.Filters.ArchivedEventFilter>()).AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
@@ -161,14 +186,50 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Behind a reverse proxy that does not pass the original Host header through, turn on
+// ReverseProxy:TrustForwardedHeaders so the real host name and scheme are used (needed to recognise
+// event domains). Only do this when the app is reachable through that proxy alone.
+if (builder.Configuration.GetValue("ReverseProxy:TrustForwardedHeaders", false))
+{
+    var forwarded = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+            | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+            | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedHost,
+    };
+    forwarded.KnownNetworks.Clear();
+    forwarded.KnownProxies.Clear();
+    app.UseForwardedHeaders(forwarded);
+}
+
+// Event domains (e.g. excellenceawards2026.com) are answered here with the guest pages only.
+app.UseMiddleware<EventSiteMiddleware>();
 app.UseCors("Frontend");
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-app.MapFallback(() => Results.Json(
-    new ApiResponse<object>(false, null, "The requested resource was not found."),
-    statusCode: StatusCodes.Status404NotFound));
+app.MapFallback((HttpContext context) =>
+{
+    // A guest page requested on a host that is not (yet) an event domain: say which host arrived,
+    // so a DNS / proxy / spelling problem is easy to spot.
+    var path = context.Request.Path.Value ?? string.Empty;
+    if (path.Equals(Entourage.Application.Invitations.EventDomains.InvitationPath, StringComparison.OrdinalIgnoreCase)
+        || path.Equals(Entourage.Application.Invitations.EventDomains.RsvpPath, StringComparison.OrdinalIgnoreCase)
+        || path.Equals(Entourage.Application.Invitations.EventDomains.CheckPath, StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.Text(
+            $"\"{context.Request.Host.Host}\" is not set up as an event domain on this server. " +
+            "Save exactly this address under Event settings → Invitation domain (www. counts as a different address). " +
+            "If it is saved, the proxy in front of this server may be changing the host name.",
+            "text/plain; charset=utf-8",
+            statusCode: StatusCodes.Status404NotFound);
+    }
+
+    return Results.Json(
+        new ApiResponse<object>(false, null, $"The requested resource was not found ({context.Request.Method} {path})."),
+        statusCode: StatusCodes.Status404NotFound);
+});
 
 await DatabaseInitializer.MigrateAndSeedAsync(app.Services, app.Environment);
 

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AppRoutes } from '@/routes/router'
 import { AuthProvider } from '@/stores/authStore'
@@ -14,6 +14,12 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+/**
+ * A data router (instead of <BrowserRouter>) so pages can block navigation with useBlocker,
+ * e.g. the seating plan asking to save before you leave. All routes still live in <AppRoutes>.
+ */
+const router = createBrowserRouter([{ path: '*', element: <AppRoutes /> }])
 
 function AppToaster() {
   const { resolved } = useTheme()
@@ -40,9 +46,7 @@ export function App() {
     <ThemeProvider>
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
+          <RouterProvider router={router} />
           <AppToaster />
         </QueryClientProvider>
       </AuthProvider>

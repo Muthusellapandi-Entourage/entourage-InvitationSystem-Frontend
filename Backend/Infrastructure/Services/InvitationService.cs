@@ -83,11 +83,7 @@ public sealed class InvitationService(
         await EnsureEventExistsAsync(eventId, cancellationToken);
         await ValidationGuard.EnsureValidAsync(designValidator, design, cancellationToken);
 
-        var assetIds = new[] { design.HeaderAssetId, design.DetailsAssetId, design.AcceptAssetId, design.DeclineAssetId }
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToArray();
+        var assetIds = InvitationEmailBuilder.AllAssetIds(design);
         await assets.EnsureOwnedAsync(eventId, assetIds, cancellationToken);
 
         var invitation = await db.Invitations.FirstOrDefaultAsync(item => item.EventId == eventId, cancellationToken);
@@ -221,6 +217,7 @@ public sealed class InvitationService(
             try
             {
                 await db.SaveChangesAsync(cancellationToken);
+                await SyncGuestRsvpAsync(invitation.EventId, name, request.Status, cancellationToken);
                 return ToResponseDto(existing);
             }
             catch (DbUpdateException exception) when (IsUniqueViolation(exception))
@@ -236,7 +233,34 @@ public sealed class InvitationService(
         existing.GuestName = name;
         existing.CreatedOn = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
+        await SyncGuestRsvpAsync(invitation.EventId, name, request.Status, cancellationToken);
         return ToResponseDto(existing);
+    }
+
+    /// <summary>
+    /// A reply on the public RSVP page carries the name the guest typed. When it matches exactly one
+    /// guest on the event (ignoring case and spaces), that guest's status follows the reply.
+    /// </summary>
+    private async Task SyncGuestRsvpAsync(Guid eventId, string name, RsvpStatus status, CancellationToken cancellationToken)
+    {
+        var key = name.Trim().ToLower();
+        var matches = await db.Guests
+            .Where(item => item.EventId == eventId && item.Name.Trim().ToLower() == key)
+            .Take(2)
+            .ToListAsync(cancellationToken);
+        if (matches.Count != 1)
+        {
+            return;
+        }
+
+        var guest = matches[0];
+        var next = status == RsvpStatus.Accepted ? GuestRsvp.Accepted : GuestRsvp.Declined;
+        var previous = GuestRsvp.IsValid(guest.RsvpStatus) ? guest.RsvpStatus : GuestRsvp.Pending;
+        var now = DateTime.UtcNow;
+        guest.RsvpStatus = next;
+        guest.RsvpUpdatedOn = now;
+        GuestActivityLog.Add(db, guest.Id, GuestActivityKinds.StatusChanged, $"{previous} → {next} (guest replied)", now);
+        await db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<string> BuildPreviewHtmlAsync(
@@ -249,11 +273,7 @@ public sealed class InvitationService(
         await EnsureEventExistsAsync(eventId, cancellationToken);
         await ValidationGuard.EnsureValidAsync(designValidator, design, cancellationToken);
 
-        var assetIds = new[] { design.HeaderAssetId, design.DetailsAssetId, design.AcceptAssetId, design.DeclineAssetId }
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .Distinct()
-            .ToArray();
+        var assetIds = InvitationEmailBuilder.AllAssetIds(design);
         await assets.EnsureOwnedAsync(eventId, assetIds, cancellationToken);
 
         var urls = assetIds.ToDictionary(id => id, id => $"{assetOrigin.TrimEnd('/')}/api/public/assets/{id}");

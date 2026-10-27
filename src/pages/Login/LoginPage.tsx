@@ -1,10 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
+import { authApi } from '@/api/authApi'
 import { ApiError } from '@/api/client'
+import { finishMicrosoftSignIn, startMicrosoftSignIn } from '@/auth/microsoft'
 import { Logo } from '@/components/brand/Logo'
 import { Button } from '@/components/ui/Button'
 import { TextField } from '@/components/ui/TextField'
@@ -19,12 +22,41 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 export function LoginPage() {
-  const { status, login } = useAuth()
+  const { status, login, loginWithMicrosoft } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [showPassword, setShowPassword] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [microsoftBusy, setMicrosoftBusy] = useState(false)
   useDocumentTitle('Sign in')
+
+  const optionsQuery = useQuery({ queryKey: ['auth-options'], queryFn: () => authApi.options(), staleTime: 5 * 60_000, retry: 1 })
+  const microsoft = optionsQuery.data?.microsoft ?? null
+  const passwordLogin = optionsQuery.data?.passwordLogin ?? true
+
+  // Coming back from Microsoft's sign-in screen: finish signing in here.
+  const finished = useRef(false)
+  useEffect(() => {
+    if (!microsoft || finished.current) return
+    finished.current = true
+    let active = true
+    void (async () => {
+      try {
+        const result = await finishMicrosoftSignIn(microsoft.tenantId, microsoft.clientId)
+        if (!result || !active) return
+        setMicrosoftBusy(true)
+        await loginWithMicrosoft(result.idToken)
+        navigate(result.returnTo && result.returnTo.startsWith('/') && result.returnTo !== '/login' ? result.returnTo : '/', { replace: true })
+      } catch (error) {
+        if (active) setFormError(error instanceof ApiError ? error.message : 'Microsoft sign-in did not complete. Try again.')
+      } finally {
+        if (active) setMicrosoftBusy(false)
+      }
+    })()
+    return () => {
+      active = false
+    }
+  }, [microsoft, loginWithMicrosoft, navigate])
 
   const {
     register,
@@ -48,8 +80,51 @@ export function LoginPage() {
           <Logo />
         </div>
         <p className="mt-6 text-center text-sm text-muted">Event Management Platform</p>
+        {microsoft ? (
+          <div className="mt-10 grid gap-3">
+            {/* Microsoft's official "Sign in with Microsoft" button image (light / dark theme versions). */}
+            <button
+              type="button"
+              aria-label="Sign in with Microsoft"
+              aria-busy={microsoftBusy}
+              className="relative mx-auto flex justify-center rounded-sm disabled:cursor-wait disabled:opacity-60"
+              disabled={microsoftBusy || status === 'unknown'}
+              onClick={async () => {
+                setFormError(null)
+                setMicrosoftBusy(true)
+                try {
+                  await startMicrosoftSignIn(microsoft.tenantId, microsoft.clientId, from ?? null)
+                } catch {
+                  setMicrosoftBusy(false)
+                  setFormError('Could not open Microsoft sign-in. Check your connection and try again.')
+                }
+              }}
+            >
+              <img src="/brand/ms-symbollockup_signin_light.svg" alt="" width={215} height={41} className="block [.dark_&]:hidden" />
+              <img src="/brand/ms-symbollockup_signin_dark.svg" alt="" width={215} height={41} className="hidden [.dark_&]:block" />
+              {microsoftBusy ? (
+                <Loader2 className="absolute -right-7 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted" aria-hidden="true" />
+              ) : null}
+            </button>
+            <p className="text-center text-xs text-muted">Use your @entourageintl.com work account.</p>
+            {passwordLogin ? (
+              <div className="flex items-center gap-3 text-xs text-muted" aria-hidden="true">
+                <span className="h-px flex-1 bg-border" />
+                or
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {!passwordLogin && formError ? (
+          <p role="alert" className="mt-4 rounded-md bg-danger-soft px-3 py-2 text-sm text-danger">
+            {formError}
+          </p>
+        ) : null}
+        {passwordLogin ? (
+        <>
         <form
-          className="mt-10 grid gap-4"
+          className={microsoft ? 'mt-3 grid gap-4' : 'mt-10 grid gap-4'}
           noValidate
           onSubmit={handleSubmit(async (values) => {
             setFormError(null)
@@ -103,6 +178,8 @@ export function LoginPage() {
             Forgot password?
           </Link>
         </p>
+        </>
+        ) : null}
       </div>
     </main>
   )

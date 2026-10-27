@@ -26,6 +26,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<SeatingPlan> SeatingPlans => Set<SeatingPlan>();
 
+    public DbSet<GuestGroup> GuestGroups => Set<GuestGroup>();
+
+    public DbSet<MailSettings> MailSettings => Set<MailSettings>();
+
+    public DbSet<WalletSettings> WalletSettings => Set<WalletSettings>();
+
+    public DbSet<EventMicrosite> EventMicrosites => Set<EventMicrosite>();
+
+    public DbSet<GuestActivity> GuestActivities => Set<GuestActivity>();
+
+    public DbSet<EventFont> EventFonts => Set<EventFont>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -57,6 +69,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(item => item.Status).HasConversion<string>().HasMaxLength(20);
             entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
             entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.CustomDomain).HasMaxLength(253);
+            entity.HasIndex(item => item.CustomDomain).IsUnique().HasFilter("[CustomDomain] IS NOT NULL");
+            entity.Property(item => item.CustomDomainVerifiedOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.Property(item => item.LiveShareToken).HasMaxLength(32);
+            entity.HasIndex(item => item.LiveShareToken).IsUnique().HasFilter("[LiveShareToken] IS NOT NULL");
+            entity.Property(item => item.FrontDeskToken).HasMaxLength(32);
+            entity.HasIndex(item => item.FrontDeskToken).IsUnique().HasFilter("[FrontDeskToken] IS NOT NULL");
             entity.HasOne(item => item.Creator)
                 .WithMany()
                 .HasForeignKey(item => item.CreatedBy)
@@ -158,6 +177,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(item => item.Email).HasMaxLength(256);
             entity.Property(item => item.Position).HasMaxLength(200);
             entity.Property(item => item.CheckInCode).HasMaxLength(64).IsRequired();
+            entity.Property(item => item.InviteToken).HasMaxLength(32).IsRequired();
+            entity.HasIndex(item => item.InviteToken).IsUnique();
+            entity.Property(item => item.FirstCheckedInOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.Property(item => item.LastCheckedInOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.Property(item => item.SeatedOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.Property(item => item.DeclineReason).HasMaxLength(500);
             entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
             entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
             entity.HasOne(item => item.Event)
@@ -168,6 +193,102 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
                 .WithMany()
                 .HasForeignKey(item => item.GuestTypeId)
                 .OnDelete(DeleteBehavior.NoAction);
+            entity.Property(item => item.RsvpStatus).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.RsvpUpdatedOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.HasIndex(item => item.GuestGroupId);
+            // Deleting a group is handled in the service (keep guests ungrouped, or delete them),
+            // so the database never removes guests on its own.
+            entity.HasOne(item => item.GuestGroup)
+                .WithMany()
+                .HasForeignKey(item => item.GuestGroupId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<GuestGroup>(entity =>
+        {
+            entity.ToTable("GuestGroups");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.EventId, item.Name }).IsUnique();
+            entity.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Event)
+                .WithMany()
+                .HasForeignKey(item => item.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GuestActivity>(entity =>
+        {
+            entity.ToTable("GuestActivities");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.GuestId, item.CreatedOn });
+            entity.Property(item => item.Kind).HasMaxLength(60).IsRequired();
+            entity.Property(item => item.Detail).HasMaxLength(300);
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Guest)
+                .WithMany()
+                .HasForeignKey(item => item.GuestId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EventFont>(entity =>
+        {
+            entity.ToTable("EventFonts");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId);
+            entity.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.FileName).HasMaxLength(180).IsRequired();
+            entity.Property(item => item.RelativePath).HasMaxLength(300).IsRequired();
+            entity.Property(item => item.ContentType).HasMaxLength(40).IsRequired();
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Event)
+                .WithMany()
+                .HasForeignKey(item => item.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EventMicrosite>(entity =>
+        {
+            entity.ToTable("EventMicrosites");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId).IsUnique();
+            entity.Property(item => item.DesignJson).IsRequired();
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Event)
+                .WithMany()
+                .HasForeignKey(item => item.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WalletSettings>(entity =>
+        {
+            entity.ToTable("WalletSettings");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.TeamId).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.PassTypeId).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.OrganizationName).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.ProtectedCertificate).IsRequired();
+            entity.Property(item => item.ProtectedCertificatePassword).HasMaxLength(2000);
+            entity.Property(item => item.WwdrCertificate).IsRequired();
+            entity.Property(item => item.CertificateExpiresOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+        });
+
+        modelBuilder.Entity<MailSettings>(entity =>
+        {
+            entity.ToTable("MailSettings");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Provider).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.GraphTenantId).HasMaxLength(100);
+            entity.Property(item => item.GraphClientId).HasMaxLength(100);
+            entity.Property(item => item.ProtectedGraphSecret).HasMaxLength(2000);
+            entity.Property(item => item.Host).HasMaxLength(255).IsRequired();
+            entity.Property(item => item.Username).HasMaxLength(256);
+            entity.Property(item => item.ProtectedPassword).HasMaxLength(2000);
+            entity.Property(item => item.FromEmail).HasMaxLength(256).IsRequired();
+            entity.Property(item => item.FromName).HasMaxLength(200);
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
         });
 
         modelBuilder.Entity<GuestInvitationIssue>(entity =>

@@ -9,7 +9,8 @@ namespace Entourage.Infrastructure.Services;
 
 public sealed class EventAssetService(AppDbContext db, IWebHostEnvironment environment) : IEventAssetService
 {
-    private const int MaxBytes = 5 * 1024 * 1024;
+    // Full single-image invitation designs are often several megabytes.
+    private const int MaxBytes = 15 * 1024 * 1024;
 
     public async Task<EventAssetDto> SaveAsync(
         Guid eventId,
@@ -44,7 +45,7 @@ public sealed class EventAssetService(AppDbContext db, IWebHostEnvironment envir
             {
                 throw AppException.Validation(new Dictionary<string, string[]>
                 {
-                    ["file"] = ["Image must be 5 MB or smaller."],
+                    ["file"] = ["Image must be 15 MB or smaller."],
                 });
             }
 

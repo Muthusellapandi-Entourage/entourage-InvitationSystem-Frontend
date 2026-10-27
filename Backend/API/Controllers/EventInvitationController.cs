@@ -52,6 +52,7 @@ public sealed class EventInvitationController(
     }
 
     [HttpPost("previews")]
+    [Entourage.Api.Filters.AllowOnArchivedEvent]
     public async Task<ActionResult<ApiResponse<InvitationPreviewDto>>> CreatePreview(
         Guid eventId,
         InvitationDesignDto design,

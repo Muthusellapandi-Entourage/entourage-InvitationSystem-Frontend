@@ -27,4 +27,24 @@ public sealed class EventSeatingController(ISeatingPlanService seatingPlanServic
         var plan = await seatingPlanService.SaveAsync(eventId, request, cancellationToken);
         return Ok(new ApiResponse<SeatingPlanDto>(true, plan, "Seating layout saved."));
     }
+
+    [HttpDelete("layouts/{layoutId}")]
+    public async Task<ActionResult<ApiResponse<SeatingPlanDto>>> DeleteLayout(
+        Guid eventId,
+        string layoutId,
+        CancellationToken cancellationToken)
+    {
+        var plan = await seatingPlanService.DeleteLayoutAsync(eventId, layoutId, cancellationToken);
+        return Ok(new ApiResponse<SeatingPlanDto>(true, plan, "Layout deleted."));
+    }
+
+    [HttpPost("layouts/{layoutId}/reset")]
+    public async Task<ActionResult<ApiResponse<SeatingPlanDto>>> ResetLayout(
+        Guid eventId,
+        string layoutId,
+        CancellationToken cancellationToken)
+    {
+        var plan = await seatingPlanService.ResetLayoutAsync(eventId, layoutId, cancellationToken);
+        return Ok(new ApiResponse<SeatingPlanDto>(true, plan, "Layout reset."));
+    }
 }

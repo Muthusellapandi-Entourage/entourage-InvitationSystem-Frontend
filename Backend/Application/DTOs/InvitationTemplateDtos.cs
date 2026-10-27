@@ -42,7 +42,8 @@ public sealed record InvitationDesignDto(
     ImagePlacementDto? AcceptImage = null,
     ImagePlacementDto? DeclineImage = null,
     DesignGuidesDto? Guides = null,
-    string? BackgroundColor = null)
+    string? BackgroundColor = null,
+    SliceDesignDto? Slices = null)
 {
     public static InvitationDesignDto CreateDefault() => new(
         null,
@@ -52,6 +53,53 @@ public sealed record InvitationDesignDto(
         null,
         null);
 }
+
+/// <summary>
+/// "Single image" invitation: one uploaded design cut into horizontal strips (top to bottom).
+/// Coordinates are in the source image's own pixels. The email shows it at <see cref="InvitationDesignDto.Width"/>.
+/// </summary>
+/// <param name="SourceAssetId">The full uploaded design, kept so the slices can be edited again.</param>
+/// <param name="Strips">Top to bottom, covering the whole image with no gaps.</param>
+/// <param name="Name">How each guest's name is drawn onto the "name" strip.</param>
+public sealed record SliceDesignDto(
+    Guid SourceAssetId,
+    int SourceWidth,
+    int SourceHeight,
+    SliceStripDto[] Strips,
+    GuestNameImageDto Name);
+
+/// <param name="Role">"image" (shown as is), "name" (guest name drawn on it) or "buttons" (Accept / Decline cut out).</param>
+/// <param name="AssetId">The strip cut from the design. For "buttons", null: its pieces carry the images.</param>
+/// <param name="Pieces">Only for "buttons": left to right, covering the strip's full width.</param>
+public sealed record SliceStripDto(string Role, int Y, int Height, Guid? AssetId, SlicePieceDto[]? Pieces = null);
+
+/// <param name="Kind">"image", "accept" or "decline".</param>
+public sealed record SlicePieceDto(string Kind, int X, int Width, Guid AssetId);
+
+/// <summary>Text drawn onto the name strip for each guest. Sizes are in source pixels.</summary>
+/// <param name="Template">Greeting with a {name} placeholder, e.g. "Dear {name},".</param>
+/// <param name="FontId">An uploaded font. Null uses <paramref name="Font"/>.</param>
+/// <param name="Font">Built-in family used when no uploaded font is chosen: Arial, Georgia or Times New Roman.</param>
+public sealed record GuestNameImageDto(
+    string Template,
+    Guid? FontId,
+    string Font,
+    int FontSize,
+    string Color,
+    string Align,
+    string Valign,
+    int PaddingX,
+    int OffsetY,
+    bool PositionEnabled,
+    Guid? PositionFontId,
+    string PositionFont,
+    int PositionFontSize,
+    string PositionColor,
+    int LineGap);
+
+public sealed record EventFontDto(Guid Id, string Name, string FileName, long SizeBytes, string Url, DateTime CreatedOn);
+
+public sealed record GuestNamePreviewRequest(InvitationDesignDto Design, string? Name, string? Position);
 
 public sealed record InvitationTemplateDto(
     InvitationDesignDto Design,

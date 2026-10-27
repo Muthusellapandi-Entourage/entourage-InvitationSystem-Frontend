@@ -24,7 +24,13 @@ public interface IGuestDirectoryService
 
     Task<GuestTypeBadgeDto> SaveBadgeAsync(Guid eventId, Guid guestTypeId, BadgeDesignDto design, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<GuestDto>> ListGuestsAsync(Guid eventId, Guid? guestTypeId, bool unassigned, CancellationToken cancellationToken);
+    Task<IReadOnlyList<GuestDto>> ListGuestsAsync(
+        Guid eventId,
+        Guid? guestTypeId,
+        bool unassigned,
+        CancellationToken cancellationToken,
+        Guid? guestGroupId = null,
+        bool ungrouped = false);
 
     Task<GuestDto> CreateGuestAsync(Guid eventId, SaveGuestRequest request, CancellationToken cancellationToken);
 
@@ -44,4 +50,10 @@ public interface IGuestDirectoryService
     Task<BadgeBatchDto> PrepareBadgesAsync(Guid eventId, GuestIdsRequest request, CancellationToken cancellationToken);
 
     Task<GuestOperationResult> CommitBadgesAsync(Guid eventId, GuestIdsRequest request, CancellationToken cancellationToken);
+
+    /// <summary>PNG of a single-image design's name strip with this name drawn on it (designer preview).</summary>
+    Task<byte[]> RenderNameImageAsync(Guid eventId, InvitationDesignDto design, string name, string? position, CancellationToken cancellationToken);
+
+    /// <summary>PNG of the name strip for one guest, from their guest type's saved design.</summary>
+    Task<byte[]> RenderGuestNameImageAsync(Guid eventId, Guid guestId, CancellationToken cancellationToken);
 }

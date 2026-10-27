@@ -74,6 +74,40 @@ public sealed class GuestDirectoryServiceTests
     }
 
     [Fact]
+    public async Task Import_rejects_emails_already_on_the_event_or_repeated_in_the_file()
+    {
+        await using var scope = await TestScope.CreateAsync();
+        var first = await scope.Service.ImportGuestsAsync(scope.EventId, new ImportGuestsRequest(
+        [
+            new ImportGuestRowDto(2, "Lina Haddad", "lina@example.com", null, null),
+        ],
+        null,
+        true), CancellationToken.None);
+        Assert.True(first.Complete);
+
+        var second = await scope.Service.ImportGuestsAsync(scope.EventId, new ImportGuestsRequest(
+        [
+            // Same email as an existing guest, different case and spaces.
+            new ImportGuestRowDto(2, "Lina H.", "  LINA@example.com ", null, null),
+            new ImportGuestRowDto(3, "Omar Saleh", "omar@example.com", null, null),
+            // Repeats row 3 within the same file.
+            new ImportGuestRowDto(4, "Omar S.", "Omar@Example.com", null, null),
+            // Guests without an email are never duplicates of each other.
+            new ImportGuestRowDto(5, "No Email One", null, null, null),
+            new ImportGuestRowDto(6, "No Email Two", null, null, null),
+        ],
+        null,
+        true), CancellationToken.None);
+
+        Assert.False(second.Complete);
+        Assert.Contains(second.Errors, error => error.Row == 2 && error.Message.Contains("already used by Lina Haddad"));
+        Assert.Contains(second.Errors, error => error.Row == 4 && error.Message.Contains("duplicate of row 3"));
+        Assert.DoesNotContain(second.Errors, error => error.Row is 3 or 5 or 6);
+        // Nothing from the second file is saved while any row has an error.
+        Assert.Equal(1, await scope.Db.Guests.CountAsync());
+    }
+
+    [Fact]
     public async Task Manual_assignment_and_later_change_do_not_issue_an_invitation()
     {
         await using var scope = await TestScope.CreateAsync();
@@ -148,7 +182,9 @@ public sealed class GuestDirectoryServiceTests
         var html = await scope.Db.GuestInvitationIssues.SingleAsync(item => item.GuestId == ready.Id);
         Assert.Contains("width=\"640\"", html.Html, StringComparison.Ordinal);
         Assert.Contains("Lina Haddad", html.Html, StringComparison.Ordinal);
-        Assert.Contains("/invite/sample-event/rsvp?status=accept", html.Html, StringComparison.Ordinal);
+        // Without an event domain, Accept opens the RSVP page on the API's address.
+        var inviteToken = (await scope.Db.Guests.SingleAsync(item => item.Id == ready.Id)).InviteToken;
+        Assert.Contains($"http://localhost:5080/api/public/rsvp?g={inviteToken}&amp;status=accept", html.Html, StringComparison.Ordinal);
         Assert.Equal(0, await scope.Db.GuestInvitationIssues.CountAsync(item => item.GuestId == blockedGuest.Id));
 
         var missingBadge = await scope.Service.PrepareBadgesAsync(scope.EventId, new GuestIdsRequest([blockedGuest.Id]), CancellationToken.None);
@@ -163,6 +199,220 @@ public sealed class GuestDirectoryServiceTests
         Assert.False(committed.Complete);
         Assert.Single(committed.Issued);
         Assert.Equal(ready.CheckInCode, (await scope.Db.GuestBadgeIssues.SingleAsync()).QrPayload);
+    }
+
+    [Fact]
+    public async Task Confirmed_event_domain_gives_each_guest_a_personal_link_and_reply_page()
+    {
+        await using var scope = await TestScope.CreateAsync();
+        var vip = await scope.Service.CreateTypeAsync(scope.EventId, new CreateGuestTypeRequest("VIP"), CancellationToken.None);
+        await scope.Service.SaveInvitationAsync(scope.EventId, vip.Id, InvitationDesignDto.CreateDefault() with { Width = 640 }, CancellationToken.None);
+        var guest = await scope.Service.CreateGuestAsync(scope.EventId, Guest("Lina Haddad", vip.Id), CancellationToken.None);
+        var token = (await scope.Db.Guests.SingleAsync(item => item.Id == guest.Id)).InviteToken;
+        Assert.True(GuestInviteTokens.LooksValid(token));
+
+        var sites = new EventSiteService(
+            scope.Db,
+            new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()),
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(),
+            null!,
+            null!,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<EventSiteService>.Instance);
+
+        // Saved but not confirmed: links stay as before.
+        await sites.SetAsync(scope.EventId, new SetEventDomainRequest("https://Awards.Example.com/invite"), ["admin.example.com"], CancellationToken.None);
+        Assert.Null((await scope.Service.ListGuestsAsync(scope.EventId, null, false, CancellationToken.None)).Single().InvitationUrl);
+        await Assert.ThrowsAsync<AppException>(() =>
+            sites.SetAsync(scope.OtherEventId, new SetEventDomainRequest("awards.example.com"), [], CancellationToken.None));
+        await Assert.ThrowsAsync<AppException>(() =>
+            sites.SetAsync(scope.OtherEventId, new SetEventDomainRequest("admin.example.com"), ["admin.example.com"], CancellationToken.None));
+
+        var stored = await scope.Db.Events.SingleAsync(item => item.Id == scope.EventId);
+        Assert.Equal("awards.example.com", stored.CustomDomain);
+        stored.CustomDomainVerifiedOn = DateTime.UtcNow;
+        await scope.Db.SaveChangesAsync();
+
+        var listed = (await scope.Service.ListGuestsAsync(scope.EventId, null, false, CancellationToken.None)).Single();
+        Assert.Equal($"https://awards.example.com/invitation.html?g={token}", listed.InvitationUrl);
+
+        await scope.Service.IssueInvitationsAsync(scope.EventId, new GuestIdsRequest([guest.Id]), "http://localhost:5080", "http://localhost:5173", CancellationToken.None);
+        var html = (await scope.Db.GuestInvitationIssues.SingleAsync()).Html;
+        Assert.Contains($"https://awards.example.com/rsvp.html?g={token}&amp;r=accept", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("/invite/sample-event", html, StringComparison.Ordinal);
+
+        var site = await sites.FindByHostAsync("awards.example.com", CancellationToken.None);
+        Assert.NotNull(site);
+        Assert.Null(await sites.FindByHostAsync("other.example.com", CancellationToken.None));
+
+        var page = await sites.InvitationPageAsync(site!, token, CancellationToken.None);
+        Assert.Equal(200, page.Status);
+        Assert.Contains("Lina Haddad", page.Html, StringComparison.Ordinal);
+        Assert.Equal(404, (await sites.InvitationPageAsync(site!, "0000000000000000", CancellationToken.None)).Status);
+        Assert.Equal(404, (await sites.InvitationPageAsync(site!, "../../etc", CancellationToken.None)).Status);
+
+        // Opening the reply page changes nothing; only the confirm (POST) records the reply.
+        var confirm = await sites.RsvpPageAsync(site!, token, "accept", CancellationToken.None);
+        Assert.Contains("method=\"post\"", confirm.Html, StringComparison.Ordinal);
+        Assert.Equal(GuestRsvp.Pending, (await scope.Db.Guests.AsNoTracking().SingleAsync(item => item.Id == guest.Id)).RsvpStatus);
+
+        var recorded = await sites.RecordRsvpAsync(site!, token, "accept", CancellationToken.None);
+        Assert.Equal(200, recorded.Status);
+        Assert.Equal(GuestRsvp.Accepted, (await scope.Db.Guests.AsNoTracking().SingleAsync(item => item.Id == guest.Id)).RsvpStatus);
+
+        // The confirm button's API: decline then accept again, each pointing at the right next page.
+        var declined = await sites.ConfirmRsvpAsync(site!, token, "decline", "Travelling", CancellationToken.None);
+        Assert.Equal($"/declined.html?g={token}", declined.Next);
+        Assert.Equal(GuestRsvp.Declined, (await scope.Db.Guests.AsNoTracking().SingleAsync(item => item.Id == guest.Id)).RsvpStatus);
+        var accepted = await sites.ConfirmRsvpAsync(site!, token, "accept", null, CancellationToken.None);
+        Assert.Equal($"/thank-you.html?g={token}", accepted.Next);
+        Assert.Equal(200, (await sites.AfterReplyPageAsync(site!, token, CancellationToken.None)).Status);
+        Assert.Equal(400, (await sites.ConfirmRsvpAsync(site!, token, "maybe", null, CancellationToken.None)).Status);
+
+        // A guest of another event cannot reply through this domain.
+        var other = await scope.Service.CreateGuestAsync(scope.OtherEventId, Guest("Omar", null), CancellationToken.None);
+        var otherToken = (await scope.Db.Guests.SingleAsync(item => item.Id == other.Id)).InviteToken;
+        Assert.Equal(404, (await sites.RecordRsvpAsync(site!, otherToken, "decline", CancellationToken.None)).Status);
+    }
+
+    [Fact]
+    public async Task Door_scan_checks_in_once_then_warns_and_seating_needs_a_check_in()
+    {
+        await using var scope = await TestScope.CreateAsync();
+        var guest = await scope.Service.CreateGuestAsync(scope.EventId, Guest("Lina Haddad", null, "Editor"), CancellationToken.None);
+        var checkIn = new CheckInService(scope.Db);
+
+        await Assert.ThrowsAsync<AppException>(() => checkIn.MarkSeatedAsync(scope.EventId, guest.Id, CancellationToken.None));
+
+        var empty = await checkIn.ScanAsync(scope.EventId, new CheckInScanRequest("   "), CancellationToken.None);
+        Assert.Equal(CheckInService.Invalid, empty.Status);
+        var unknown = await checkIn.ScanAsync(scope.EventId, new CheckInScanRequest("ffffffffffffffffffffffffffffffff"), CancellationToken.None);
+        Assert.Equal(CheckInService.NotFound, unknown.Status);
+        // A badge from another event is not on this guest list.
+        Assert.Equal(CheckInService.NotFound, (await checkIn.ScanAsync(scope.OtherEventId, new CheckInScanRequest(guest.CheckInCode), CancellationToken.None)).Status);
+
+        // The code works as a GUID with dashes and inside a link, in any case.
+        var asGuid = Guid.ParseExact(guest.CheckInCode, "N").ToString("D").ToUpperInvariant();
+        var first = await checkIn.ScanAsync(scope.EventId, new CheckInScanRequest(asGuid), CancellationToken.None);
+        Assert.Equal(CheckInService.CheckedIn, first.Status);
+        Assert.Equal(1, first.Guest!.CheckInCount);
+
+        var again = await checkIn.ScanAsync(scope.EventId, new CheckInScanRequest($"https://example.com/badge?uniqueId={guest.CheckInCode}"), CancellationToken.None);
+        Assert.Equal(CheckInService.AlreadyCheckedIn, again.Status);
+        Assert.Equal(2, again.Guest!.CheckInCount);
+        Assert.Equal(2, again.Guest.History.Length);
+
+        var seated = await checkIn.MarkSeatedAsync(scope.EventId, guest.Id, CancellationToken.None);
+        Assert.NotNull(seated.SeatedOn);
+        var seatedAgain = await checkIn.MarkSeatedAsync(scope.EventId, guest.Id, CancellationToken.None);
+        Assert.Equal(seated.SeatedOn, seatedAgain.SeatedOn);
+        Assert.Equal(3, seatedAgain.History.Length);
+
+        var live = await checkIn.LiveAsync(scope.EventId, 50, CancellationToken.None);
+        Assert.Equal((1, 1, 1), (live.TotalGuests, live.CheckedIn, live.Seated));
+        Assert.Equal(2, live.Scans.Length);
+        Assert.False(live.Scans[0].FirstScan);
+        Assert.True(live.Scans[1].FirstScan);
+        Assert.Equal(guest.CheckInCode, live.Scans[0].Code);
+
+        // Viewer link: works with its token, stops after a new one is made or it is turned off.
+        await Assert.ThrowsAsync<AppException>(() => checkIn.PublicLiveAsync("not-a-token", CancellationToken.None));
+        var share = await checkIn.RenewShareAsync(scope.EventId, CancellationToken.None);
+        var shared = await checkIn.PublicLiveAsync(share.Token!, CancellationToken.None);
+        Assert.Equal("sample-event", shared.EventName);
+        Assert.Equal(2, shared.Live.Scans.Length);
+        var renewed = await checkIn.RenewShareAsync(scope.EventId, CancellationToken.None);
+        await Assert.ThrowsAsync<AppException>(() => checkIn.PublicLiveAsync(share.Token!, CancellationToken.None));
+        await checkIn.DisableShareAsync(scope.EventId, CancellationToken.None);
+        await Assert.ThrowsAsync<AppException>(() => checkIn.PublicLiveAsync(renewed.Token!, CancellationToken.None));
+
+        // Draft and archived events: the door is closed and nothing is recorded.
+        var stored = await scope.Db.Events.SingleAsync(item => item.Id == scope.EventId);
+        stored.Status = EventStatus.Draft;
+        await scope.Db.SaveChangesAsync();
+        Assert.Equal(CheckInService.Closed, (await checkIn.ScanAsync(scope.EventId, new CheckInScanRequest(guest.CheckInCode), CancellationToken.None)).Status);
+        Assert.Equal(2, (await scope.Db.Guests.AsNoTracking().SingleAsync(item => item.Id == guest.Id)).CheckInCount);
+        await Assert.ThrowsAsync<AppException>(() =>
+            scope.Service.IssueInvitationsAsync(scope.EventId, new GuestIdsRequest([guest.Id]), "http://localhost:5080", "http://localhost:5173", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Front_desk_link_lists_guests_and_checks_in_by_hand()
+    {
+        await using var scope = await TestScope.CreateAsync();
+        var guest = await scope.Service.CreateGuestAsync(scope.EventId, Guest("Lina Haddad", null, "Editor"), CancellationToken.None);
+        var frontDesk = new FrontDeskService(scope.Db, new CheckInService(scope.Db));
+
+        await Assert.ThrowsAsync<AppException>(() => frontDesk.GetAsync("nope", CancellationToken.None));
+        var share = await frontDesk.RenewShareAsync(scope.EventId, CancellationToken.None);
+
+        var board = await frontDesk.GetAsync(share.Token!, CancellationToken.None);
+        Assert.Equal((1, 0), (board.Totals.Guests, board.Totals.CheckedIn));
+        Assert.Equal("Editor", board.Guests.Single().Position);
+
+        // Seating needs a check-in first; then both work and are logged as front desk.
+        await Assert.ThrowsAsync<AppException>(() => frontDesk.MarkSeatedAsync(share.Token!, guest.Id, CancellationToken.None));
+        var checkedIn = await frontDesk.CheckInAsync(share.Token!, guest.Id, CancellationToken.None);
+        Assert.Equal(CheckInService.CheckedIn, checkedIn.Status);
+        Assert.Equal(1, checkedIn.Guest!.CheckInCount);
+        var seated = await frontDesk.MarkSeatedAsync(share.Token!, guest.Id, CancellationToken.None);
+        Assert.NotNull(seated.Guest!.SeatedOn);
+        Assert.Contains(await scope.Db.GuestActivities.Select(item => item.Detail).ToListAsync(), detail => detail == "First check-in · front desk");
+
+        // The live board still counts a front-desk check-in as the first one.
+        Assert.True((await new CheckInService(scope.Db).LiveAsync(scope.EventId, 10, CancellationToken.None)).Scans.Single().FirstScan);
+
+        await frontDesk.DisableShareAsync(scope.EventId, CancellationToken.None);
+        await Assert.ThrowsAsync<AppException>(() => frontDesk.GetAsync(share.Token!, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Rsvp_page_confirms_through_the_api_with_decline_reasons()
+    {
+        await using var scope = await TestScope.CreateAsync();
+        var guest = await scope.Service.CreateGuestAsync(scope.EventId, Guest("Lina Haddad", null), CancellationToken.None);
+        var token = (await scope.Db.Guests.SingleAsync(item => item.Id == guest.Id)).InviteToken;
+        var stored = await scope.Db.Events.SingleAsync(item => item.Id == scope.EventId);
+        stored.AskDeclineReason = true;
+        await scope.Db.SaveChangesAsync();
+        var rsvp = new RsvpPageService(scope.Db, new FakeAssets());
+
+        var (code, html) = await rsvp.PageAsync(token, "decline", CancellationToken.None);
+        Assert.Equal(200, code);
+        Assert.Contains("Dear Lina Haddad,", html, StringComparison.Ordinal);
+        Assert.Contains("I have a prior commitment", html, StringComparison.Ordinal);
+        Assert.Contains("data-intent=\"decline\"", html, StringComparison.Ordinal);
+        // Opening the page changes nothing.
+        Assert.Equal(GuestRsvp.Pending, (await scope.Db.Guests.AsNoTracking().SingleAsync(item => item.Id == guest.Id)).RsvpStatus);
+
+        var (declineCode, declined) = await rsvp.ConfirmAsync(new PublicRsvpRequest(token, "Declined", "Other", "Travelling abroad"), CancellationToken.None);
+        Assert.Equal(200, declineCode);
+        Assert.Equal("declined", declined.Status);
+        var saved = await scope.Db.Guests.AsNoTracking().SingleAsync(item => item.Id == guest.Id);
+        Assert.Equal(GuestRsvp.Declined, saved.RsvpStatus);
+        Assert.Equal("Other: Travelling abroad", saved.DeclineReason);
+
+        var (acceptCode, accepted) = await rsvp.ConfirmAsync(new PublicRsvpRequest(token, "Accepted"), CancellationToken.None);
+        Assert.Equal(200, acceptCode);
+        Assert.Equal("accepted", accepted.Status);
+        Assert.Null((await scope.Db.Guests.AsNoTracking().SingleAsync(item => item.Id == guest.Id)).DeclineReason);
+        Assert.NotNull(await rsvp.QrAsync(token, "http://localhost:5080", CancellationToken.None));
+
+        Assert.Equal(404, (await rsvp.ConfirmAsync(new PublicRsvpRequest("0000000000000000", "Accepted"), CancellationToken.None)).Item1);
+        Assert.Equal(404, (await rsvp.PageAsync("not-a-token", "accept", CancellationToken.None)).Status);
+    }
+
+    [Theory]
+    [InlineData("excellenceawards2026.com", "excellenceawards2026.com")]
+    [InlineData("  HTTPS://Invite.Example.com/path?x=1 ", "invite.example.com")]
+    [InlineData("example.com.", "example.com")]
+    [InlineData("localhost", null)]
+    [InlineData("10.0.0.5", null)]
+    [InlineData("example.com:8080", null)]
+    [InlineData("no_dots", null)]
+    [InlineData("-bad-.com", null)]
+    public void Event_domains_are_cleaned_and_checked(string input, string? expected)
+    {
+        Assert.Equal(expected, Entourage.Application.Invitations.EventDomains.Normalize(input, out _));
     }
 
     [Fact]
@@ -307,7 +557,8 @@ public sealed class GuestDirectoryServiceTests
             StartDate = new DateOnly(2026, 10, 13),
             EndDate = new DateOnly(2026, 10, 13),
             Timezone = "Asia/Dubai",
-            Status = EventStatus.Draft,
+            // Active: invitations, guest pages and check-in only work on a live event.
+            Status = EventStatus.Active,
             CreatedBy = userId,
             CreatedOn = DateTime.UtcNow,
             UpdatedOn = DateTime.UtcNow,

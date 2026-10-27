@@ -28,5 +28,35 @@ public sealed class Event
 
     public bool IsActive { get; set; }
 
+    /// <summary>
+    /// The event's own web address, lower case and without "https://", e.g. "excellenceawards2026.com".
+    /// Its DNS points at this server; guests' invitation pages, RSVP buttons and images are served from it.
+    /// </summary>
+    public string? CustomDomain { get; set; }
+
+    /// <summary>When the domain was last confirmed to reach this server. Null = not (yet) confirmed.</summary>
+    public DateTime? CustomDomainVerifiedOn { get; set; }
+
+    /// <summary>
+    /// Secret code for the read-only live attendance link (/live/{token}) that can be sent to people
+    /// without an account. Null = no link; a new code makes the old link stop working.
+    /// </summary>
+    public string? LiveShareToken { get; set; }
+
+    /// <summary>
+    /// Secret code for the front-desk dashboard (/live-dashboard/{token}): the guest list with check-in details,
+    /// manual check-in and seating, without signing in. Null = no link.
+    /// </summary>
+    public string? FrontDeskToken { get; set; }
+
+    /// <summary>When a guest declines, offer an optional box for their reason.</summary>
+    public bool AskDeclineReason { get; set; }
+
+    /// <summary>Artwork shown to a guest after they confirm they will attend. Null = a text thank-you.</summary>
+    public Guid? ThankYouAssetId { get; set; }
+
+    /// <summary>Look and wording of the guest RSVP page (background, logo, font, texts) as JSON. Null = defaults.</summary>
+    public string? RsvpPageJson { get; set; }
+
     public User? Creator { get; set; }
 }

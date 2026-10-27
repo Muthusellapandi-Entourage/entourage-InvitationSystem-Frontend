@@ -27,6 +27,36 @@ export class ApiError extends Error {
   }
 }
 
+/** Signed-in request that returns a file (e.g. a PNG) instead of JSON. */
+export async function apiBlob(path: string, init?: RequestInit): Promise<Blob> {
+  const headers = new Headers(init?.headers)
+  if (init?.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  const token = accessTokenGetter()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  let response: Response
+  try {
+    response = await fetch(`${baseUrl}${path}`, { ...init, headers })
+  } catch {
+    throw new ApiError('Could not reach the server. Check your connection and try again.', 0)
+  }
+  if (!response.ok) {
+    if (response.status === 401) unauthorizedHandler()
+    let message = 'Request failed.'
+    let errors: Record<string, string[]> | undefined
+    try {
+      const payload = (await response.json()) as ApiEnvelope<unknown>
+      message = payload.message || message
+      errors = payload.errors
+    } catch {
+      // Not JSON; keep the generic message.
+    }
+    throw new ApiError(message, response.status, errors)
+  }
+  return response.blob()
+}
+
 export async function apiClient<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   headers.set('Accept', 'application/json')

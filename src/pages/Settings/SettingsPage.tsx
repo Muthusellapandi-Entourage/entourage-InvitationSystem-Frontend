@@ -1,3 +1,4 @@
+import { WalletSettingsSection } from '@/components/settings/WalletSettingsSection'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useAuth } from '@/stores/authStore'
 import { usePageBreadcrumbs } from '@/stores/breadcrumbStore'
@@ -74,6 +75,8 @@ export function SettingsPage() {
           ))}
         </dl>
       </section>
+
+      <WalletSettingsSection />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { eventApi } from '@/api/eventApi'
+import { EventDomainSection } from '@/components/events/EventDomainSection'
 import { EventForm } from '@/components/events/EventForm'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useEvent } from '@/hooks/useEvents'
@@ -52,6 +53,7 @@ export function EventSettingsPage() {
         }}
         />
       </section>
+      <EventDomainSection eventId={event.id} />
       <section className="mt-12 border-t border-border pt-8">
         <h2 className="text-base font-semibold">Authentication / Security</h2>
         <p className="mt-2 max-w-xl text-sm text-muted">

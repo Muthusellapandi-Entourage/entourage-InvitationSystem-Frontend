@@ -12,7 +12,7 @@ namespace Entourage.Api.Controllers;
 public sealed class EventAssetsController(IEventAssetService assets) : ControllerBase
 {
     [HttpPost]
-    [RequestSizeLimit(6 * 1024 * 1024)]
+    [RequestSizeLimit(16 * 1024 * 1024)]
     [RequestFormLimits(MultipartBodyLengthLimit = 6 * 1024 * 1024)]
     public async Task<ActionResult<ApiResponse<EventAssetDto>>> Upload(
         Guid eventId,

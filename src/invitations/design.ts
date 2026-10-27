@@ -78,6 +78,85 @@ export type InvitationDesign = {
   guides: DesignGuides | null
   /** Invitation background: a hex color, or 'transparent' for no fill. */
   backgroundColor: string
+  /** "Single image" mode: one uploaded design cut into strips. Null = the classic separate-image designer. */
+  slices?: SliceDesign | null
+}
+
+export type SliceRole = 'image' | 'name' | 'buttons'
+
+export type SlicePiece = { kind: 'image' | 'accept' | 'decline'; x: number; width: number; assetId: string }
+
+export type SliceStrip = { role: SliceRole; y: number; height: number; assetId: string | null; pieces?: SlicePiece[] | null }
+
+export const builtInNameFonts = ['Arial', 'Georgia', 'Times New Roman'] as const
+
+/** How each guest's name is drawn onto the name strip. Sizes are in the source image's pixels. */
+export type GuestNameImage = {
+  template: string
+  fontId: string | null
+  font: string
+  fontSize: number
+  color: string
+  align: TextAlign
+  valign: GroupVertical
+  paddingX: number
+  offsetY: number
+  positionEnabled: boolean
+  positionFontId: string | null
+  positionFont: string
+  positionFontSize: number
+  positionColor: string
+  lineGap: number
+}
+
+export type SliceDesign = {
+  sourceAssetId: string
+  sourceWidth: number
+  sourceHeight: number
+  strips: SliceStrip[]
+  name: GuestNameImage
+}
+
+export function defaultGuestNameImage(sourceWidth = 1200): GuestNameImage {
+  const size = Math.max(16, Math.round(sourceWidth * 0.045))
+  return {
+    template: 'Dear {name},',
+    fontId: null,
+    font: 'Arial',
+    fontSize: size,
+    color: '#FFFFFF',
+    align: 'left',
+    valign: 'middle',
+    paddingX: Math.round(sourceWidth * 0.08),
+    offsetY: 0,
+    positionEnabled: false,
+    positionFontId: null,
+    positionFont: 'Arial',
+    positionFontSize: Math.round(size * 0.55),
+    positionColor: '#FFFFFF',
+    lineGap: Math.round(size * 0.25),
+  }
+}
+
+/** Keeps a saved slice design as is when it looks complete; anything malformed is dropped. */
+function normalizeSlices(value: unknown): SliceDesign | null {
+  if (!value || typeof value !== 'object') return null
+  const slices = value as Partial<SliceDesign>
+  if (typeof slices.sourceAssetId !== 'string' || !Array.isArray(slices.strips) || !slices.name) return null
+  if (typeof slices.sourceWidth !== 'number' || typeof slices.sourceHeight !== 'number') return null
+  return {
+    sourceAssetId: slices.sourceAssetId,
+    sourceWidth: slices.sourceWidth,
+    sourceHeight: slices.sourceHeight,
+    strips: slices.strips.map((strip) => ({
+      role: strip.role === 'name' || strip.role === 'buttons' ? strip.role : 'image',
+      y: strip.y,
+      height: strip.height,
+      assetId: strip.assetId ?? null,
+      pieces: strip.pieces ?? null,
+    })),
+    name: { ...defaultGuestNameImage(slices.sourceWidth), ...slices.name },
+  }
 }
 
 export const defaultCanvasBackground = '#313131'
@@ -179,6 +258,7 @@ export function normalizeInvitationDesign(value: Partial<InvitationDesign> | nul
       value.backgroundColor === transparentBackground
         ? transparentBackground
         : (normalizeColor(value.backgroundColor) ?? defaultCanvasBackground),
+    slices: normalizeSlices(value.slices),
   }
 }
 

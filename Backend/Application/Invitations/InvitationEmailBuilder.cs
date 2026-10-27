@@ -68,8 +68,121 @@ public static class InvitationEmailBuilder
         }
     }
 
+    /// <summary>Placeholder for the per-guest name image URL in a sliced invitation.</summary>
+    public const string GuestNameImageToken = "{{GuestNameImage}}";
+
+    /// <summary>Placeholder for the name image's alt text ("Dear Salman K Juma,"), shown when images are blocked.</summary>
+    public const string GuestNameAltToken = "{{GuestNameAlt}}";
+
+    /// <summary>
+    /// A "single image" invitation: each strip is one full-width image row; the name strip is the guest's
+    /// own generated image; the buttons strip is split into pieces with Accept / Decline as links.
+    /// Widths are scaled from the source pixels to the email width and always add up exactly.
+    /// </summary>
+    private static string BuildSlicedTable(InvitationDesignDto design, SliceDesignDto slices, IReadOnlyDictionary<Guid, string> assetUrls)
+    {
+        var width = design.Width is >= 200 and <= 2400 ? design.Width.Value : 600;
+        var scale = width / (double)slices.SourceWidth;
+        var html = new StringBuilder();
+        html.Append("<table data-invitation-canvas=\"true\" data-sliced=\"true\" role=\"presentation\" width=\"").Append(width)
+            .Append("\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" align=\"center\" style=\"width:").Append(width)
+            .Append("px;max-width:100%;border-collapse:collapse;margin:0 auto;\">");
+        foreach (var strip in slices.Strips)
+        {
+            var rowHeight = Math.Max(1, (int)Math.Round(strip.Height * scale, MidpointRounding.AwayFromZero));
+            html.Append("<tr><td style=\"padding:0;line-height:0;font-size:0;\">");
+            if (strip.Role == "name")
+            {
+                html.Append("<img data-guest-name-image=\"true\" src=\"").Append(GuestNameImageToken)
+                    .Append("\" alt=\"").Append(GuestNameAltToken).Append("\" width=\"").Append(width).Append("\" height=\"").Append(rowHeight)
+                    .Append("\" style=\"display:block;width:100%;max-width:").Append(width)
+                    .Append("px;height:auto;border:0;color:#FFFFFF;font:600 18px Arial,sans-serif;\" />");
+            }
+            else if (strip.Role == "buttons" && strip.Pieces is { Length: > 0 } pieces)
+            {
+                html.Append("<table role=\"presentation\" width=\"").Append(width)
+                    .Append("\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:").Append(width)
+                    .Append("px;border-collapse:collapse;table-layout:fixed;\"><tr data-rsvp-row=\"true\">");
+                // Round each edge rather than each width, so the pieces always add up to the full width.
+                // Every piece gets the same exact pixel height: with height:auto, narrow pieces round to a
+                // different height than wide ones and the Accept / Decline row looks out of line.
+                foreach (var piece in pieces)
+                {
+                    var left = (int)Math.Round(piece.X * scale, MidpointRounding.AwayFromZero);
+                    var right = (int)Math.Round((piece.X + piece.Width) * scale, MidpointRounding.AwayFromZero);
+                    var pieceWidth = Math.Max(1, right - left);
+                    var src = WebUtility.HtmlEncode(assetUrls.TryGetValue(piece.AssetId, out var url) ? url : string.Empty);
+                    var image = $"<img src=\"{src}\" alt=\"{(piece.Kind == "accept" ? "Accept invitation" : piece.Kind == "decline" ? "Decline invitation" : string.Empty)}\" width=\"{pieceWidth}\" height=\"{rowHeight}\" style=\"display:block;width:{pieceWidth}px;height:{rowHeight}px;border:0;\" />";
+                    html.Append("<td width=\"").Append(pieceWidth).Append("\" height=\"").Append(rowHeight).Append("\" valign=\"top\" style=\"width:").Append(pieceWidth)
+                        .Append("px;height:").Append(rowHeight).Append("px;padding:0;line-height:0;font-size:0;vertical-align:top;\">");
+                    if (piece.Kind == "accept" || piece.Kind == "decline")
+                    {
+                        html.Append("<a href=\"").Append(piece.Kind == "accept" ? "{{AcceptUrl}}" : "{{DeclineUrl}}")
+                            .Append("\" target=\"_top\" style=\"display:block;text-decoration:none;line-height:0;font-size:0;\" data-image-slot=\"").Append(piece.Kind).Append("\">")
+                            .Append(image).Append("</a>");
+                    }
+                    else
+                    {
+                        html.Append(image);
+                    }
+
+                    html.Append("</td>");
+                }
+
+                html.Append("</tr></table>");
+            }
+            else if (strip.AssetId is Guid assetId && assetUrls.TryGetValue(assetId, out var stripUrl))
+            {
+                html.Append("<img src=\"").Append(WebUtility.HtmlEncode(stripUrl)).Append("\" alt=\"\" width=\"").Append(width)
+                    .Append("\" height=\"").Append(rowHeight).Append("\" style=\"display:block;width:100%;max-width:").Append(width)
+                    .Append("px;height:auto;border:0;\" />");
+            }
+
+            html.Append("</td></tr>");
+        }
+
+        html.Append("</table>");
+        return html.ToString();
+    }
+
+    /// <summary>Every uploaded image a design references, for ownership checks and public URLs.</summary>
+    public static Guid[] AllAssetIds(InvitationDesignDto design) =>
+        new[] { design.HeaderAssetId, design.DetailsAssetId, design.AcceptAssetId, design.DeclineAssetId }
+            .OfType<Guid>()
+            .Concat(SliceAssetIds(design.Slices))
+            .Distinct()
+            .ToArray();
+
+    /// <summary>Every image a sliced design uses: the source, each strip and each button piece.</summary>
+    public static IEnumerable<Guid> SliceAssetIds(SliceDesignDto? slices)
+    {
+        if (slices is null)
+        {
+            yield break;
+        }
+
+        yield return slices.SourceAssetId;
+        foreach (var strip in slices.Strips ?? [])
+        {
+            if (strip.AssetId is Guid id)
+            {
+                yield return id;
+            }
+
+            foreach (var piece in strip.Pieces ?? [])
+            {
+                yield return piece.AssetId;
+            }
+        }
+    }
+
     public static string BuildTable(InvitationDesignDto design, IReadOnlyDictionary<Guid, string> assetUrls)
     {
+        if (design.Slices is { } slices)
+        {
+            return BuildSlicedTable(design, slices, assetUrls);
+        }
+
         var width = design.Width is >= 200 and <= 2400 ? design.Width.Value : 560;
         int? height = design.Height is >= 200 and <= 4000 ? design.Height : null;
         var fill = CanvasFill.From(design);

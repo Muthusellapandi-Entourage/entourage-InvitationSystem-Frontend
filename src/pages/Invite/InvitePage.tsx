@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import { personalInvitationUrl } from '@/invitations/guestLinks'
 import { ApiError, apiBaseUrl } from '@/api/client'
 import { invitationApi } from '@/api/invitationApi'
 import { InvitationCard } from '@/components/invitations/InvitationCard'
@@ -8,18 +10,27 @@ import { renderInvitationHtml } from '@/invitations/emailHtml'
 
 export function InvitePage() {
   const { slug = '' } = useParams()
+  // Personal links from the guest list carry the guest's name (and position) so the invitation greets them.
+  const [params] = useSearchParams()
+  const guestName = params.get('name')?.trim().slice(0, 120) || 'Guest'
+  const guestPosition = params.get('position')?.trim().slice(0, 200) || ''
+  // A guest's personal code: open their own invitation, whose Accept / Decline go to the RSVP page.
+  const personal = params.get('g')?.trim() ?? ''
+  useEffect(() => {
+    if (/^[0-9a-f]{16}$/i.test(personal)) window.location.replace(personalInvitationUrl(personal))
+  }, [personal])
   const query = useQuery({
     queryKey: ['public-invitation', slug],
     queryFn: () => invitationApi.getPublic(slug),
-    enabled: Boolean(slug),
+    enabled: Boolean(slug) && !personal,
     retry: false,
   })
 
   useDocumentTitle(query.data ? query.data.eventName : 'Invitation')
   const email = query.data?.html
     ? renderInvitationHtml(query.data.html, {
-        guestName: 'Guest',
-        guestPosition: '',
+        guestName,
+        guestPosition,
         acceptUrl: `${window.location.origin}/invite/${query.data.slug}/rsvp?status=accept`,
         declineUrl: `${window.location.origin}/invite/${query.data.slug}/rsvp?status=decline`,
         assetOrigin: apiBaseUrl,

@@ -8,14 +8,37 @@ namespace Entourage.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(IAuthService authService, ICurrentUser currentUser) : ControllerBase
+public sealed class AuthController(
+    IAuthService authService,
+    ICurrentUser currentUser,
+    Entourage.Infrastructure.Authentication.MicrosoftSignInService microsoft) : ControllerBase
 {
+    /// <summary>Which sign-in methods the login page offers.</summary>
+    [AllowAnonymous]
+    [HttpGet("options")]
+    public ActionResult<ApiResponse<AuthOptionsDto>> Options() => Ok(new ApiResponse<AuthOptionsDto>(true, microsoft.Options()));
+
+    [AllowAnonymous]
+    [HttpPost("microsoft")]
+    public async Task<ActionResult<ApiResponse<AuthSessionDto>>> MicrosoftSignIn(
+        MicrosoftSignInRequest request,
+        CancellationToken cancellationToken)
+    {
+        var session = await microsoft.SignInAsync(request, cancellationToken);
+        return Ok(new ApiResponse<AuthSessionDto>(true, session));
+    }
+
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<ApiResponse<AuthSessionDto>>> Login(
         LoginRequest request,
         CancellationToken cancellationToken)
     {
+        if (!microsoft.Options().PasswordLogin)
+        {
+            throw AppException.Forbidden("Sign in with your Microsoft work account.");
+        }
+
         var session = await authService.LoginAsync(request, cancellationToken);
         return Ok(new ApiResponse<AuthSessionDto>(true, session));
     }

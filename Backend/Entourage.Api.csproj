@@ -16,6 +16,13 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
+    <!-- Draws each guest's name onto the invitation's name band (MIT licensed). HarfBuzz shapes Arabic and joined scripts. -->
+    <PackageReference Include="SkiaSharp" Version="3.116.1" />
+    <PackageReference Include="SkiaSharp.HarfBuzz" Version="3.116.1" />
+    <!-- Native Skia for Linux servers; Windows and macOS natives come with the SkiaSharp package. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.116.1" />
+    <!-- QR codes on server-made E-Badges and Wallet passes (MIT licensed). -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
 </Project>

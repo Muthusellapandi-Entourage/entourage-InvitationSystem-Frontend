@@ -13,9 +13,10 @@ const modules = [
   { label: 'Guest types', path: 'guest-types', enabled: true },
   { label: 'Guests', path: 'guests', enabled: true },
   { label: 'Invitations', path: 'invitations', enabled: true },
+  { label: 'RSVP', path: 'rsvp', enabled: true },
   { label: 'E-Badges', path: 'badges', enabled: true },
-  { label: 'RSVP', path: 'rsvp', enabled: false },
-  { label: 'Check-in', path: 'check-in', enabled: false },
+  { label: 'Check-in', path: 'check-in', enabled: true },
+  { label: 'Live attendance', path: 'live', enabled: true, liveOnly: true },
   { label: 'Seating', path: 'seating', enabled: true },
   { label: 'Analytics', path: 'analytics', enabled: false },
 ]
@@ -70,11 +71,34 @@ export function EventLayout() {
           Edit event
         </Link>
       </div>
+      {event.status !== 'Active' ? (
+        <p
+          role="note"
+          className={cn(
+            'mt-4 rounded-lg border px-4 py-3 text-sm',
+            event.status === 'Draft' ? 'border-amber-500/40 bg-amber-500/10' : 'border-border bg-hover',
+          )}
+        >
+          <span className="font-semibold">{event.status === 'Draft' ? 'Draft — not live yet.' : 'Archived — read-only.'}</span>{' '}
+          {event.status === 'Draft'
+            ? 'You can set everything up, but invitations cannot be sent, guest links are closed and the door scanner is off. Set the event to Active when you are ready.'
+            : 'Nothing can be changed, invitations cannot be sent, and guest links and the door scanner are closed. Set the event to Active to reopen it.'}{' '}
+          <Link to={`/events/${event.id}/settings`} className="font-medium underline underline-offset-4">
+            Change status
+          </Link>
+        </p>
+      ) : null}
       <nav aria-label="Event" className="mt-6 flex flex-wrap gap-x-1 gap-y-1 border-b border-border">
         {modules.map((module) => {
-          if (!module.enabled) {
+          const waitingForLive = 'liveOnly' in module && module.liveOnly && event.status !== 'Active'
+          if (!module.enabled || waitingForLive) {
             return (
-              <span key={module.label} className="shrink-0 px-3 py-2 text-sm text-muted" aria-disabled="true">
+              <span
+                key={module.label}
+                className="shrink-0 px-3 py-2 text-sm text-muted"
+                aria-disabled="true"
+                title={waitingForLive ? 'Available while the event is Active' : undefined}
+              >
                 {module.label}
               </span>
             )
