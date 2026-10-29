@@ -1,12 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Eye, Loader2, Minus, Monitor, Plus, Redo2, Save, Smartphone, Undo2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
+import { Eye, Loader2, Monitor, Smartphone } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { apiBaseUrl } from '@/api/client'
 import { fontApi } from '@/api/fontApi'
 import { invitationApi } from '@/api/invitationApi'
 import { micrositeApi } from '@/api/micrositeApi'
 import { Button } from '@/components/ui/Button'
+import { DesignerShell, PanelTabs, useZoom } from '@/designer/DesignerShell'
+import { EventDesignerSwitcher } from '@/designer/DesignerSwitcher'
+import { LayersPanel } from '@/designer/LayersPanel'
+import { emptyGuides, Stage, type StageGuides, type StageItem } from '@/designer/Stage'
+import { useHistory } from '@/designer/useHistory'
 import { cn } from '@/lib/cn'
 import {
   copyHomeLook,
@@ -17,7 +22,6 @@ import {
   mergePage,
   pageInfo,
   pageView,
-  type PageKey,
   uploadedFontFamily,
   widthOf,
   withFrame,
@@ -25,18 +29,18 @@ import {
   type Layout,
   type MicrositeDesign,
   type MicrositeElement,
+  type PageKey,
   type Preset,
   type ShowRule,
 } from '@/microsite/design'
 import { MicrositeElementView, textStyle, type Sample } from './MicrositeElementView'
-import { ElementPanel, InsertPanel, PagePanel, type FontOption } from './MicrositePanels'
+import { ElementPanel, InsertPanel, layerIcon, layerLabel, PagePanel, type FontOption } from './MicrositePanels'
 
 type ViewAs = 'pending' | 'accepted' | 'declined' | 'public'
-type Handle = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw'
-type Guides = { x: number[]; y: number[] }
 
-const SNAP_PX = 6
 const registered = new Set<string>()
+/** Space above the artboard inside the stage's scroll area (Stage PAD). */
+const STAGE_PAD = 48
 
 /** Whether an element shows for the chosen "view as" (the same rules the server applies). */
 function visibleFor(element: MicrositeElement, viewAs: ViewAs) {
@@ -58,9 +62,8 @@ function visibleFor(element: MicrositeElement, viewAs: ViewAs) {
 }
 
 /**
- * The microsite designer: a free canvas with a desktop (1200 px) and a phone (390 px) layout. Drag to move,
- * handles to resize (they snap to the centre and to other elements), double-click text to edit it,
- * and arrow keys to nudge. Each element keeps its own position in each layout.
+ * The microsite designer on the shared designer frame: a desktop (1200 px) and a phone (390 px) layout,
+ * rulers, guides, snapping, layers, undo, zoom and pan. Each element keeps its own place in each layout.
  */
 export function MicrositeDesigner({
   eventId,
@@ -71,7 +74,6 @@ export function MicrositeDesigner({
   publicUrl,
   saving,
   onSave,
-  onBack,
 }: {
   eventId: string
   eventName: string
@@ -81,12 +83,11 @@ export function MicrositeDesigner({
   publicUrl: string | null
   saving: boolean
   onSave: (design: MicrositeDesign, published: boolean, publicEnabled: boolean) => Promise<boolean>
-  onBack: (dirty: boolean) => void
 }) {
-  const [history, setHistory] = useState({ past: [] as MicrositeDesign[], present: initial, future: [] as MicrositeDesign[] })
-  const [pageKey, setPageKey] = useState<PageKey>('home')
-  /** The whole site (home + reply pages) as saved; `design` is the page being edited, in the home page's shape. */
+  const history = useHistory<MicrositeDesign>(initial)
   const site = history.present
+  const [pageKey, setPageKey] = useState<PageKey>('home')
+  /** The page being edited, in the home page's shape. */
   const design = useMemo(() => pageView(site, pageKey), [site, pageKey])
   const [saved, setSaved] = useState({ design: initial, published: initialPublished, publicEnabled: initialPublic })
   const [published, setPublished] = useState(initialPublished)
@@ -95,61 +96,45 @@ export function MicrositeDesigner({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [viewAs, setViewAs] = useState<ViewAs>('pending')
-  const [zoom, setZoom] = useState<number | 'fit'>('fit')
-  const [guides, setGuides] = useState<Guides | null>(null)
-  const [stageWidth, setStageWidth] = useState(1000)
+  const [guides, setGuides] = useState<Record<Layout, StageGuides>>({ desktop: emptyGuides, mobile: emptyGuides })
   const [uploading, setUploading] = useState(false)
   const [previewing, setPreviewing] = useState(false)
-  const stageRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const zoom = useZoom()
+  const stageWrap = useRef<HTMLDivElement>(null)
+  const dragStart = useRef<MicrositeDesign | null>(null)
 
   const width = widthOf(layout)
   const height = layout === 'desktop' ? design.desktopHeight : design.mobileHeight
-  const fitScale = Math.min(layout === 'desktop' ? 1 : 1.4, Math.max(0.1, (stageWidth - 64) / width))
-  const scale = zoom === 'fit' ? fitScale : zoom
   const selected = design.elements.find((element) => element.id === selectedId) ?? null
-  const dirty =
-    published !== saved.published || publicEnabled !== saved.publicEnabled || JSON.stringify(site) !== JSON.stringify(saved.design)
+  const dirty = published !== saved.published || publicEnabled !== saved.publicEnabled || JSON.stringify(site) !== JSON.stringify(saved.design)
   // Reply pages show the guest at that step; the home page follows "View as".
-  const effectiveView: ViewAs =
-    pageKey === 'thanks' ? 'accepted' : pageKey === 'declined' ? 'declined' : pageKey === 'home' ? viewAs : 'pending'
+  const effectiveView: ViewAs = pageKey === 'thanks' ? 'accepted' : pageKey === 'declined' ? 'declined' : pageKey === 'home' ? viewAs : 'pending'
   const sample: Sample = useMemo(() => ({ name: 'Salman K Juma', position: 'Director, Finance', company: 'Sample Company', event: eventName }), [eventName])
 
-  /* ---------------- history ---------------- */
-  /** Saves an edit of the current page into the site and the undo history. */
-  const commit = useCallback(
-    (next: MicrositeDesign) => {
-      setHistory((current) => ({ past: [...current.past.slice(-80), current.present], present: mergePage(current.present, pageKey, next), future: [] }))
-    },
-    [pageKey],
-  )
-  /** Updates the current page while dragging, without adding undo steps. */
-  const live = useCallback(
-    (next: MicrositeDesign) => setHistory((current) => ({ ...current, present: mergePage(current.present, pageKey, next) })),
-    [pageKey],
-  )
-  const undo = useCallback(
-    () =>
-      setHistory((current) =>
-        current.past.length === 0
-          ? current
-          : { past: current.past.slice(0, -1), present: current.past[current.past.length - 1], future: [current.present, ...current.future] },
-      ),
-    [],
-  )
-  const redo = useCallback(
-    () =>
-      setHistory((current) =>
-        current.future.length === 0 ? current : { past: [...current.past, current.present], present: current.future[0], future: current.future.slice(1) },
-      ),
-    [],
-  )
-
-  const update = useCallback(
-    (id: string, change: (element: MicrositeElement) => MicrositeElement) =>
-      commit({ ...design, elements: design.elements.map((element) => (element.id === id ? change(element) : element)) }),
-    [commit, design],
-  )
+  /* ---------------- editing ---------------- */
+  /** Edits the current page as one undo step. */
+  const editPage = (change: (page: MicrositeDesign) => MicrositeDesign) => history.commit((current) => mergePage(current, pageKey, change(pageView(current, pageKey))))
+  const update = (id: string, change: (element: MicrositeElement) => MicrositeElement) =>
+    editPage((page) => ({ ...page, elements: page.elements.map((element) => (element.id === id ? change(element) : element)) }))
+  const remove = (id: string) => {
+    editPage((page) => ({ ...page, elements: page.elements.filter((element) => element.id !== id) }))
+    setSelectedId(null)
+  }
+  const copy = (element: MicrositeElement) => {
+    const next = { ...duplicate(element), locked: false, name: element.name ? `${element.name} copy` : null }
+    editPage((page) => ({ ...page, elements: [...page.elements, next] }))
+    setSelectedId(next.id)
+  }
+  function reorder(id: string, direction: 1 | -1) {
+    editPage((page) => {
+      const index = page.elements.findIndex((element) => element.id === id)
+      const target = index + direction
+      if (index < 0 || target < 0 || target >= page.elements.length) return page
+      const elements = [...page.elements]
+      ;[elements[index], elements[target]] = [elements[target], elements[index]]
+      return { ...page, elements }
+    })
+  }
 
   /* ---------------- fonts ---------------- */
   const fontsQuery = useQuery({ queryKey: ['event-fonts', eventId], queryFn: () => fontApi.list(eventId) })
@@ -165,238 +150,18 @@ export function MicrositeDesigner({
     }
   }, [fontsQuery.data])
 
-  /* ---------------- stage size ---------------- */
-  useEffect(() => {
-    const stage = stageRef.current
-    if (!stage) return
-    const observer = new ResizeObserver(() => setStageWidth(stage.clientWidth))
-    observer.observe(stage)
-    setStageWidth(stage.clientWidth)
-    return () => observer.disconnect()
-  }, [])
-
-  /* ---------------- leave warning ---------------- */
-  useEffect(() => {
-    if (!dirty) return
-    const warn = (event: BeforeUnloadEvent) => event.preventDefault()
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
-
-  /* ---------------- keyboard ---------------- */
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null
-      if (target && (target.closest('input, textarea, select, [contenteditable="true"]') || editingId)) return
-      const mod = event.ctrlKey || event.metaKey
-      if (mod && event.key.toLowerCase() === 'z') {
-        event.preventDefault()
-        if (event.shiftKey) redo()
-        else undo()
-        return
-      }
-      if (mod && event.key.toLowerCase() === 'y') {
-        event.preventDefault()
-        redo()
-        return
-      }
-      if (mod && event.key.toLowerCase() === 's') {
-        event.preventDefault()
-        void save()
-        return
-      }
-      if (!selected) return
-      if (mod && event.key.toLowerCase() === 'd') {
-        event.preventDefault()
-        const copy = duplicate(selected)
-        commit({ ...design, elements: [...design.elements, copy] })
-        setSelectedId(copy.id)
-        return
-      }
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        event.preventDefault()
-        commit({ ...design, elements: design.elements.filter((element) => element.id !== selected.id) })
-        setSelectedId(null)
-        return
-      }
-      if (event.key === 'Escape') {
-        setSelectedId(null)
-        return
-      }
-      const step = event.shiftKey ? 10 : 1
-      const arrows: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }
-      const delta = arrows[event.key]
-      if (delta) {
-        event.preventDefault()
-        const frame = frameOf(selected, layout)
-        update(selected.id, (element) => withFrame(element, layout, { ...frame, x: frame.x + delta[0], y: frame.y + delta[1] }))
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
-
-  /* ---------------- drag and resize ---------------- */
-  function snapLines(exclude: string) {
-    const xs = [0, width / 2, width]
-    const ys = [0, height / 2]
-    for (const element of design.elements) {
-      if (element.id === exclude) continue
-      const frame = frameOf(element, layout)
-      if (frame.hidden) continue
-      xs.push(frame.x, frame.x + frame.w / 2, frame.x + frame.w)
-      ys.push(frame.y, frame.y + frame.h / 2, frame.y + frame.h)
-    }
-    return { xs, ys }
-  }
-
-  function nearest(values: number[], lines: number[], threshold: number) {
-    let best: { shift: number; line: number } | null = null
-    for (const value of values) {
-      for (const line of lines) {
-        const shift = line - value
-        if (Math.abs(shift) <= threshold && (!best || Math.abs(shift) < Math.abs(best.shift))) best = { shift, line }
-      }
-    }
-    return best
-  }
-
-  function startDrag(element: MicrositeElement, event: ReactPointerEvent, handle: Handle | null) {
-    if (event.button !== 0) return
-    event.preventDefault()
-    event.stopPropagation()
-    setSelectedId(element.id)
-    if (editingId && editingId !== element.id) setEditingId(null)
-    const before = design
-    const beforeSite = site
-    const start = frameOf(element, layout)
-    const startX = event.clientX
-    const startY = event.clientY
-    const lines = snapLines(element.id)
-    const threshold = SNAP_PX / scale
-    const keepRatio = element.kind === 'image' && handle !== null && handle.length === 2
-    let moved = false
-
-    const move = (moveEvent: PointerEvent) => {
-      const dx = (moveEvent.clientX - startX) / scale
-      const dy = (moveEvent.clientY - startY) / scale
-      if (!moved && Math.abs(dx) + Math.abs(dy) < 2 / scale) return
-      moved = true
-      const snap = !moveEvent.altKey
-      let next: Frame = { ...start }
-      const shown: Guides = { x: [], y: [] }
-      if (!handle) {
-        next.x = start.x + dx
-        next.y = start.y + dy
-        if (snap) {
-          const sx = nearest([next.x, next.x + next.w / 2, next.x + next.w], lines.xs, threshold)
-          const sy = nearest([next.y, next.y + next.h / 2, next.y + next.h], lines.ys, threshold)
-          if (sx) {
-            next.x += sx.shift
-            shown.x.push(sx.line)
-          }
-          if (sy) {
-            next.y += sy.shift
-            shown.y.push(sy.line)
-          }
-        }
-      } else {
-        let { x, y, w, h } = start
-        if (handle.includes('e')) w = start.w + dx
-        if (handle.includes('s')) h = start.h + dy
-        if (handle.includes('w')) {
-          w = start.w - dx
-          x = start.x + dx
-        }
-        if (handle.includes('n')) {
-          h = start.h - dy
-          y = start.y + dy
-        }
-        if (snap) {
-          if (handle.includes('e')) {
-            const s = nearest([x + w], lines.xs, threshold)
-            if (s) {
-              w += s.shift
-              shown.x.push(s.line)
-            }
-          }
-          if (handle.includes('w')) {
-            const s = nearest([x], lines.xs, threshold)
-            if (s) {
-              x += s.shift
-              w -= s.shift
-              shown.x.push(s.line)
-            }
-          }
-          if (handle.includes('s')) {
-            const s = nearest([y + h], lines.ys, threshold)
-            if (s) {
-              h += s.shift
-              shown.y.push(s.line)
-            }
-          }
-          if (handle.includes('n')) {
-            const s = nearest([y], lines.ys, threshold)
-            if (s) {
-              y += s.shift
-              h -= s.shift
-              shown.y.push(s.line)
-            }
-          }
-        }
-        w = Math.max(8, w)
-        h = Math.max(2, h)
-        if (keepRatio && start.w > 0) {
-          h = Math.round((w * start.h) / start.w)
-          if (handle.includes('n')) y = start.y + start.h - h
-        }
-        if (handle.includes('w')) x = Math.min(x, start.x + start.w - 8)
-        next = { ...start, x, y, w, h }
-      }
-      next = { ...next, x: Math.round(next.x), y: Math.round(next.y), w: Math.round(next.w), h: Math.round(next.h) }
-      setGuides(shown.x.length || shown.y.length ? shown : null)
-      live({ ...before, elements: before.elements.map((item) => (item.id === element.id ? withFrame(item, layout, next) : item)) })
-    }
-    const up = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-      setGuides(null)
-      if (moved) {
-        setHistory((current) => ({ past: [...current.past.slice(-80), beforeSite], present: current.present, future: [] }))
-      }
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-  }
-
-  function startPageResize(event: ReactPointerEvent) {
-    event.preventDefault()
-    const before = design
-    const beforeSite = site
-    const startY = event.clientY
-    const startHeight = height
-    const move = (moveEvent: PointerEvent) => {
-      const next = Math.max(200, Math.min(20000, Math.round(startHeight + (moveEvent.clientY - startY) / scale)))
-      live(layout === 'desktop' ? { ...before, desktopHeight: next } : { ...before, mobileHeight: next })
-    }
-    const up = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-      setHistory((current) => ({ past: [...current.past.slice(-80), beforeSite], present: current.present, future: [] }))
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-  }
-
   /* ---------------- adding ---------------- */
+  /** Top of the visible part of a long desktop page, so new things land where the user is looking. */
   function visibleTop() {
-    const scroller = scrollRef.current
-    return scroller ? Math.max(0, (scroller.scrollTop - 32) / scale) : 0
+    if (layout !== 'desktop') return 0
+    const scroller = stageWrap.current?.querySelector('[data-stage-empty="true"]')?.parentElement
+    const factor = zoom.value === 'fit' ? zoom.fit : zoom.value
+    return scroller ? Math.max(0, (scroller.scrollTop - STAGE_PAD) / factor) : 0
   }
 
   function add(preset: Preset) {
-    const element = createElement(preset, design, layout === 'desktop' ? visibleTop() : 0)
-    commit({ ...design, elements: [...design.elements, element] })
+    const element = createElement(preset, design, visibleTop())
+    editPage((page) => ({ ...page, elements: [...page.elements, element] }))
     setSelectedId(element.id)
   }
 
@@ -413,8 +178,8 @@ export function MicrositeDesigner({
       if (replaceId) {
         update(replaceId, (element) => ({ ...element, assetId: asset.id }))
       } else {
-        const element = createImage(asset.id, natural, design, layout === 'desktop' ? visibleTop() : 0)
-        commit({ ...design, elements: [...design.elements, element] })
+        const element = createImage(asset.id, natural, design, visibleTop())
+        editPage((page) => ({ ...page, elements: [...page.elements, element] }))
         setSelectedId(element.id)
       }
     } catch {
@@ -426,13 +191,13 @@ export function MicrositeDesigner({
 
   async function setBackgroundImage(file: File | null) {
     if (!file) {
-      commit({ ...design, backgroundAssetId: null })
+      editPage((page) => ({ ...page, backgroundAssetId: null }))
       return
     }
     setUploading(true)
     try {
       const asset = await invitationApi.uploadAsset(eventId, file)
-      commit({ ...design, backgroundAssetId: asset.id })
+      editPage((page) => ({ ...page, backgroundAssetId: asset.id }))
     } catch {
       toast.error('The background image could not be uploaded.')
     } finally {
@@ -440,19 +205,11 @@ export function MicrositeDesigner({
     }
   }
 
-  function reorder(id: string, direction: 1 | -1) {
-    const index = design.elements.findIndex((element) => element.id === id)
-    const target = index + direction
-    if (index < 0 || target < 0 || target >= design.elements.length) return
-    const elements = [...design.elements]
-    ;[elements[index], elements[target]] = [elements[target], elements[index]]
-    commit({ ...design, elements })
-  }
-
   /* ---------------- save / preview ---------------- */
   async function save() {
     const ok = await onSave(site, published, publicEnabled)
     if (ok) setSaved({ design: site, published, publicEnabled })
+    return ok
   }
 
   async function preview(asGuest: boolean) {
@@ -472,20 +229,143 @@ export function MicrositeDesigner({
     }
   }
 
+  function switchTo(next: { layout?: Layout; page?: PageKey }) {
+    if (next.layout) setLayout(next.layout)
+    if (next.page) {
+      setPageKey(next.page)
+      setSelectedId(null)
+    }
+    setEditingId(null)
+    zoom.set('fit')
+  }
+
+  /* ---------------- stage ---------------- */
+  const items: StageItem[] = design.elements.map((element) => {
+    const frame = frameOf(element, layout)
+    return {
+      id: element.id,
+      label: layerLabel(element),
+      x: frame.x,
+      y: frame.y,
+      w: frame.w,
+      h: frame.h,
+      hidden: frame.hidden === true,
+      locked: element.locked === true,
+      // Cropped images (cover / stretch) resize freely; whole-picture images keep their shape.
+      keepRatio: element.kind === 'image' && element.fit === 'contain',
+      square: element.kind === 'qr',
+    }
+  })
+
   const backgroundUrl = design.backgroundAssetId ? `${apiBaseUrl}/api/public/assets/${design.backgroundAssetId}` : null
 
-  return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
-      {/* Top bar */}
-      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
-        <button type="button" className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted hover:bg-hover hover:text-foreground" onClick={() => onBack(dirty)}>
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Back
-        </button>
-        <span className="h-5 w-px bg-border" aria-hidden="true" />
-        <h1 className="truncate text-sm font-semibold">Microsite · {eventName}</h1>
+  const layersPanel = (
+    <>
+      <p className="mb-3 text-xs text-muted">{layout === 'desktop' ? 'Desktop' : 'Phone'} layout · eye hides on this layout only.</p>
+      <LayersPanel
+        rows={design.elements.map((element) => ({
+          id: element.id,
+          label: layerLabel(element),
+          icon: layerIcon(element),
+          hidden: frameOf(element, layout).hidden === true,
+          locked: element.locked === true,
+        }))}
+        selectedId={selectedId}
+        onSelect={(id) => {
+          setSelectedId(id)
+          setEditingId(null)
+        }}
+        onReorder={(ids) => editPage((page) => ({ ...page, elements: ids.map((id) => page.elements.find((element) => element.id === id)!).filter(Boolean) }))}
+        onToggleHidden={(id) => update(id, (element) => withFrame(element, layout, { ...frameOf(element, layout), hidden: !frameOf(element, layout).hidden }))}
+        onToggleLocked={(id) => update(id, (element) => ({ ...element, locked: !element.locked }))}
+        onRename={(id, name) => update(id, (element) => ({ ...element, name: name || null }))}
+        empty="Nothing on the page yet. Add a heading, text, image or buttons."
+      />
+    </>
+  )
 
-        <div className="mx-auto flex items-center gap-1 rounded-lg border border-border p-0.5" role="group" aria-label="Layout">
+  return (
+    <DesignerShell
+      title="Microsite"
+      subtitle={`${eventName} · ${pageInfo[pageKey].label} · ${layout === 'desktop' ? 'Desktop' : 'Phone'}`}
+      backLabel="Designs"
+      backTo={`/events/${eventId}/designs`}
+      switcher={<EventDesignerSwitcher eventId={eventId} kind="microsite" />}
+      history={history}
+      zoom={{ value: zoom.value, fit: zoom.fit, set: zoom.set }}
+      save={{ dirty, saving, onSave: save }}
+      actions={
+        <Button variant="secondary" className="h-9" disabled={previewing} onClick={() => void preview(viewAs !== 'public')}>
+          {previewing ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+          <span className="hidden xl:inline">Preview</span>
+        </Button>
+      }
+      keys={{
+        onDelete: selected && !editingId ? () => remove(selected.id) : undefined,
+        onDuplicate: selected ? () => copy(selected) : undefined,
+        onEscape: () => {
+          setSelectedId(null)
+          setEditingId(null)
+        },
+        onNudge:
+          selected && !selected.locked && !editingId
+            ? (dx, dy, big) => {
+                const step = big ? 10 : 1
+                update(selected.id, (element) => {
+                  const frame = frameOf(element, layout)
+                  return withFrame(element, layout, { ...frame, x: frame.x + dx * step, y: frame.y + dy * step })
+                })
+              }
+            : undefined,
+      }}
+      left={
+        <PanelTabs
+          tabs={[
+            { key: 'add', label: 'Add', content: <InsertPanel pageKey={pageKey} uploading={uploading} onAdd={add} onImage={(file) => void addImage(file)} /> },
+            { key: 'layers', label: `Layers (${design.elements.length})`, content: layersPanel },
+          ]}
+        />
+      }
+      right={
+        <div className="-m-4">
+          {selected ? (
+            <ElementPanel
+              element={selected}
+              layout={layout}
+              fonts={fonts}
+              uploading={uploading}
+              onChange={(next) => update(selected.id, () => next)}
+              onReplaceImage={(file) => void addImage(file, selected.id)}
+              onDuplicate={() => copy(selected)}
+              onDelete={() => remove(selected.id)}
+              onReorder={(direction) => reorder(selected.id, direction)}
+            />
+          ) : (
+            <PagePanel
+              design={design}
+              pageKey={pageKey}
+              onCopyHome={() => {
+                if (pageKey === 'home') return
+                if (design.elements.length > 0 && !window.confirm('Replace this page with a copy of the home page?')) return
+                history.commit((current) => copyHomeLook(current, pageKey))
+              }}
+              layout={layout}
+              published={published}
+              publicEnabled={publicEnabled}
+              publicUrl={publicUrl}
+              uploading={uploading}
+              onChange={(next) => editPage(() => next)}
+              onBackgroundImage={(file) => void setBackgroundImage(file)}
+              onPublished={setPublished}
+              onPublicEnabled={setPublicEnabled}
+            />
+          )}
+        </div>
+      }
+    >
+      {/* Layout, page and "view as" */}
+      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-surface px-3 py-2">
+        <div className="flex items-center gap-1 rounded-lg border border-border p-0.5" role="group" aria-label="Layout">
           {(
             [
               ['desktop', Monitor, 'Desktop'],
@@ -496,29 +376,19 @@ export function MicrositeDesigner({
               key={value}
               type="button"
               aria-pressed={layout === value}
-              onClick={() => {
-                setLayout(value)
-                setZoom('fit')
-                setEditingId(null)
-              }}
-              className={cn('inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm', layout === value ? 'bg-accent text-accent-foreground' : 'text-muted hover:text-foreground')}
+              onClick={() => switchTo({ layout: value })}
+              className={cn('inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs', layout === value ? 'bg-accent text-accent-foreground' : 'text-muted hover:text-foreground')}
             >
-              <Icon className="size-4" aria-hidden="true" />
+              <Icon className="size-3.5" aria-hidden="true" />
               {label}
             </button>
           ))}
         </div>
-
         <label className="flex items-center gap-1.5 text-xs text-muted">
           Page
           <select
             value={pageKey}
-            onChange={(event) => {
-              setPageKey(event.target.value as PageKey)
-              setSelectedId(null)
-              setEditingId(null)
-              setZoom('fit')
-            }}
+            onChange={(event) => switchTo({ page: event.target.value as PageKey })}
             className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground"
           >
             {(Object.keys(pageInfo) as PageKey[]).map((key) => (
@@ -529,9 +399,8 @@ export function MicrositeDesigner({
             ))}
           </select>
         </label>
-
         {pageKey === 'home' ? (
-          <label className="hidden items-center gap-1.5 text-xs text-muted xl:flex">
+          <label className="flex items-center gap-1.5 text-xs text-muted">
             View as
             <select value={viewAs} onChange={(event) => setViewAs(event.target.value as ViewAs)} className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground">
               <option value="pending">Guest · not replied</option>
@@ -541,246 +410,106 @@ export function MicrositeDesigner({
             </select>
           </label>
         ) : null}
+        <span className="ml-auto hidden text-xs text-muted lg:inline">Double-click text to edit it</span>
+      </div>
 
-        <div className="flex items-center gap-0.5">
-          <IconButton label="Zoom out" onClick={() => setZoom(Math.max(0.1, Math.round((scale - 0.1) * 10) / 10))}>
-            <Minus className="size-4" />
-          </IconButton>
-          <button type="button" className="h-8 min-w-14 rounded-md px-2 text-xs tabular-nums text-muted hover:bg-hover" onClick={() => setZoom('fit')} title="Fit to screen">
-            {Math.round(scale * 100)}%
-          </button>
-          <IconButton label="Zoom in" onClick={() => setZoom(Math.min(3, Math.round((scale + 0.1) * 10) / 10))}>
-            <Plus className="size-4" />
-          </IconButton>
-          <IconButton label="Undo" disabled={history.past.length === 0} onClick={undo}>
-            <Undo2 className="size-4" />
-          </IconButton>
-          <IconButton label="Redo" disabled={history.future.length === 0} onClick={redo}>
-            <Redo2 className="size-4" />
-          </IconButton>
-        </div>
-
-        <Button variant="secondary" className="h-9" disabled={previewing} onClick={() => void preview(viewAs !== 'public')}>
-          {previewing ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
-          Preview
-        </Button>
-        <Button className="h-9" disabled={!dirty || saving} onClick={() => void save()}>
-          {saving ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-          {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
-        </Button>
-      </header>
-
-      <div className="flex min-h-0 flex-1">
-        <InsertPanel
-          design={design}
-          pageKey={pageKey}
-          layout={layout}
+      <div ref={stageWrap} className="flex min-h-0 flex-1 flex-col">
+        <Stage
+          width={width}
+          height={height}
+          unit="px"
+          unitPx={1}
+          zoom={zoom.value}
+          onZoom={zoom.set}
+          onFitChange={zoom.setFit}
+          fitMode="width"
+          items={items}
           selectedId={selectedId}
-          uploading={uploading}
-          onAdd={add}
-          onImage={(file) => void addImage(file)}
           onSelect={(id) => {
             setSelectedId(id)
-            setEditingId(null)
+            if (id !== editingId) setEditingId(null)
           }}
-          onToggleHidden={(id) => {
+          onItemChange={(id, box, phase) => {
+            // The canvas moves the item itself while dragging; the site changes once, at the end (one undo step).
+            if (phase !== 'end') return
+            history.commit((current) => {
+              const page = pageView(current, pageKey)
+              return mergePage(current, pageKey, {
+                ...page,
+                elements: page.elements.map((element) =>
+                  element.id === id ? withFrame(element, layout, { ...frameOf(element, layout), x: box.x, y: box.y, w: box.w, h: box.h }) : element,
+                ),
+              })
+            })
+          }}
+          guides={guides[layout]}
+          onGuidesChange={(next) => setGuides((current) => ({ ...current, [layout]: next }))}
+          editingId={editingId}
+          onItemDoubleClick={(id) => {
             const element = design.elements.find((item) => item.id === id)
-            if (!element) return
+            if (element && (element.kind === 'text' || element.kind === 'guestName' || element.kind === 'button')) setEditingId(id)
+          }}
+          renderEditor={(item, scale) => {
+            const element = design.elements.find((entry) => entry.id === item.id)
+            if (!element) return null
             const frame = frameOf(element, layout)
-            update(id, (item) => withFrame(item, layout, { ...frame, hidden: !frame.hidden }))
-          }}
-          onReorder={reorder}
-        />
-
-        {/* Canvas */}
-        <main
-          ref={stageRef}
-          className="relative min-w-0 flex-1 bg-[#e9e7e2] dark:bg-[#141413]"
-          onPointerDown={(event) => {
-            if (event.target === event.currentTarget || (event.target as HTMLElement).dataset.stage === 'true') {
-              setSelectedId(null)
-              setEditingId(null)
-            }
-          }}
-        >
-          <div ref={scrollRef} className="absolute inset-0 overflow-auto" data-stage="true">
-            <div className="mx-auto py-8" style={{ width: width * scale + 64 }} data-stage="true">
-              <div className="relative mx-auto" style={{ width: width * scale, height: height * scale + 24 }} data-stage="true">
-                <div
-                  className="absolute left-0 top-0 origin-top-left shadow-[0_10px_40px_rgba(0,0,0,0.15)]"
-                  style={{
-                    width,
-                    height,
-                    transform: `scale(${scale})`,
-                    background: design.background,
-                    backgroundImage: backgroundUrl ? `url(${backgroundUrl})` : undefined,
-                    backgroundSize: '100% auto',
-                    backgroundRepeat: 'no-repeat',
-                    overflow: 'hidden',
-                  }}
-                  onPointerDown={(event) => {
-                    if (event.target === event.currentTarget) {
-                      setSelectedId(null)
-                      setEditingId(null)
+            return (
+              <div style={{ width: frame.w, height: frame.h, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
+                <InlineEditor
+                  element={element}
+                  frame={frame}
+                  onDone={(value) => {
+                    setEditingId(null)
+                    if (element.kind === 'button') {
+                      if (value !== (element.label ?? '')) update(element.id, (entry) => ({ ...entry, label: value }))
+                    } else if (value !== (element.text ?? '')) {
+                      update(element.id, (entry) => ({ ...entry, text: value }))
                     }
                   }}
-                >
-                  {design.elements.map((element) => {
-                    const frame = frameOf(element, layout)
-                    if (frame.hidden) return null
-                    const isSelected = element.id === selectedId
-                    const dimmed = !visibleFor(element, effectiveView)
-                    const editing = editingId === element.id
-                    return (
-                      <div
-                        key={element.id}
-                        role="button"
-                        tabIndex={-1}
-                        aria-label={`${element.kind} element`}
-                        className={cn('absolute select-none', !editing && 'cursor-move', !isSelected && 'hover:outline hover:outline-1 hover:outline-sky-400')}
-                        style={{ left: frame.x, top: frame.y, width: frame.w, height: frame.h, opacity: dimmed ? 0.25 : 1 }}
-                        onPointerDown={(event) => (editing ? event.stopPropagation() : startDrag(element, event, null))}
-                        onDoubleClick={() => {
-                          if (element.kind === 'text' || element.kind === 'guestName' || element.kind === 'button') setEditingId(element.id)
-                        }}
-                      >
-                        {editing ? (
-                          <InlineEditor
-                            element={element}
-                            frame={frame}
-                            onDone={(value) => {
-                              setEditingId(null)
-                              if (element.kind === 'button') {
-                                if (value !== (element.label ?? '')) update(element.id, (item) => ({ ...item, label: value }))
-                              } else if (value !== (element.text ?? '')) {
-                                update(element.id, (item) => ({ ...item, text: value }))
-                              }
-                            }}
-                          />
-                        ) : (
-                          <MicrositeElementView element={element} frame={frame} sample={sample} />
-                        )}
-                      </div>
-                    )
-                  })}
-
-                  {/* Selection box and handles, drawn above everything */}
-                  {selected && !frameOf(selected, layout).hidden && editingId !== selected.id ? (
-                    <SelectionBox frame={frameOf(selected, layout)} scale={scale} onHandle={(handle, event) => startDrag(selected, event, handle)} />
-                  ) : null}
-
-                  {guides?.x.map((x) => (
-                    <div key={`gx-${x}`} className="pointer-events-none absolute inset-y-0 bg-fuchsia-500" style={{ left: x, width: 1 / scale }} />
-                  ))}
-                  {guides?.y.map((y) => (
-                    <div key={`gy-${y}`} className="pointer-events-none absolute inset-x-0 bg-fuchsia-500" style={{ top: y, height: 1 / scale }} />
-                  ))}
-                </div>
-
-                {/* Page height handle */}
-                <button
-                  type="button"
-                  aria-label="Drag to change the page height"
-                  title="Drag to change the page height"
-                  className="absolute left-1/2 flex h-5 w-24 -translate-x-1/2 cursor-ns-resize items-center justify-center rounded-full border border-border bg-surface text-[10px] tabular-nums text-muted shadow"
-                  style={{ top: height * scale + 2 }}
-                  onPointerDown={startPageResize}
-                >
-                  {height}px
-                </button>
+                />
               </div>
+            )
+          }}
+          pageHeight={{
+            min: 200,
+            max: 20000,
+            onLive: (next) => {
+              if (!dragStart.current) dragStart.current = history.current()
+              history.live((current) => {
+                const page = pageView(current, pageKey)
+                return mergePage(current, pageKey, layout === 'desktop' ? { ...page, desktopHeight: next } : { ...page, mobileHeight: next })
+              })
+            },
+            onEnd: () => {
+              if (dragStart.current) history.settle(dragStart.current)
+              dragStart.current = null
+            },
+          }}
+          artboardStyle={{
+            background: design.background,
+            backgroundImage: backgroundUrl ? `url(${backgroundUrl})` : undefined,
+            backgroundSize: '100% auto',
+            backgroundRepeat: 'no-repeat',
+          }}
+          render={(scale, live) => (
+            <div style={{ position: 'relative', width, height, transform: `scale(${scale})`, transformOrigin: '0 0' }}>
+              {design.elements.map((element) => {
+                const frame = live?.id === element.id ? { ...frameOf(element, layout), x: live.box.x, y: live.box.y, w: live.box.w, h: live.box.h } : frameOf(element, layout)
+                if (frame.hidden || element.id === editingId) return null
+                return (
+                  <div
+                    key={element.id}
+                    style={{ position: 'absolute', left: frame.x, top: frame.y, width: frame.w, height: frame.h, opacity: visibleFor(element, effectiveView) ? 1 : 0.25 }}
+                  >
+                    <MicrositeElementView element={element} frame={frame} sample={sample} />
+                  </div>
+                )
+              })}
             </div>
-          </div>
-        </main>
-
-        <aside className="w-80 shrink-0 overflow-y-auto border-l border-border bg-surface">
-          {selected ? (
-            <ElementPanel
-              element={selected}
-              layout={layout}
-              fonts={fonts}
-              uploading={uploading}
-              onChange={(next) => update(selected.id, () => next)}
-              onReplaceImage={(file) => void addImage(file, selected.id)}
-              onDuplicate={() => {
-                const copy = duplicate(selected)
-                commit({ ...design, elements: [...design.elements, copy] })
-                setSelectedId(copy.id)
-              }}
-              onDelete={() => {
-                commit({ ...design, elements: design.elements.filter((element) => element.id !== selected.id) })
-                setSelectedId(null)
-              }}
-              onReorder={(direction) => reorder(selected.id, direction)}
-            />
-          ) : (
-            <PagePanel
-              design={design}
-              pageKey={pageKey}
-              onCopyHome={() => {
-                if (pageKey === 'home') return
-                if (design.elements.length > 0 && !window.confirm('Replace this page with a copy of the home page?')) return
-                setHistory((current) => ({ past: [...current.past.slice(-80), current.present], present: copyHomeLook(current.present, pageKey), future: [] }))
-              }}
-              layout={layout}
-              published={published}
-              publicEnabled={publicEnabled}
-              publicUrl={publicUrl}
-              uploading={uploading}
-              onChange={commit}
-              onBackgroundImage={(file) => void setBackgroundImage(file)}
-              onPublished={setPublished}
-              onPublicEnabled={setPublicEnabled}
-            />
           )}
-        </aside>
-      </div>
-    </div>
-  )
-}
-
-function IconButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-foreground disabled:opacity-40"
-    >
-      {children}
-    </button>
-  )
-}
-
-const handles: { handle: Handle; style: CSSProperties; cursor: string }[] = [
-  { handle: 'nw', style: { left: 0, top: 0 }, cursor: 'nwse-resize' },
-  { handle: 'n', style: { left: '50%', top: 0 }, cursor: 'ns-resize' },
-  { handle: 'ne', style: { left: '100%', top: 0 }, cursor: 'nesw-resize' },
-  { handle: 'e', style: { left: '100%', top: '50%' }, cursor: 'ew-resize' },
-  { handle: 'se', style: { left: '100%', top: '100%' }, cursor: 'nwse-resize' },
-  { handle: 's', style: { left: '50%', top: '100%' }, cursor: 'ns-resize' },
-  { handle: 'sw', style: { left: 0, top: '100%' }, cursor: 'nesw-resize' },
-  { handle: 'w', style: { left: 0, top: '50%' }, cursor: 'ew-resize' },
-]
-
-function SelectionBox({ frame, scale, onHandle }: { frame: Frame; scale: number; onHandle: (handle: Handle, event: ReactPointerEvent) => void }) {
-  const size = 10 / scale
-  return (
-    <div
-      className="pointer-events-none absolute"
-      style={{ left: frame.x, top: frame.y, width: frame.w, height: frame.h, outline: `${1.5 / scale}px solid #0ea5e9` }}
-    >
-      {handles.map(({ handle, style, cursor }) => (
-        <span
-          key={handle}
-          className="pointer-events-auto absolute rounded-[2px] border border-sky-500 bg-white"
-          style={{ ...style, width: size, height: size, marginLeft: -size / 2, marginTop: -size / 2, cursor, borderWidth: 1 / scale }}
-          onPointerDown={(event) => onHandle(handle, event)}
         />
-      ))}
-    </div>
+      </div>
+    </DesignerShell>
   )
 }
 
@@ -796,6 +525,7 @@ function InlineEditor({ element, frame, onDone }: { element: MicrositeElement; f
       ref={ref}
       value={value}
       aria-label="Edit text"
+      onPointerDown={(event) => event.stopPropagation()}
       onChange={(event) => setValue(event.target.value)}
       onBlur={() => onDone(value)}
       onKeyDown={(event) => {

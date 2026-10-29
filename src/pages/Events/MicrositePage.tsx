@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { micrositeApi } from '@/api/micrositeApi'
@@ -11,7 +11,6 @@ import { normalizeDesign, type MicrositeDesign } from '@/microsite/design'
 /** Full-screen microsite designer for one event. */
 export function MicrositePage() {
   const { eventId = '' } = useParams()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const event = useEvent(eventId).data
   useDocumentTitle(event ? `Microsite · ${event.name}` : 'Microsite')
@@ -54,10 +53,6 @@ export function MicrositePage() {
         } catch {
           return false
         }
-      }}
-      onBack={(dirty) => {
-        if (dirty && !window.confirm('The microsite has unsaved changes. Leave without saving?')) return
-        navigate(`/events/${eventId}`)
       }}
     />
   )

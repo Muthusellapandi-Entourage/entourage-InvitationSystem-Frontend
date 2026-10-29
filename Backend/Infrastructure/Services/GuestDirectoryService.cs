@@ -310,7 +310,7 @@ public sealed class GuestDirectoryService(
     {
         await ValidationGuard.EnsureValidAsync(badgeValidator, design, cancellationToken);
         var type = await FindTypeAsync(eventId, guestTypeId, cancellationToken);
-        var owned = design.BackgroundAssetId is Guid backgroundId ? new[] { backgroundId } : Array.Empty<Guid>();
+        var owned = design.AssetIds().Distinct().ToArray();
         await assets.EnsureOwnedAsync(eventId, owned, cancellationToken);
         type.BadgeDesignJson = JsonSerializer.Serialize(design, DesignJsonOptions);
         type.UpdatedOn = DateTime.UtcNow;

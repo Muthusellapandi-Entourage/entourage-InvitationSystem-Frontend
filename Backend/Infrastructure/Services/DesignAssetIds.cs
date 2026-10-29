@@ -14,7 +14,7 @@ internal static class DesignAssetIds
         if (invitation is not null)
         {
             Collect(invitation.DesignJson, ids, "headerAssetId", "detailsAssetId", "acceptAssetId", "declineAssetId");
-            Collect(invitation.BadgeDesignJson, ids, "backgroundAssetId");
+            CollectPass(invitation.BadgeDesignJson, ids);
         }
 
         var types = await db.GuestTypes.AsNoTracking()
@@ -25,7 +25,7 @@ internal static class DesignAssetIds
         {
             Collect(type.InvitationDesignJson, ids, "headerAssetId", "detailsAssetId", "acceptAssetId", "declineAssetId");
             CollectSlices(type.InvitationDesignJson, ids);
-            Collect(type.BadgeDesignJson, ids, "backgroundAssetId");
+            CollectPass(type.BadgeDesignJson, ids);
             // Printed badge background and pictures.
             foreach (var id in PrintBadgeService.AssetIds(type.PrintBadgeDesignJson))
             {
@@ -94,6 +94,29 @@ internal static class DesignAssetIds
     }
 
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
+
+    /// <summary>Keeps a digital pass's background and image elements.</summary>
+    public static void CollectPass(string? json, HashSet<Guid> ids)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+
+        try
+        {
+            var design = JsonSerializer.Deserialize<Entourage.Application.DTOs.BadgeDesignDto>(json, Web);
+            foreach (var id in design?.AssetIds() ?? [])
+            {
+                ids.Add(id);
+            }
+        }
+        catch (JsonException)
+        {
+            // A damaged document must not cause another design's images to be deleted.
+            Collect(json, ids, "backgroundAssetId");
+        }
+    }
 
     /// <summary>Keeps every image a "single image" design uses (source, strips, button pieces).</summary>
     public static void CollectSlices(string? json, HashSet<Guid> ids)

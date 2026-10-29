@@ -26,7 +26,8 @@ public sealed class EventSiteService(
     ILogger<EventSiteService> logger,
     IEventAssetService? assets = null,
     AppleWalletService? wallet = null,
-    RsvpPageService? rsvpPages = null)
+    RsvpPageService? rsvpPages = null,
+    DigitalPassRenderer? passes = null)
 {
     public const string HttpClientName = "event-domain-check";
     private static readonly JsonSerializerOptions DesignJsonOptions = new(JsonSerializerDefaults.Web);
@@ -518,13 +519,22 @@ public sealed class EventSiteService(
             return (cached, fileName);
         }
 
-        byte[]? background = null;
-        if (design.BackgroundAssetId is Guid assetId && await assets.OpenAsync(assetId, cancellationToken) is { } file)
+        byte[] png;
+        if (passes is not null)
         {
-            background = await File.ReadAllBytesAsync(file.Path, cancellationToken);
+            png = await passes.RenderAsync(site.EventId, design, guest, cancellationToken);
+        }
+        else
+        {
+            byte[]? background = null;
+            if (design.BackgroundAssetId is Guid assetId && await assets.OpenAsync(assetId, cancellationToken) is { } file)
+            {
+                background = await File.ReadAllBytesAsync(file.Path, cancellationToken);
+            }
+
+            png = BadgeRenderer.Render(design, background, guest.Name, guest.CheckInCode);
         }
 
-        var png = BadgeRenderer.Render(design, background, guest.Name, guest.CheckInCode);
         cache.Set(key, png, TimeSpan.FromMinutes(10));
         return (png, fileName);
     }

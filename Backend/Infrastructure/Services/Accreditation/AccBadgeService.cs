@@ -29,7 +29,10 @@ public sealed record AccBadgeElementDto(
     bool Uppercase,
     string? Text,
     string? Font,
-    Guid? FileId);
+    Guid? FileId,
+    bool Hidden = false,
+    bool Locked = false,
+    string? Name = null);
 
 public sealed record AccBadgeDesignDto(double WidthMm, double HeightMm, string BackgroundColor, Guid? BackgroundFileId, AccBadgeElementDto[] Elements);
 
@@ -189,6 +192,7 @@ public sealed class AccBadgeService(AppDbContext db, AccFileService files)
         }
 
         errors.ThrowIfAny();
+        elements = [.. elements.Select(item => item with { Name = AccText.Clean(item.Name, 80) })];
 
         var imageIds = elements.Where(item => item.FileId is not null).Select(item => item.FileId!.Value).ToList();
         if (design.BackgroundFileId is { } background)

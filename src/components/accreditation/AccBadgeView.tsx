@@ -152,6 +152,7 @@ export function AccBadgeView({
         <img alt="" src={images[design.backgroundFileId]} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
       ) : null}
       {design.elements.map((element) => {
+        if (element.hidden) return null
         const box: CSSProperties = {
           position: 'absolute',
           left: px(element.x),

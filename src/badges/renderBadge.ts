@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf'
+import { guestApi } from '@/api/guestApi'
 import { guestQrDataUrl } from '@/badges/sampleQr'
 import {
   sampleGuestName,
@@ -245,12 +246,28 @@ export async function drawBadge(design: BadgeDesign, input: BadgeRenderInput) {
   return canvas
 }
 
-/** Production entry point. `qrPayload` must be that guest's own check-in value. */
+/**
+ * Production entry point. `qrPayload` must be that guest's own check-in value. Designs made in the
+ * free-canvas designer (with elements) are drawn on the server, so every detail and brand font matches.
+ */
 export async function renderGuestBadge(
   design: BadgeDesign,
-  guest: { name: string; qrPayload: string },
+  guest: { name: string; qrPayload: string; guestId?: string; eventId?: string },
   assetOrigin: string,
 ) {
+  if (design.elements && guest.guestId && guest.eventId) {
+    const png = await guestApi.badgeImage(guest.eventId, guest.guestId)
+    if (png.size === 0) throw new Error('The digital pass could not be drawn.')
+    const bitmap = await createImageBitmap(png)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('The digital pass could not be drawn.')
+    context.drawImage(bitmap, 0, 0)
+    bitmap.close()
+    return canvas
+  }
   const qrDataUrl = await guestQrDataUrl(guest.qrPayload)
   return drawBadge(design, {
     name: guest.name.trim() || 'Guest',

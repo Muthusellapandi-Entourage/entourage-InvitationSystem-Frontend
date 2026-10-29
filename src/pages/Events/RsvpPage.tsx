@@ -1,9 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { toast } from 'sonner'
-import { ApiError } from '@/api/client'
 import { rsvpApi, type RsvpReply } from '@/api/rsvpApi'
 import { RsvpPageSettingsSection } from '@/components/rsvp/RsvpPageSettingsSection'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -17,7 +15,6 @@ export function RsvpPage() {
   const { eventId = '' } = useParams()
   const event = useEvent(eventId).data
   useDocumentTitle(event ? `Responses · ${event.name}` : 'Responses')
-  const queryClient = useQueryClient()
   const [filter, setFilter] = useState<Filter>('all')
   const [search, setSearch] = useState('')
 
@@ -27,15 +24,6 @@ export function RsvpPage() {
     enabled: Boolean(eventId),
     refetchInterval: 10_000,
   })
-  const settings = useMutation({
-    mutationFn: (ask: boolean) => rsvpApi.saveSettings(eventId, ask),
-    onSuccess: async (saved) => {
-      toast.success(saved.askDeclineReason ? 'Guests can now add a reason when declining.' : 'Decline reason turned off.')
-      await queryClient.invalidateQueries({ queryKey: ['rsvp', eventId] })
-    },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'The setting could not be saved.'),
-  })
-
   const data = query.data
   const replies = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -75,12 +63,7 @@ export function RsvpPage() {
         ) : null}
       </div>
 
-      <RsvpPageSettingsSection
-        eventId={eventId}
-        askDeclineReason={data.askDeclineReason}
-        askPending={settings.isPending}
-        onAskDeclineReason={(value) => settings.mutate(value)}
-      />
+      <RsvpPageSettingsSection eventId={eventId} askDeclineReason={data.askDeclineReason} />
 
       {data.groups.length > 1 ? (
         <section>

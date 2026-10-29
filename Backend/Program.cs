@@ -64,6 +64,7 @@ builder.Services.AddScoped<EventAnalyticsService>();
 builder.Services.AddScoped<RegistrationService>();
 builder.Services.AddScoped<PrintBadgeService>();
 builder.Services.AddScoped<BrandKitService>();
+builder.Services.AddScoped<DigitalPassRenderer>();
 // Event Accreditation (separate module: own tables, routes and roles).
 builder.Services.AddSingleton<Entourage.Infrastructure.Services.Accreditation.AccIdProtector>();
 builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccActorResolver>();

@@ -40,6 +40,31 @@ public sealed class BadgeDesignValidator : AbstractValidator<BadgeDesignDto>
                 .Must(value => value is "top" or "middle" or "bottom")
                 .WithMessage("Choose top, middle, or bottom.");
         });
+        When(design => design.BackgroundColor is not null, () =>
+            RuleFor(design => design.BackgroundColor!).Matches(HexColor.Pattern).WithMessage("Use a background colour like #FFFFFF."));
+        When(design => design.Elements is not null, () =>
+        {
+            RuleFor(design => design.Elements!)
+                .Must(elements => elements.Length <= 60)
+                .WithMessage("A digital pass can hold at most 60 items.");
+            RuleForEach(design => design.Elements!).ChildRules(element =>
+            {
+                element.RuleFor(item => item.Kind)
+                    .Must(kind => kind is "name" or "position" or "company" or "guestType" or "seat" or "text" or "qr" or "image" or "rect")
+                    .WithMessage("Unknown item on the digital pass.");
+                element.RuleFor(item => item.Width).InclusiveBetween(1, 4000);
+                element.RuleFor(item => item.Height).InclusiveBetween(1, 4000);
+                element.RuleFor(item => item.X).InclusiveBetween(-4000, 4000);
+                element.RuleFor(item => item.Y).InclusiveBetween(-4000, 4000);
+                element.RuleFor(item => item.FontSize).InclusiveBetween(4, 400);
+                element.RuleFor(item => item.Color).Matches(HexColor.Pattern).WithMessage("Use a colour like #111111.");
+                element.When(item => item.Fill is not null, () =>
+                    element.RuleFor(item => item.Fill!).Matches(HexColor.Pattern).WithMessage("Use a colour like #111111."));
+                element.RuleFor(item => item.Text).MaximumLength(300);
+                element.RuleFor(item => item.Name).MaximumLength(60);
+                element.RuleFor(item => item.Font).MaximumLength(60);
+            });
+        });
         When(design => design.Guides is not null, () =>
         {
             RuleFor(design => design.Guides!.Vertical)

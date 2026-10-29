@@ -23,6 +23,7 @@ export const elementLabels: Record<PrintBadgeElement['kind'], string> = {
   text: 'Text',
   qr: 'QR code',
   image: 'Image',
+  rect: 'Shape',
 }
 
 const fonts: Record<string, string> = {
@@ -32,6 +33,11 @@ const fonts: Record<string, string> = {
   'Times New Roman': '"Times New Roman", Times, serif',
 }
 export const printFonts = Object.keys(fonts)
+
+/** CSS font stack for a font name (built-in, or a brand font registered by name). */
+export function fontStack(name: string | null | undefined) {
+  return fonts[name ?? 'Inter'] ?? `"${name}", ${fonts.Inter}`
+}
 
 export function elementText(element: PrintBadgeElement, guest: PrintGuest) {
   const value =
@@ -62,8 +68,9 @@ function fittedSize(text: string, fontPx: number, widthPx: number, heightPx: num
 }
 
 /**
- * The printed badge for one guest. `scale` is pixels per millimetre: PX_PER_MM prints at true size;
- * a bigger or smaller number zooms the on-screen preview. Used by the designer, the kiosk and printing.
+ * A badge for one guest. Printed badges are in millimetres (`unit="mm"`, `scale` = pixels per mm;
+ * PX_PER_MM prints at true size, font sizes in points). Digital passes are in pixels (`unit="px"`,
+ * `scale` = zoom, font sizes in pixels). Used by the designers, the kiosk and printing.
  */
 export function PrintBadgeView({
   design,
@@ -71,6 +78,7 @@ export function PrintBadgeView({
   qrDataUrl,
   assetOrigin,
   scale = PX_PER_MM,
+  unit = 'mm',
 }: {
   design: PrintBadgeDesign
   guest: PrintGuest
@@ -79,8 +87,10 @@ export function PrintBadgeView({
   /** Address the uploaded images are served from. */
   assetOrigin: string
   scale?: number
+  unit?: 'mm' | 'px'
 }) {
-  const px = (mm: number) => mm * scale
+  const px = (value: number) => value * scale
+  const fontPxOf = (element: PrintBadgeElement) => (unit === 'mm' ? element.fontSize * (96 / 72) * (scale / PX_PER_MM) : element.fontSize * scale)
   return (
     <div
       data-print-badge
@@ -101,20 +111,26 @@ export function PrintBadgeView({
         />
       ) : null}
       {design.elements.map((element) => {
+        if (element.hidden) return null
         const box: CSSProperties = {
           position: 'absolute',
           left: px(element.x),
           top: px(element.y),
           width: px(element.width),
           height: px(element.height),
+          borderRadius: element.radius ? px(element.radius) : undefined,
+          overflow: 'hidden',
+        }
+        if (element.kind === 'rect') {
+          return <div key={element.id} style={{ ...box, background: element.fill ?? element.color }} />
         }
         if (element.kind === 'qr') {
           return (
-            <div key={element.id} style={{ ...box, background: '#fff' }}>
+            <div key={element.id} style={{ ...box, background: '#fff', borderRadius: undefined }}>
               {qrDataUrl ? (
                 <img alt="" src={qrDataUrl} style={{ display: 'block', width: '100%', height: '100%', imageRendering: 'pixelated', objectFit: 'contain' }} />
               ) : (
-                <div style={{ width: '100%', height: '100%', border: '1px solid #999', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: px(3), color: '#777' }}>QR</div>
+                <div style={{ width: '100%', height: '100%', border: '1px solid #999', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: px(unit === 'mm' ? 3 : 12), color: '#777' }}>QR</div>
               )}
             </div>
           )
@@ -125,24 +141,23 @@ export function PrintBadgeView({
           ) : null
         }
         const text = elementText(element, guest)
-        const fontPx = element.fontSize * (96 / 72) * (scale / PX_PER_MM)
+        const fontPx = fontPxOf(element)
         const size = fittedSize(text, fontPx, px(element.width), px(element.height))
         return (
           <div
             key={element.id}
             style={{
               ...box,
+              background: element.fill ?? undefined,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: element.valign === 'top' ? 'flex-start' : element.valign === 'bottom' ? 'flex-end' : 'center',
               textAlign: element.align,
               color: element.color,
-              // Brand fonts are registered by name; built-in ones get their fallbacks.
-              fontFamily: fonts[element.font ?? 'Inter'] ?? `"${element.font}", ${fonts.Inter}`,
+              fontFamily: fontStack(element.font),
               fontSize: size,
               fontWeight: element.fontWeight === 'bold' ? 700 : element.fontWeight === 'semibold' ? 600 : 400,
               lineHeight: 1.15,
-              overflow: 'hidden',
               overflowWrap: 'anywhere',
               whiteSpace: 'pre-wrap',
             }}

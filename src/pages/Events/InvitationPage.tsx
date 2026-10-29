@@ -1,90 +1,43 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Scissors } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ApiError } from '@/api/client'
 import { guestTypeApi } from '@/api/guestTypeApi'
-import { invitationApi } from '@/api/invitationApi'
-import { InvitationDesigner, type AssetSlot } from '@/components/invitations/InvitationDesigner'
 import { SliceDesigner } from '@/components/invitations/SliceDesigner'
 import { buttonClassName } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { EventDesignerSwitcher } from '@/designer/DesignerSwitcher'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useEvent } from '@/hooks/useEvents'
 import type { InvitationDesign } from '@/invitations/design'
 import { normalizeInvitationDesign } from '@/invitations/design'
 
-const assetKey = {
-  header: 'headerAssetId',
-  details: 'detailsAssetId',
-  accept: 'acceptAssetId',
-  decline: 'declineAssetId',
-} as const
-
+/** The invitation of one guest category, designed as one image (the classic designer is retired). */
 export function InvitationPage() {
   const { eventId = '', guestTypeId } = useParams()
-  const navigate = useNavigate()
   const eventQuery = useEvent(eventId)
   const event = eventQuery.data
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState<InvitationDesign | null>(null)
-  const [uploading, setUploading] = useState<AssetSlot | null>(null)
+  const [saving, setSaving] = useState(false)
   const typeQuery = useQuery({
     queryKey: ['guest-types', eventId],
     queryFn: () => guestTypeApi.list(eventId),
     enabled: Boolean(eventId),
   })
   const guestType = typeQuery.data?.find((type) => type.id === guestTypeId)
-  useDocumentTitle(event ? `${event.name} invitation` : 'Create invitation')
+  useDocumentTitle(guestType ? `Invitation · ${guestType.name}` : 'Invitation')
 
   const templateQuery = useQuery({
-    queryKey: guestTypeId ? ['guest-type-invitation', eventId, guestTypeId] : ['invitation-template', eventId],
-    queryFn: () =>
-      guestTypeId ? guestTypeApi.getInvitation(eventId, guestTypeId) : invitationApi.getTemplate(eventId),
-    enabled: Boolean(eventId) && (!guestTypeId || Boolean(guestType)),
+    queryKey: ['guest-type-invitation', eventId, guestTypeId],
+    queryFn: () => guestTypeApi.getInvitation(eventId, guestTypeId!),
+    enabled: Boolean(eventId && guestTypeId && guestType),
   })
 
-  const responsesQuery = useQuery({
-    queryKey: ['invitation-responses', eventId],
-    queryFn: () => invitationApi.responses(eventId),
-    enabled: Boolean(eventId) && !guestTypeId,
-  })
+  // Event-level invitations are gone: every guest category has its own.
+  if (!guestTypeId) return <Navigate to={`/events/${eventId}/designs`} replace />
 
-  const [mode, setMode] = useState<'slices' | 'classic' | null>(null)
-
-  useEffect(() => {
-    setDraft(null)
-    setMode(null)
-  }, [eventId, guestTypeId])
-
-  const serverDesign = templateQuery.data ? normalizeInvitationDesign(templateQuery.data.design) : null
-  const dirty = draft !== null && serverDesign !== null && JSON.stringify(normalizeInvitationDesign(draft)) !== JSON.stringify(serverDesign)
-  useEffect(() => {
-    if (!dirty) return
-    const onLeave = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-    }
-    window.addEventListener('beforeunload', onLeave)
-    return () => window.removeEventListener('beforeunload', onLeave)
-  }, [dirty])
-
-  const saveMutation = useMutation({
-    mutationFn: (design: InvitationDesign) =>
-      guestTypeId ? guestTypeApi.saveInvitation(eventId, guestTypeId, design) : invitationApi.saveTemplate(eventId, design),
-    onSuccess: async (saved) => {
-      setDraft(normalizeInvitationDesign(saved.design))
-      toast.success(guestTypeId ? 'Invitation design saved for this guest category.' : 'Invitation template saved.')
-      await queryClient.invalidateQueries({ queryKey: guestTypeId ? ['guest-type-invitation', eventId, guestTypeId] : ['invitation-template', eventId] })
-      await queryClient.invalidateQueries({ queryKey: ['guest-types', eventId] })
-      if (!guestTypeId) await queryClient.invalidateQueries({ queryKey: ['public-invitation'] })
-    },
-    onError: (error) => {
-      toast.error(messageFrom(error, 'The template could not be saved.'))
-    },
-  })
-
-  if (eventQuery.isLoading || templateQuery.isLoading || (guestTypeId && typeQuery.isLoading)) {
+  if (eventQuery.isLoading || typeQuery.isLoading || templateQuery.isLoading) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted" aria-live="polite">
         Loading invitation
@@ -92,7 +45,7 @@ export function InvitationPage() {
     )
   }
 
-  if (eventQuery.isError || !event || templateQuery.isError || !templateQuery.data || (guestTypeId && !guestType)) {
+  if (eventQuery.isError || !event || !guestType || templateQuery.isError || !templateQuery.data) {
     const missing = eventQuery.error instanceof ApiError && eventQuery.error.status === 404
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background px-6">
@@ -100,8 +53,8 @@ export function InvitationPage() {
           title={missing ? 'Event not found' : 'Invitation could not be loaded'}
           description={missing ? 'It may have been deleted.' : 'Try again in a moment.'}
           action={
-            <Link to="/events" className={buttonClassName('secondary')}>
-              Back to events
+            <Link to={eventId ? `/events/${eventId}/designs` : '/events'} className={buttonClassName('secondary')}>
+              Back
             </Link>
           }
         />
@@ -109,90 +62,36 @@ export function InvitationPage() {
     )
   }
 
-  const design = draft ?? normalizeInvitationDesign(templateQuery.data.design)
+  const design = normalizeInvitationDesign(templateQuery.data.design)
 
-  async function upload(slot: AssetSlot, file: File) {
-    setUploading(slot)
+  async function save(next: InvitationDesign) {
+    setSaving(true)
     try {
-      const asset = await invitationApi.uploadAsset(eventId, file)
-      setDraft({ ...design, [assetKey[slot]]: asset.id })
+      await guestTypeApi.saveInvitation(eventId, guestTypeId!, next)
+      toast.success('Invitation saved for this guest category.')
+      await queryClient.invalidateQueries({ queryKey: ['guest-type-invitation', eventId, guestTypeId] })
+      await queryClient.invalidateQueries({ queryKey: ['guest-types', eventId] })
+      return true
     } catch (error) {
-      toast.error(messageFrom(error, 'The image could not be uploaded.'))
+      toast.error(messageFrom(error, 'The invitation could not be saved.'))
+      return false
     } finally {
-      setUploading(null)
+      setSaving(false)
     }
   }
 
-  // Single-image design is the default; the classic designer stays one click away.
-  const sliceMode = Boolean(guestTypeId) && mode !== 'classic'
-  const backTo = `/events/${event.id}/guest-types`
-
-  if (sliceMode) {
-    return (
-      <SliceDesigner
-        key={guestTypeId}
-        eventId={event.id}
-        title={`${guestType?.name ?? 'Guest category'} · ${event.name}`}
-        design={design}
-        saving={saveMutation.isPending}
-        onSave={(next) => {
-          setDraft(next)
-          saveMutation.mutate(next)
-        }}
-        onBack={() => {
-          if (dirty && !window.confirm('This design has unsaved changes. Leave without saving?')) return
-          navigate(backTo)
-        }}
-        backLabel="Guest categories"
-        onUseClassic={() => {
-          if (
-            design.slices &&
-            !window.confirm('Switch to the classic designer? Saving there replaces the one-image invitation for this guest category.')
-          )
-            return
-          setMode('classic')
-        }}
-      />
-    )
-  }
-
   return (
-    <>
-    {guestTypeId ? (
-      <button
-        type="button"
-        onClick={() => setMode('slices')}
-        className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-hover"
-      >
-        <Scissors className="size-4 text-accent" aria-hidden="true" />
-        Use one-image invitation
-      </button>
-    ) : null}
-    <InvitationDesigner
+    <SliceDesigner
+      key={guestTypeId}
       eventId={event.id}
-      eventName={event.name}
-      slug={event.slug}
-      published={event.status === 'Active'}
+      title={`Invitation · ${guestType.name}`}
       design={design}
-      onChange={setDraft}
-      uploading={uploading}
-      onUpload={(slot, file) => void upload(slot, file)}
-      saving={saveMutation.isPending}
-      onSave={() => saveMutation.mutate({ ...design, slices: null })}
-      replies={guestTypeId ? [] : responsesQuery.data}
-      repliesLoading={guestTypeId ? false : responsesQuery.isLoading}
-      backTo={guestTypeId ? `/events/${event.id}/guest-types` : undefined}
-      backLabel={guestTypeId ? 'Guest categories' : undefined}
-      context="Design: HTML invitation"
-      guestTypes={typeQuery.data?.map((type) => ({ id: type.id, name: type.name }))}
-      guestTypeId={guestTypeId}
-      onGuestTypeChange={(nextId) => {
-        if (nextId === (guestTypeId ?? '')) return
-        if (dirty && !window.confirm('This design has unsaved changes. Load another guest category without saving?')) return
-        navigate(nextId ? `/events/${event.id}/guest-types/${nextId}/invitation` : `/events/${event.id}/invitations`)
-      }}
+      saving={saving}
+      onSave={save}
+      backTo={`/events/${event.id}/designs`}
+      backLabel="Designs"
+      switcher={<EventDesignerSwitcher eventId={event.id} kind="invitation" guestTypeId={guestType.id} guestTypeName={guestType.name} />}
     />
-    </>
   )
 }
 

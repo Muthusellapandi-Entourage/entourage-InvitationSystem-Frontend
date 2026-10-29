@@ -5,10 +5,10 @@ import {
   ArrowDown,
   ArrowUp,
   Copy,
-  Eye,
-  EyeOff,
   Image as ImageIcon,
   Loader2,
+  Lock,
+  Unlock,
   MousePointerClick,
   Square,
   Trash2,
@@ -79,28 +79,30 @@ const pagePresets: Record<PageKey, { preset: Preset; label: string }[]> = {
 /* Left: add elements + layers                                          */
 /* ------------------------------------------------------------------ */
 
+/** Name shown in the Layers list. */
+export function layerLabel(element: MicrositeElement) {
+  return element.name || `${kindNames[element.kind]} · ${summary(element)}`
+}
+
+export function layerIcon(element: MicrositeElement) {
+  if (element.kind === 'image') return <ImageIcon />
+  if (element.kind === 'button') return <MousePointerClick />
+  if (element.kind === 'shape') return <Square />
+  if (element.kind === 'guestName') return <UserRound />
+  return <Type />
+}
+
+/** Left "Add" tab: what this page needs, then general elements. */
 export function InsertPanel({
-  design,
   pageKey,
-  layout,
-  selectedId,
   uploading,
   onAdd,
   onImage,
-  onSelect,
-  onToggleHidden,
-  onReorder,
 }: {
-  design: MicrositeDesign
   pageKey: PageKey
-  layout: Layout
-  selectedId: string | null
   uploading: boolean
   onAdd: (preset: Preset) => void
   onImage: (file: File) => void
-  onSelect: (id: string) => void
-  onToggleHidden: (id: string) => void
-  onReorder: (id: string, direction: 1 | -1) => void
 }) {
   const items: { preset: Preset; label: string; icon: ReactNode }[] = [
     { preset: 'heading', label: 'Heading', icon: <Type className="size-4" /> },
@@ -110,11 +112,9 @@ export function InsertPanel({
     { preset: 'shape', label: 'Box', icon: <Square className="size-4" /> },
     { preset: 'divider', label: 'Divider', icon: <span className="block h-0.5 w-4 bg-current" /> },
   ]
-  const layers = [...design.elements].reverse()
-
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
-      <section className="border-b border-border p-3">
+    <div>
+      <section>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">For this page</h2>
         <div className="mb-3 grid grid-cols-2 gap-1.5">
           {pagePresets[pageKey].map((item) => (
@@ -159,38 +159,7 @@ export function InsertPanel({
           <BrandImageButton label="Brand" className="h-14 flex-col gap-1 rounded-lg" disabled={uploading} onFile={onImage} />
         </div>
       </section>
-      <section className="flex min-h-0 flex-1 flex-col p-3">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted">Layers · {layout === 'desktop' ? 'Desktop' : 'Phone'}</h2>
-        {layers.length === 0 ? (
-          <p className="text-xs text-muted">Nothing on the page yet. Add a heading, text, image or buttons above.</p>
-        ) : (
-          <ol className="-mx-1 min-h-0 flex-1 overflow-y-auto">
-            {layers.map((element) => {
-              const frame = frameOf(element, layout)
-              return (
-                <li key={element.id} className={cn('group flex items-center gap-1 rounded-md px-1', element.id === selectedId && 'bg-accent-soft')}>
-                  <button type="button" onClick={() => onSelect(element.id)} className={cn('min-w-0 flex-1 truncate py-1.5 text-left text-xs', frame.hidden && 'text-muted line-through')}>
-                    <span className="font-medium">{kindNames[element.kind]}</span>
-                    <span className="text-muted"> · {summary(element)}</span>
-                  </button>
-                  <span className="flex opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
-                    <MiniButton label="Bring forward" onClick={() => onReorder(element.id, 1)}>
-                      <ArrowUp className="size-3" />
-                    </MiniButton>
-                    <MiniButton label="Send backward" onClick={() => onReorder(element.id, -1)}>
-                      <ArrowDown className="size-3" />
-                    </MiniButton>
-                  </span>
-                  <MiniButton label={frame.hidden ? 'Show on this layout' : 'Hide on this layout'} onClick={() => onToggleHidden(element.id)}>
-                    {frame.hidden ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
-                  </MiniButton>
-                </li>
-              )
-            })}
-          </ol>
-        )}
-      </section>
-    </aside>
+    </div>
   )
 }
 
@@ -201,14 +170,6 @@ function summary(element: MicrositeElement) {
   if (element.kind === 'qr') return 'Guest QR'
   if (element.kind === 'reasonBox') return 'Decline reason'
   return element.desktop.h <= 4 ? 'Divider' : 'Box'
-}
-
-function MiniButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
-  return (
-    <button type="button" aria-label={label} title={label} onClick={onClick} className="flex size-6 items-center justify-center rounded text-muted hover:bg-hover hover:text-foreground">
-      {children}
-    </button>
-  )
 }
 
 /* ------------------------------------------------------------------ */
@@ -247,8 +208,12 @@ export function ElementPanel({
 
   return (
     <div className="flex flex-col">
-      <PanelSection title={kindNames[element.kind]}>
+      <PanelSection title={element.name || kindNames[element.kind]}>
         <div className="flex flex-wrap gap-1.5">
+          <Button variant="secondary" className="h-8 px-2 text-xs" onClick={() => set({ locked: !element.locked })}>
+            {element.locked ? <Lock className="size-3.5" aria-hidden="true" /> : <Unlock className="size-3.5" aria-hidden="true" />}
+            {element.locked ? 'Unlock' : 'Lock'}
+          </Button>
           <Button variant="secondary" className="h-8 px-2 text-xs" onClick={onDuplicate}>
             <Copy className="size-3.5" aria-hidden="true" />
             Duplicate
@@ -437,6 +402,9 @@ export function ElementPanel({
           <input type="checkbox" checked={frame.hidden === true} onChange={(event) => setFrame({ hidden: event.target.checked })} />
           Hide on the {layout === 'desktop' ? 'desktop' : 'phone'} layout
         </label>
+        <Field label="Layer name">
+          <input value={element.name ?? ''} placeholder={kindNames[element.kind]} onChange={(event) => set({ name: event.target.value || null })} className={inputClass} />
+        </Field>
       </PanelSection>
 
       <PanelSection title="Show">
@@ -582,8 +550,9 @@ export function PagePanel({
         <ul className="grid gap-1 text-xs text-muted">
           <li>Drag to move · handles to resize · Alt to move without snapping</li>
           <li>Double-click text to edit</li>
+          <li>Drag from a ruler to add a guide · Space + drag or middle button to pan · Ctrl + wheel to zoom</li>
           <li>Arrows nudge 1 px (Shift: 10 px) · Delete removes</li>
-          <li>Ctrl+D duplicate · Ctrl+Z undo · Ctrl+Shift+Z redo · Ctrl+S save</li>
+          <li>Ctrl+D duplicate · Ctrl+Z undo · Ctrl+Y redo · Ctrl+S save</li>
         </ul>
       </PanelSection>
     </div>

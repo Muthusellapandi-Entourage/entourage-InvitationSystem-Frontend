@@ -1,3 +1,4 @@
+import type { PrintBadgeDesign, PrintBadgeElement } from '@/api/printBadgeApi'
 import {
   clampImagePlacement,
   invitationFonts,
@@ -46,6 +47,91 @@ export type BadgeDesign = {
   qr: ImagePlacement | null
   name: BadgeText | null
   guides: DesignGuides | null
+  /** Free-canvas designs (current designer): background colour and elements in pixels. Null on older designs. */
+  backgroundColor?: string | null
+  elements?: PrintBadgeElement[] | null
+}
+
+/** A digital pass in the shared element editor's shape (pixels in place of millimetres). */
+export function passToElements(design: BadgeDesign, naturalBackground: { width: number; height: number } | null): PrintBadgeDesign {
+  if (design.elements) {
+    return {
+      widthMm: design.width,
+      heightMm: design.height,
+      backgroundColor: design.backgroundColor ?? '#FFFFFF',
+      backgroundAssetId: design.backgroundAssetId,
+      elements: design.elements,
+    }
+  }
+  // An older design: turn its background, name and QR into elements.
+  const elements: PrintBadgeElement[] = []
+  const id = () => crypto.randomUUID().replaceAll('-', '').slice(0, 10)
+  if (design.backgroundAssetId && design.background) {
+    const placement = design.background
+    const height =
+      placement.height ??
+      (naturalBackground && naturalBackground.width > 0 ? Math.round((placement.width * naturalBackground.height) / naturalBackground.width) : design.height)
+    elements.push(element(id(), 'image', placement.x, placement.y, placement.width, height, { assetId: design.backgroundAssetId, name: 'Background' }))
+  }
+  if (design.name) {
+    const text = design.name
+    elements.push(
+      element(id(), 'name', text.x, text.y, text.width, text.height, {
+        fontSize: text.fontSize,
+        fontWeight: text.weight === 'bold' || text.font === 'Manifa Bold' ? 'bold' : 'regular',
+        color: text.color,
+        align: text.align,
+        valign: text.valign,
+        font: text.font === 'Manifa Bold' || text.font === 'Manifa Italic' ? 'Georgia' : text.font,
+      }),
+    )
+  }
+  if (design.qr) {
+    const size = design.qr.height ?? design.qr.width
+    elements.push(element(id(), 'qr', design.qr.x, design.qr.y, design.qr.width, size))
+  }
+  return { widthMm: design.width, heightMm: design.height, backgroundColor: '#FFFFFF', backgroundAssetId: null, elements }
+}
+
+/** Back to the saved digital pass shape (elements only; the old fields are cleared). */
+export function elementsToPass(design: PrintBadgeDesign): BadgeDesign {
+  return {
+    width: Math.round(design.widthMm),
+    height: Math.round(design.heightMm),
+    backgroundAssetId: design.backgroundAssetId,
+    background: null,
+    qr: null,
+    name: null,
+    guides: null,
+    backgroundColor: design.backgroundColor,
+    elements: design.elements,
+  }
+}
+
+function element(id: string, kind: PrintBadgeElement['kind'], x: number, y: number, width: number, height: number, extra: Partial<PrintBadgeElement> = {}): PrintBadgeElement {
+  return {
+    id,
+    kind,
+    x: Math.round(x),
+    y: Math.round(y),
+    width: Math.round(width),
+    height: Math.round(height),
+    fontSize: 32,
+    fontWeight: 'regular',
+    color: '#111111',
+    align: 'center',
+    valign: 'middle',
+    uppercase: false,
+    text: null,
+    font: null,
+    assetId: null,
+    fill: null,
+    radius: 0,
+    hidden: false,
+    locked: false,
+    name: null,
+    ...extra,
+  }
 }
 
 const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -172,5 +258,8 @@ export function normalizeBadgeDesign(input: Partial<BadgeDesign> | null | undefi
     qr,
     name: input?.name ? textOf(input.name, width, height) : null,
     guides: guidesOf(input?.guides, width, height),
+    // Free-canvas designs keep their elements as they are.
+    backgroundColor: typeof input?.backgroundColor === 'string' && hex.test(input.backgroundColor) ? input.backgroundColor : null,
+    elements: Array.isArray(input?.elements) ? input.elements : null,
   }
 }

@@ -30,7 +30,12 @@ public sealed record PrintBadgeElementDto(
     bool Uppercase = false,
     string? Text = null,
     string? Font = null,
-    Guid? AssetId = null);
+    Guid? AssetId = null,
+    string? Fill = null,
+    double Radius = 0,
+    bool Hidden = false,
+    bool Locked = false,
+    string? Name = null);
 
 /// <summary>The printed badge for a guest type: paper size in mm, background, and the elements on it.</summary>
 public sealed record PrintBadgeDesignDto(
@@ -92,7 +97,7 @@ public sealed record KioskConfirmDto(string Status, string Message, PrintPayload
 public sealed class PrintBadgeService(AppDbContext db, CheckInService checkIn)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private static readonly string[] Kinds = ["name", "position", "company", "guestType", "seat", "text", "qr", "image"];
+    public static readonly string[] Kinds = ["name", "position", "company", "guestType", "seat", "text", "qr", "image", "rect"];
     private const string KioskSource = "self check-in";
 
     /// <summary>A 4 × 3 inch badge with name, position, company and QR code, used until the type is designed.</summary>
@@ -196,6 +201,9 @@ public sealed class PrintBadgeService(AppDbContext db, CheckInService checkIn)
                     Text = element.Kind == "text" ? (element.Text ?? string.Empty).Trim() is { Length: > 0 } text ? text[..Math.Min(text.Length, 300)] : "Text" : null,
                     Font = string.IsNullOrWhiteSpace(element.Font) ? null : element.Font.Trim()[..Math.Min(element.Font.Trim().Length, 60)],
                     AssetId = element.Kind == "image" ? element.AssetId : null,
+                    Fill = HexColor.TryParse(element.Fill, out _, out _, out _, out _) ? element.Fill!.ToUpperInvariant() : null,
+                    Radius = Clamp(element.Radius, 0, 150),
+                    Name = string.IsNullOrWhiteSpace(element.Name) ? null : element.Name.Trim()[..Math.Min(element.Name.Trim().Length, 60)],
                 };
             })
             .ToArray();
@@ -224,6 +232,10 @@ public sealed class PrintBadgeService(AppDbContext db, CheckInService checkIn)
         // No saved print design yet (or no guest type): use the standard 4 × 3 in badge so printing always works.
         return new PrintPayloadDto(Read(type?.PrintBadgeDesignJson) ?? DefaultDesign(), await GuestAsync(guest, type?.Name, cancellationToken));
     }
+
+    /// <summary>A guest's badge details (name, position, company, category, seat, check-in code).</summary>
+    public Task<PrintGuestDto> BadgeGuestAsync(Guest guest, string? typeName, CancellationToken cancellationToken) =>
+        GuestAsync(guest, typeName, cancellationToken);
 
     private async Task<PrintGuestDto> GuestAsync(Guest guest, string? typeName, CancellationToken cancellationToken)
     {

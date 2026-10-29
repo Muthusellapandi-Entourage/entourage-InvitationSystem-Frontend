@@ -20,7 +20,8 @@ public sealed class RsvpPageService(
     AppDbContext db,
     IEventAssetService assets,
     AppleWalletService? wallet = null,
-    GuestNameImageService? nameImages = null)
+    GuestNameImageService? nameImages = null,
+    DigitalPassRenderer? passes = null)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     public const string ApiBase = "/api/public/rsvp";
@@ -323,13 +324,7 @@ public sealed class RsvpPageService(
             return null;
         }
 
-        byte[]? background = null;
-        if (design.BackgroundAssetId is Guid assetId && await assets.OpenAsync(assetId, cancellationToken) is { } file)
-        {
-            background = await File.ReadAllBytesAsync(file.Path, cancellationToken);
-        }
-
-        return (BadgeRenderer.Render(design, background, found.Guest.Name, found.Guest.CheckInCode), $"{Slug(found.Event.Name)}-{Slug(found.Guest.Name)}.png");
+        return (await RenderPassAsync(found.Event.Id, design, found.Guest, cancellationToken), $"{Slug(found.Event.Name)}-{Slug(found.Guest.Name)}.png");
     }
 
     /// <summary>
@@ -370,13 +365,24 @@ public sealed class RsvpPageService(
             throw new AppException($"The {type.Name} badge design is missing. Set up the {type.Name} digital pass first.", StatusCodes.Status409Conflict);
         }
 
+        return (await RenderPassAsync(eventId, design, guest, cancellationToken), $"{Slug(eventName)}-{Slug(guest.Name)}.png");
+    }
+
+    /// <summary>Element designs go through the digital pass renderer; older designs are drawn the old way.</summary>
+    private async Task<byte[]> RenderPassAsync(Guid eventId, BadgeDesignDto design, Guest guest, CancellationToken cancellationToken)
+    {
+        if (passes is not null)
+        {
+            return await passes.RenderAsync(eventId, design, guest, cancellationToken);
+        }
+
         byte[]? background = null;
         if (design.BackgroundAssetId is Guid assetId && await assets.OpenAsync(assetId, cancellationToken) is { } file)
         {
             background = await File.ReadAllBytesAsync(file.Path, cancellationToken);
         }
 
-        return (BadgeRenderer.Render(design, background, guest.Name, guest.CheckInCode), $"{Slug(eventName)}-{Slug(guest.Name)}.png");
+        return BadgeRenderer.Render(design, background, guest.Name, guest.CheckInCode);
     }
 
     /// <summary>A QR code that opens the guest's E-Badge (scan it with a phone).</summary>

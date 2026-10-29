@@ -34,7 +34,9 @@ public sealed record MicrositeElementDto(
     string? BorderColor = null,
     double? BorderWidth = null,
     double? Opacity = null,
-    string? Show = null);
+    string? Show = null,
+    bool? Locked = null,
+    string? Name = null);
 
 /// <summary>
 /// One extra page of the microsite, shown at a step of the reply: "accept" / "decline" (the confirm pages),

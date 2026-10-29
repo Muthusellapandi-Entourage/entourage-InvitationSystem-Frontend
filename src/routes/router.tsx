@@ -9,6 +9,11 @@ import { EventSettingsPage } from '@/pages/Events/EventSettingsPage'
 import { EventsPage } from '@/pages/Events/EventsPage'
 import { BadgePage } from '@/pages/Events/BadgePage'
 import { BrandKitPage } from '@/pages/Events/BrandKitPage'
+import { DesignsPage } from '@/pages/Events/DesignsPage'
+import { MicrositePage } from '@/pages/Events/MicrositePage'
+import { KioskDesignerPage } from '@/pages/Events/KioskDesignerPage'
+import { RegistrationDesignerPage } from '@/pages/Events/RegistrationDesignerPage'
+import { RsvpDesignerPage } from '@/pages/Events/RsvpDesignerPage'
 import { CheckInLinkPage } from '@/pages/Events/CheckInLinkPage'
 import { LiveAttendancePage } from '@/pages/Events/LiveAttendancePage'
 import { RsvpPage } from '@/pages/Events/RsvpPage'
@@ -66,9 +71,14 @@ export function AppRoutes() {
       <Route path="/apply/:slug" element={<PublicApplyPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<InvitationOnlyRoute />}>
+          {/* The old event-level designers now open the Designs page. */}
           <Route path="events/:eventId/invitations" element={<InvitationPage />} />
           <Route path="events/:eventId/guest-types/:guestTypeId/invitation" element={<InvitationPage />} />
           <Route path="events/:eventId/badges" element={<BadgePage />} />
+          <Route path="events/:eventId/microsite" element={<MicrositePage />} />
+          <Route path="events/:eventId/registration/design" element={<RegistrationDesignerPage />} />
+          <Route path="events/:eventId/rsvp/design" element={<RsvpDesignerPage />} />
+          <Route path="events/:eventId/check-in/design" element={<KioskDesignerPage />} />
           <Route path="events/:eventId/seating" element={<SeatingPage />} />
           <Route path="scan/:eventId" element={<CheckInPage />} />
           <Route path="events/:eventId/guest-types/:guestTypeId/badge" element={<BadgePage />} />
@@ -85,6 +95,7 @@ export function AppRoutes() {
               <Route index element={<EventOverviewPage />} />
               <Route path="settings" element={<EventSettingsPage />} />
               <Route path="brand" element={<BrandKitPage />} />
+              <Route path="designs" element={<DesignsPage />} />
               <Route path="guest-types" element={<GuestTypesPage />} />
               <Route path="guests" element={<GuestsPage />} />
               <Route path="check-in" element={<CheckInLinkPage />} />

@@ -59,6 +59,10 @@ export type MicrositeElement = {
   borderWidth?: number | null
   opacity?: number | null
   show?: ShowRule | null
+  /** Designer only: can't be moved on the canvas. */
+  locked?: boolean | null
+  /** Designer only: layer name. */
+  name?: string | null
 }
 
 export type MicrositeDesign = {

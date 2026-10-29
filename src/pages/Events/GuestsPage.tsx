@@ -439,8 +439,8 @@ export function GuestsPage() {
           )
           if (!confirmed) return
         }
-        const canvas = await renderGuestBadge(item.design, { name: item.name, qrPayload: item.qrPayload }, apiBaseUrl)
-        if (canvas.width !== item.design.width || canvas.height !== item.design.height) {
+        const canvas = await renderGuestBadge(item.design, { name: item.name, qrPayload: item.qrPayload, guestId: item.guestId, eventId }, apiBaseUrl)
+        if (!item.design.elements && (canvas.width !== item.design.width || canvas.height !== item.design.height)) {
           throw new Error('The digital pass could not be drawn at its design size.')
         }
         await downloadBadgePng(canvas, `${guestFileBase(eventQuery.data?.name ?? 'event', item.name)}.png`)

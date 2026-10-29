@@ -1,139 +1,102 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ApiError } from '@/api/client'
-import { badgeApi } from '@/api/badgeApi'
+import { ApiError, apiBaseUrl } from '@/api/client'
+import type { PrintBadgeDesign } from '@/api/printBadgeApi'
 import { guestTypeApi } from '@/api/guestTypeApi'
-import { invitationApi } from '@/api/invitationApi'
-import { defaultBackground, normalizeBadgeDesign, type BadgeDesign } from '@/badges/design'
-import { buttonClassName } from '@/components/ui/Button'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { BadgeDesigner } from '@/components/badges/BadgeDesigner'
+import { badgeLimits, elementsToPass, normalizeBadgeDesign, passToElements } from '@/badges/design'
+import { EventDesignerSwitcher } from '@/designer/DesignerSwitcher'
+import { ElementBadgeDesigner } from '@/designer/ElementBadgeDesigner'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-import { useEvent } from '@/hooks/useEvents'
 
+const passSizes = [
+  { label: 'Portrait (600 × 900 px)', width: 600, height: 900 },
+  { label: 'Landscape (900 × 600 px)', width: 900, height: 600 },
+  { label: 'Phone screen (1080 × 1920 px)', width: 1080, height: 1920 },
+  { label: 'Tall card (1080 × 1350 px)', width: 1080, height: 1350 },
+  { label: 'Square (1080 × 1080 px)', width: 1080, height: 1080 },
+]
+
+/** Digital pass designer (pixels) for one guest category, on the shared element designer. */
 export function BadgePage() {
   const { eventId = '', guestTypeId } = useParams()
-  const navigate = useNavigate()
-  const eventQuery = useEvent(eventId)
-  const event = eventQuery.data
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState<BadgeDesign | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const typeQuery = useQuery({
-    queryKey: ['guest-types', eventId],
-    queryFn: () => guestTypeApi.list(eventId),
-    enabled: Boolean(eventId),
-  })
+  const typeQuery = useQuery({ queryKey: ['guest-types', eventId], queryFn: () => guestTypeApi.list(eventId), enabled: Boolean(eventId) })
   const guestType = typeQuery.data?.find((type) => type.id === guestTypeId)
-  useDocumentTitle(event ? `${event.name} digital pass` : 'Digital pass designer')
-
-  const templateQuery = useQuery({
-    queryKey: guestTypeId ? ['guest-type-badge', eventId, guestTypeId] : ['badge-template', eventId],
-    queryFn: () => (guestTypeId ? guestTypeApi.getBadge(eventId, guestTypeId) : badgeApi.getTemplate(eventId)),
-    enabled: Boolean(eventId) && (!guestTypeId || Boolean(guestType)),
+  const badgeQuery = useQuery({
+    queryKey: ['guest-type-badge', eventId, guestTypeId],
+    queryFn: () => guestTypeApi.getBadge(eventId, guestTypeId!),
+    enabled: Boolean(eventId && guestTypeId),
   })
+  const [initial, setInitial] = useState<PrintBadgeDesign | null>(null)
+  const [saving, setSaving] = useState(false)
+  useDocumentTitle(guestType ? `Digital pass · ${guestType.name}` : 'Digital pass')
 
+  // Older designs are converted to elements; their background image needs its real size first.
   useEffect(() => {
-    setDraft(null)
-  }, [eventId, guestTypeId])
-
-  const serverDesign = templateQuery.data ? normalizeBadgeDesign(templateQuery.data.design) : null
-  const dirty = draft !== null && serverDesign !== null && JSON.stringify(normalizeBadgeDesign(draft)) !== JSON.stringify(serverDesign)
-  useEffect(() => {
-    if (!dirty) return
-    const onLeave = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
+    setInitial(null)
+    const data = badgeQuery.data
+    if (!data) return
+    const design = normalizeBadgeDesign(data.design)
+    let cancelled = false
+    const finish = (natural: { width: number; height: number } | null) => {
+      if (!cancelled) setInitial(passToElements(design, natural))
     }
-    window.addEventListener('beforeunload', onLeave)
-    return () => window.removeEventListener('beforeunload', onLeave)
-  }, [dirty])
-
-  const saveMutation = useMutation({
-    mutationFn: (design: BadgeDesign) =>
-      guestTypeId
-        ? guestTypeApi.saveBadge(eventId, guestTypeId, normalizeBadgeDesign(design))
-        : badgeApi.saveTemplate(eventId, normalizeBadgeDesign(design)),
-    onSuccess: async (saved) => {
-      setDraft(normalizeBadgeDesign(saved.design))
-      toast.success(guestTypeId ? 'Digital pass design saved for this guest category.' : 'Digital pass design saved.')
-      await queryClient.invalidateQueries({ queryKey: guestTypeId ? ['guest-type-badge', eventId, guestTypeId] : ['badge-template', eventId] })
-      await queryClient.invalidateQueries({ queryKey: ['guest-types', eventId] })
-    },
-    onError: (error) => {
-      toast.error(messageFrom(error, 'The digital pass design could not be saved.'))
-    },
-  })
-
-  if (eventQuery.isLoading || templateQuery.isLoading || (guestTypeId && typeQuery.isLoading)) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted" aria-live="polite">
-        Loading digital pass
-      </div>
-    )
-  }
-
-  if (eventQuery.isError || !event || templateQuery.isError || !templateQuery.data || (guestTypeId && !guestType)) {
-    const missing = eventQuery.error instanceof ApiError && eventQuery.error.status === 404
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-background px-6">
-        <EmptyState
-          title={missing ? 'Event not found' : 'Digital pass could not be loaded'}
-          description={missing ? 'It may have been deleted.' : 'Try again in a moment.'}
-          action={
-            <Link to="/events" className={buttonClassName('secondary')}>
-              Back to events
-            </Link>
-          }
-        />
-      </div>
-    )
-  }
-
-  const design = draft ?? normalizeBadgeDesign(templateQuery.data.design)
-
-  async function upload(file: File) {
-    setUploading(true)
-    try {
-      const asset = await invitationApi.uploadAsset(eventId, file)
-      setDraft({
-        ...design,
-        backgroundAssetId: asset.id,
-        background: design.background ?? defaultBackground(design),
-      })
-    } catch (error) {
-      toast.error(messageFrom(error, 'The image could not be uploaded.'))
-    } finally {
-      setUploading(false)
+    if (!design.elements && design.backgroundAssetId && design.background && design.background.height == null) {
+      const image = new Image()
+      image.crossOrigin = 'anonymous'
+      image.onload = () => finish({ width: image.naturalWidth, height: image.naturalHeight })
+      image.onerror = () => finish(null)
+      image.src = `${apiBaseUrl}/api/public/assets/${design.backgroundAssetId}`
+    } else {
+      finish(null)
     }
+    return () => {
+      cancelled = true
+    }
+  }, [badgeQuery.data])
+
+  if (!guestTypeId) return <Navigate to={`/events/${eventId}/designs`} replace />
+
+  if (typeQuery.isLoading || badgeQuery.isLoading || (badgeQuery.data && !initial)) {
+    return <div className="flex h-dvh items-center justify-center bg-background text-sm text-muted">Loading the digital pass…</div>
+  }
+  if (!guestType || badgeQuery.isError || !initial || !badgeQuery.data) {
+    return <div className="flex h-dvh items-center justify-center bg-background text-sm text-danger">The digital pass could not be loaded.</div>
   }
 
   return (
-    <BadgeDesigner
-      eventId={event.id}
-      design={design}
-      onChange={setDraft}
-      uploading={uploading}
-      onUpload={(file) => void upload(file)}
-      saving={saveMutation.isPending}
-      onSave={() => saveMutation.mutate(design)}
-      backTo={guestTypeId ? `/events/${event.id}/guest-types` : undefined}
-      backLabel={guestTypeId ? 'Guest categories' : undefined}
-      context="Design: Digital pass"
-      guestTypes={typeQuery.data?.map((type) => ({ id: type.id, name: type.name }))}
-      guestTypeId={guestTypeId}
-      onGuestTypeChange={(nextId) => {
-        if (nextId === (guestTypeId ?? '')) return
-        if (dirty && !window.confirm('This design has unsaved changes. Load another guest category without saving?')) return
-        navigate(nextId ? `/events/${event.id}/guest-types/${nextId}/badge` : `/events/${event.id}/badges`)
+    <ElementBadgeDesigner
+      key={guestTypeId}
+      unit="px"
+      title={`Digital pass · ${guestType.name}`}
+      backLabel="Designs"
+      backTo={`/events/${eventId}/designs`}
+      switcher={<EventDesignerSwitcher eventId={eventId} kind="pass" guestTypeId={guestTypeId} guestTypeName={guestType.name} />}
+      eventId={eventId}
+      initial={initial}
+      configured={badgeQuery.data.configured}
+      sizePresets={passSizes}
+      limits={{ minWidth: badgeLimits.minWidth, maxWidth: badgeLimits.maxWidth, minHeight: badgeLimits.minHeight, maxHeight: badgeLimits.maxHeight }}
+      saving={saving}
+      hint="The pass guests open on their phone and download after accepting. Each guest sees their own name and check-in QR code."
+      onSave={async (design) => {
+        setSaving(true)
+        try {
+          const saved = await guestTypeApi.saveBadge(eventId, guestTypeId, elementsToPass(design))
+          queryClient.setQueryData(['guest-type-badge', eventId, guestTypeId], saved)
+          void queryClient.invalidateQueries({ queryKey: ['guest-types', eventId] })
+          toast.success('Digital pass saved.')
+          return passToElements(normalizeBadgeDesign(saved.design), null)
+        } catch (error) {
+          const field = error instanceof ApiError && error.errors ? Object.values(error.errors)[0]?.[0] : undefined
+          toast.error(field ?? (error instanceof ApiError ? error.message : 'The digital pass could not be saved.'))
+          return null
+        } finally {
+          setSaving(false)
+        }
       }}
     />
   )
-}
-
-function messageFrom(error: unknown, fallback: string) {
-  if (!(error instanceof ApiError)) return fallback
-  const field = error.errors ? Object.values(error.errors)[0]?.[0] : undefined
-  return field || error.message || fallback
 }

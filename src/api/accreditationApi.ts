@@ -278,6 +278,10 @@ export type AccBadgeElement = {
   text: string | null
   font: string | null
   fileId: string | null
+  hidden?: boolean
+  locked?: boolean
+  /** Layer name shown in the designer only. */
+  name?: string | null
 }
 
 export type AccBadgeDesign = {

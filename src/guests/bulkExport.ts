@@ -144,7 +144,7 @@ export async function exportBadges(
   for (const item of ready) {
     if (signal.aborted) throw new ExportCancelled()
     try {
-      const canvas = await renderGuestBadge(item.design, { name: item.name, qrPayload: item.qrPayload }, apiBaseUrl)
+      const canvas = await renderGuestBadge(item.design, { name: item.name, qrPayload: item.qrPayload, guestId: item.guestId, eventId }, apiBaseUrl)
       if (format === 'png') files.add(item.name, 'png', await canvasBlob(canvas, 'image/png'))
       else files.add(item.name, 'pdf', singlePagePdf(canvas, 1, 'PNG'))
     } catch (error) {

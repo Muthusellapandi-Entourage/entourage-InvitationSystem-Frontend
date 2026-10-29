@@ -1,9 +1,22 @@
 import { apiClient } from '@/api/client'
 
-export type PrintElementKind = 'name' | 'position' | 'company' | 'guestType' | 'seat' | 'text' | 'qr' | 'image'
+export type PrintElementKind = 'name' | 'position' | 'company' | 'guestType' | 'seat' | 'text' | 'qr' | 'image' | 'rect'
 
-/** One element on the printed badge; position and size in millimetres, font size in points. */
+/**
+ * One element on a badge. Printed badges: position and size in millimetres, font size in points.
+ * Digital passes use the same element in pixels (font size in pixels).
+ */
 export type PrintBadgeElement = {
+  /** Background of the box (shapes, or a coloured band behind text). Null = none. */
+  fill?: string | null
+  /** Corner radius, same unit as the position. */
+  radius?: number
+  /** Not drawn or printed (kept in the design). */
+  hidden?: boolean
+  /** Cannot be moved on the canvas. */
+  locked?: boolean
+  /** Layer name. */
+  name?: string | null
   id: string
   kind: PrintElementKind
   x: number

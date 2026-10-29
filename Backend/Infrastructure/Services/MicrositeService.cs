@@ -147,6 +147,8 @@ public sealed class MicrositeService(AppDbContext db, IEventAssetService assets)
                 Background = MicrositeRenderer.Color(element.Background),
                 BorderColor = MicrositeRenderer.Color(element.BorderColor),
                 Show = element.Show is "pending" or "accepted" or "declined" or "public" ? element.Show : "always",
+                Name = Cap(element.Name, 80),
+                Locked = element.Locked == true ? true : null,
             })
             .ToArray();
 
