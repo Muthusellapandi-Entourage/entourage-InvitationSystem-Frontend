@@ -74,7 +74,7 @@ export function InvitationPage() {
       guestTypeId ? guestTypeApi.saveInvitation(eventId, guestTypeId, design) : invitationApi.saveTemplate(eventId, design),
     onSuccess: async (saved) => {
       setDraft(normalizeInvitationDesign(saved.design))
-      toast.success(guestTypeId ? 'Invitation design saved for this guest type.' : 'Invitation template saved.')
+      toast.success(guestTypeId ? 'Invitation design saved for this guest category.' : 'Invitation template saved.')
       await queryClient.invalidateQueries({ queryKey: guestTypeId ? ['guest-type-invitation', eventId, guestTypeId] : ['invitation-template', eventId] })
       await queryClient.invalidateQueries({ queryKey: ['guest-types', eventId] })
       if (!guestTypeId) await queryClient.invalidateQueries({ queryKey: ['public-invitation'] })
@@ -132,7 +132,7 @@ export function InvitationPage() {
       <SliceDesigner
         key={guestTypeId}
         eventId={event.id}
-        title={`${guestType?.name ?? 'Guest type'} · ${event.name}`}
+        title={`${guestType?.name ?? 'Guest category'} · ${event.name}`}
         design={design}
         saving={saveMutation.isPending}
         onSave={(next) => {
@@ -143,11 +143,11 @@ export function InvitationPage() {
           if (dirty && !window.confirm('This design has unsaved changes. Leave without saving?')) return
           navigate(backTo)
         }}
-        backLabel="Guest types"
+        backLabel="Guest categories"
         onUseClassic={() => {
           if (
             design.slices &&
-            !window.confirm('Switch to the classic designer? Saving there replaces the single-image design for this guest type.')
+            !window.confirm('Switch to the classic designer? Saving there replaces the one-image invitation for this guest category.')
           )
             return
           setMode('classic')
@@ -165,7 +165,7 @@ export function InvitationPage() {
         className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-hover"
       >
         <Scissors className="size-4 text-accent" aria-hidden="true" />
-        Use single-image design
+        Use one-image invitation
       </button>
     ) : null}
     <InvitationDesigner
@@ -182,13 +182,13 @@ export function InvitationPage() {
       replies={guestTypeId ? [] : responsesQuery.data}
       repliesLoading={guestTypeId ? false : responsesQuery.isLoading}
       backTo={guestTypeId ? `/events/${event.id}/guest-types` : undefined}
-      backLabel={guestTypeId ? 'Guest types' : undefined}
+      backLabel={guestTypeId ? 'Guest categories' : undefined}
       context="Design: HTML invitation"
       guestTypes={typeQuery.data?.map((type) => ({ id: type.id, name: type.name }))}
       guestTypeId={guestTypeId}
       onGuestTypeChange={(nextId) => {
         if (nextId === (guestTypeId ?? '')) return
-        if (dirty && !window.confirm('This design has unsaved changes. Load another guest type without saving?')) return
+        if (dirty && !window.confirm('This design has unsaved changes. Load another guest category without saving?')) return
         navigate(nextId ? `/events/${event.id}/guest-types/${nextId}/invitation` : `/events/${event.id}/invitations`)
       }}
     />

@@ -53,7 +53,7 @@ public sealed record PrintPayloadDto(PrintBadgeDesignDto? Design, PrintGuestDto 
 /// <summary>Look and wording of the self check-in kiosk.</summary>
 public sealed record KioskSettingsDto(
     string WelcomeTitle = "Welcome",
-    string WelcomeText = "Scan the QR code on your E-Badge to check in and print your badge.",
+    string WelcomeText = "Scan the QR code on your digital pass to check in and print your badge.",
     string ConfirmTitle = "Is this you?",
     string ConfirmButton = "Confirm & print badge",
     string CancelButton = "Not me",
@@ -113,7 +113,7 @@ public sealed class PrintBadgeService(AppDbContext db, CheckInService checkIn)
     public async Task<PrintBadgeTemplateDto> GetDesignAsync(Guid eventId, Guid guestTypeId, CancellationToken cancellationToken)
     {
         var type = await db.GuestTypes.AsNoTracking().FirstOrDefaultAsync(item => item.Id == guestTypeId && item.EventId == eventId, cancellationToken)
-            ?? throw AppException.NotFound("Guest type not found.");
+            ?? throw AppException.NotFound("Guest category not found.");
         var design = Read(type.PrintBadgeDesignJson);
         return new PrintBadgeTemplateDto(type.Id, type.Name, design is not null, design ?? DefaultDesign());
     }
@@ -121,7 +121,7 @@ public sealed class PrintBadgeService(AppDbContext db, CheckInService checkIn)
     public async Task<PrintBadgeTemplateDto> SaveDesignAsync(Guid eventId, Guid guestTypeId, PrintBadgeDesignDto input, CancellationToken cancellationToken)
     {
         var type = await db.GuestTypes.FirstOrDefaultAsync(item => item.Id == guestTypeId && item.EventId == eventId, cancellationToken)
-            ?? throw AppException.NotFound("Guest type not found.");
+            ?? throw AppException.NotFound("Guest category not found.");
         var design = Clean(input);
         var images = design.Elements.Select(element => element.AssetId).Append(design.BackgroundAssetId).OfType<Guid>().Distinct().ToArray();
         var present = images.Length == 0
@@ -385,11 +385,11 @@ public sealed class PrintBadgeService(AppDbContext db, CheckInService checkIn)
         var key = (token ?? string.Empty).Trim().ToLowerInvariant();
         if (key.Length != 32 || !key.All(char.IsAsciiHexDigit))
         {
-            throw AppException.NotFound("This kiosk link is not valid.");
+            throw AppException.NotFound("This self check-in screen link is not valid.");
         }
 
         var item = await db.Events.AsNoTracking().FirstOrDefaultAsync(entry => entry.KioskToken == key, cancellationToken)
-            ?? throw AppException.NotFound("This kiosk link is not valid or has been turned off.");
+            ?? throw AppException.NotFound("This self check-in screen link is not valid or has been turned off.");
         if (item.Status == EventStatus.Archived)
         {
             throw new AppException("This event has ended.", StatusCodes.Status410Gone);

@@ -66,8 +66,25 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<AccRevokedCredential> AccRevokedCredentials => Set<AccRevokedCredential>();
 
+    public DbSet<AccScanLog> AccScanLogs => Set<AccScanLog>();
+
     private static void ConfigureAccreditation(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<AccScanLog>(entity =>
+        {
+            entity.ToTable("AccScanLogs");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.EventId, item.ScannedOn });
+            entity.HasIndex(item => item.ApplicantId);
+            entity.Property(item => item.Code).HasMaxLength(64).IsRequired();
+            entity.Property(item => item.GateName).HasMaxLength(80).IsRequired();
+            entity.Property(item => item.Direction).HasMaxLength(8).IsRequired();
+            entity.Property(item => item.Result).HasMaxLength(8).IsRequired();
+            entity.Property(item => item.Reason).HasMaxLength(32).IsRequired();
+            entity.Property(item => item.ScannedByName).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.ScannedOn).HasConversion(UtcDateTimeConverter.Instance);
+        });
+
         modelBuilder.Entity<AccBadgeTemplate>(entity =>
         {
             entity.ToTable("AccBadgeTemplates");

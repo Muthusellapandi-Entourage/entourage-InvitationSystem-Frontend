@@ -79,12 +79,12 @@ public sealed class AccEventsController(AccSetupService setup) : ControllerBase
     [HttpPut("{accEventId:guid}/types")]
     [Authorize(Roles = AccRoles.Manage)]
     public async Task<ActionResult<ApiResponse<AccSetupDto>>> Types(Guid accEventId, AccApplicantTypeDto[] types, CancellationToken cancellationToken) =>
-        Ok(AccOrigins.Ok(await setup.SaveTypesAsync(accEventId, types, cancellationToken), "Applicant types saved."));
+        Ok(AccOrigins.Ok(await setup.SaveTypesAsync(accEventId, types, cancellationToken), "Applicant categories saved."));
 
     [HttpPut("{accEventId:guid}/stages")]
     [Authorize(Roles = AccRoles.Manage)]
     public async Task<ActionResult<ApiResponse<AccSetupDto>>> Stages(Guid accEventId, AccStageDto[] stages, CancellationToken cancellationToken) =>
-        Ok(AccOrigins.Ok(await setup.SaveStagesAsync(accEventId, stages, cancellationToken), "Stages saved."));
+        Ok(AccOrigins.Ok(await setup.SaveStagesAsync(accEventId, stages, cancellationToken), "Steps saved."));
 
     [HttpPut("{accEventId:guid}/notifications")]
     [Authorize(Roles = AccRoles.Manage)]
@@ -250,6 +250,21 @@ public sealed class AccFilesController(AccFileService files) : ControllerBase
     }
 }
 
+/// <summary>Gate scanning (online) and the live monitor.</summary>
+[ApiController]
+[Route("api/accreditation/events/{accEventId:guid}")]
+[Authorize(Roles = AccRoles.Scan)]
+public sealed class AccScanController(AccScanService scans, AccActorResolver actors) : ControllerBase
+{
+    [HttpPost("scan")]
+    public async Task<ActionResult<ApiResponse<AccScanResultDto>>> Scan(Guid accEventId, AccScanRequest request, CancellationToken cancellationToken) =>
+        Ok(AccOrigins.Ok(await scans.ScanAsync(accEventId, request, await actors.CurrentAsync(cancellationToken), cancellationToken)));
+
+    [HttpGet("live")]
+    public async Task<ActionResult<ApiResponse<AccLiveDto>>> Live(Guid accEventId, CancellationToken cancellationToken) =>
+        Ok(AccOrigins.Ok(await scans.LiveAsync(accEventId, cancellationToken)));
+}
+
 /// <summary>Badge templates (designer) and the print queue.</summary>
 [ApiController]
 [Route("api/accreditation/events/{accEventId:guid}/badges")]
@@ -312,11 +327,11 @@ public sealed class AccBadgesController(AccBadgeService badges, AccActorResolver
         // Revoking a badge code is a security decision.
         if (request.Revoke && !(User.IsInRole("Administrator") || User.IsInRole("AccreditationAdmin") || User.IsInRole("SecurityManager")))
         {
-            throw AppException.Forbidden("Only a security manager or accreditation admin can revoke a badge.");
+            throw AppException.Forbidden("Only a security manager or accreditation admin can cancel a badge.");
         }
 
         var count = await badges.ReprintAsync(accEventId, request.Ids, request.Reason, request.Revoke, await actors.CurrentAsync(cancellationToken), cancellationToken);
-        return Ok(AccOrigins.Ok(count, request.Revoke ? $"{count} badge(s) revoked and queued for reprint." : $"{count} badge(s) queued for reprint."));
+        return Ok(AccOrigins.Ok(count, request.Revoke ? $"{count} badge(s) cancelled and queued for reprint." : $"{count} badge(s) queued for reprint."));
     }
 }
 

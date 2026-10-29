@@ -30,7 +30,10 @@ public static class AccRoles
     public const string Print = "Administrator,AccreditationAdmin,SecurityManager,PrintOperator";
 
     /// <summary>Open photos and documents (staff who vet or print).</summary>
-    public const string Files = "Administrator,AccreditationAdmin,SecurityManager,DataEntryClerk,PrintOperator";
+    public const string Files = "Administrator,AccreditationAdmin,SecurityManager,DataEntryClerk,PrintOperator,GateGuard";
+
+    /// <summary>Gate scanning and the live monitor.</summary>
+    public const string Scan = "Administrator,AccreditationAdmin,SecurityManager,GateGuard";
 
     /// <summary>Anyone who works in accreditation (read-only views such as the events list).</summary>
     public const string Any = "Administrator,AccreditationAdmin,SecurityManager,DataEntryClerk,PrintOperator,GateGuard";

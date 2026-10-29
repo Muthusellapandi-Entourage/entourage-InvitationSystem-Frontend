@@ -172,7 +172,7 @@ function ProfilesSection({ eventId, setup, editable }: { eventId: string; setup:
   return (
     <Section
       title="Access profiles"
-      description="Bundles of zones given on approval, e.g. Media pass = Media centre + Press pit."
+      description="A set of zones given together when someone is approved, e.g. Media pass = Media centre + Press pit."
       actions={editable ? <SaveBar dirty={dirty} pending={save.isPending} onSave={() => save.mutate(profiles)} onReset={() => setProfiles(setup.profiles)} /> : null}
     >
       <div className="grid gap-3">
@@ -234,14 +234,14 @@ const fieldTypes: { value: AccFieldType; label: string }[] = [
 
 function TypesSection({ eventId, setup, editable }: { eventId: string; setup: AccSetup; editable: boolean }) {
   const [types, setTypes, dirty] = useDraft<AccApplicantType[]>(setup.types)
-  const save = useSave(eventId, (value: AccApplicantType[]) => accApi.saveTypes(eventId, value), 'Applicant types saved.')
+  const save = useSave(eventId, (value: AccApplicantType[]) => accApi.saveTypes(eventId, value), 'Applicant categories saved.')
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const update = (index: number, patch: Partial<AccApplicantType>) => setTypes(types.map((item, at) => (at === index ? { ...item, ...patch } : item)))
 
   return (
     <Section
-      title="Applicant types"
-      description="Each type has its own extra questions and required documents."
+      title="Applicant categories"
+      description="Each category has its own extra questions and required documents."
       actions={editable ? <SaveBar dirty={dirty} pending={save.isPending} onSave={() => save.mutate(types)} onReset={() => setTypes(setup.types)} /> : null}
     >
       <div className="grid gap-2">
@@ -265,7 +265,7 @@ function TypesSection({ eventId, setup, editable }: { eventId: string; setup: Ac
                     <button type="button" className={iconButton} aria-label="Move down" disabled={index === types.length - 1} onClick={() => setTypes(move(types, index, 1))}>
                       <ArrowDown className="size-4" />
                     </button>
-                    <button type="button" className={cn(iconButton, 'hover:text-danger')} aria-label="Remove type" onClick={() => setTypes(types.filter((_, at) => at !== index))}>
+                    <button type="button" className={cn(iconButton, 'hover:text-danger')} aria-label="Remove category" onClick={() => setTypes(types.filter((_, at) => at !== index))}>
                       <Trash2 className="size-4" />
                     </button>
                   </>
@@ -303,12 +303,12 @@ function TypesSection({ eventId, setup, editable }: { eventId: string; setup: Ac
               variant="ghost"
               className="h-9"
               onClick={() => {
-                setTypes([...types, { id: null, name: 'New type', fields: [], documents: [{ key: 'id', label: 'Passport or national ID', required: true, needsExpiry: true }], defaultProfileId: null }])
+                setTypes([...types, { id: null, name: 'New category', fields: [], documents: [{ key: 'id', label: 'Passport or national ID', required: true, needsExpiry: true }], defaultProfileId: null }])
                 setOpenIndex(types.length)
               }}
             >
               <Plus className="size-4" aria-hidden="true" />
-              Add applicant type
+              Add applicant category
             </Button>
           </div>
         ) : null}
@@ -419,27 +419,27 @@ const kindLabels: Record<AccStageKind, string> = { open: 'In review', approved: 
 
 function StagesSection({ eventId, setup, editable }: { eventId: string; setup: AccSetup; editable: boolean }) {
   const [stages, setStages, dirty] = useDraft<AccStage[]>(setup.stages)
-  const save = useSave(eventId, (value: AccStage[]) => accApi.saveStages(eventId, value), 'Stages saved.')
+  const save = useSave(eventId, (value: AccStage[]) => accApi.saveStages(eventId, value), 'Approval steps saved.')
   const update = (index: number, patch: Partial<AccStage>) => setStages(stages.map((stage, at) => (at === index ? { ...stage, ...patch } : stage)))
   return (
     <Section
-      title="Pipeline stages"
-      description="New applications land in the first stage. Moving someone to an Approved stage gives them a badge number."
+      title="Approval steps"
+      description="New applications start at the first step. Moving someone to an Approved step gives them a badge number."
       actions={editable ? <SaveBar dirty={dirty} pending={save.isPending} onSave={() => save.mutate(stages)} onReset={() => setStages(setup.stages)} /> : null}
     >
       <ol className="grid gap-2">
         {stages.map((stage, index) => (
           <li key={stage.key} className="grid grid-cols-[1.5rem_1fr_9rem_9rem_auto] items-center gap-2">
             <span className="text-center text-xs tabular-nums text-muted">{index + 1}</span>
-            <input aria-label="Stage name" className={input} value={stage.name} disabled={!editable} onChange={(event) => update(index, { name: event.target.value })} />
-            <select aria-label="Stage kind" className={input} value={stage.kind} disabled={!editable} onChange={(event) => update(index, { kind: event.target.value as AccStageKind })}>
+            <input aria-label="Step name" className={input} value={stage.name} disabled={!editable} onChange={(event) => update(index, { name: event.target.value })} />
+            <select aria-label="Step type" className={input} value={stage.kind} disabled={!editable} onChange={(event) => update(index, { kind: event.target.value as AccStageKind })}>
               {(Object.keys(kindLabels) as AccStageKind[]).map((kind) => (
                 <option key={kind} value={kind}>
                   {kindLabels[kind]}
                 </option>
               ))}
             </select>
-            <AlphaColorInput label="Stage colour" value={stage.color} disabled={!editable} onChange={(color) => update(index, { color })} />
+            <AlphaColorInput label="Step colour" value={stage.color} disabled={!editable} onChange={(color) => update(index, { color })} />
             {editable ? (
               <span className="flex">
                 <button type="button" className={iconButton} aria-label="Move up" disabled={index === 0} onClick={() => setStages(move(stages, index, -1))}>
@@ -448,7 +448,7 @@ function StagesSection({ eventId, setup, editable }: { eventId: string; setup: A
                 <button type="button" className={iconButton} aria-label="Move down" disabled={index === stages.length - 1} onClick={() => setStages(move(stages, index, 1))}>
                   <ArrowDown className="size-4" />
                 </button>
-                <button type="button" className={cn(iconButton, 'hover:text-danger')} aria-label="Remove stage" disabled={stages.length <= 3} onClick={() => setStages(stages.filter((_, at) => at !== index))}>
+                <button type="button" className={cn(iconButton, 'hover:text-danger')} aria-label="Remove step" disabled={stages.length <= 3} onClick={() => setStages(stages.filter((_, at) => at !== index))}>
                   <Trash2 className="size-4" />
                 </button>
               </span>
@@ -460,10 +460,10 @@ function StagesSection({ eventId, setup, editable }: { eventId: string; setup: A
         <Button
           variant="ghost"
           className="mt-2 h-9"
-          onClick={() => setStages([...stages.slice(0, 1), { key: slugKey('', 'stage'), name: 'New stage', kind: 'open', color: '#7A8EA8' }, ...stages.slice(1)])}
+          onClick={() => setStages([...stages.slice(0, 1), { key: slugKey('', 'stage'), name: 'New step', kind: 'open', color: '#7A8EA8' }, ...stages.slice(1)])}
         >
           <Plus className="size-4" aria-hidden="true" />
-          Add stage
+          Add step
         </Button>
       ) : null}
     </Section>
@@ -473,9 +473,9 @@ function StagesSection({ eventId, setup, editable }: { eventId: string; setup: A
 /* ---------------- Emails ---------------- */
 
 const triggers: { key: keyof AccNotifications; title: string; when: string }[] = [
-  { key: 'submitted', title: 'Application received', when: 'Sent when someone is submitted (portal, bulk, public or staff).' },
-  { key: 'approved', title: 'Approved', when: 'Sent when moved to an Approved stage.' },
-  { key: 'rejected', title: 'Rejected', when: 'Sent when moved to a Rejected stage, with the reason.' },
+  { key: 'submitted', title: 'Application received', when: 'Sent when someone is submitted (by their organisation, in an uploaded list, through the public link or by staff).' },
+  { key: 'approved', title: 'Approved', when: 'Sent when moved to an Approved step.' },
+  { key: 'rejected', title: 'Rejected', when: 'Sent when moved to a Rejected step, with the reason.' },
 ]
 
 function NotificationsSection({ eventId, setup, editable }: { eventId: string; setup: AccSetup; editable: boolean }) {
@@ -485,7 +485,7 @@ function NotificationsSection({ eventId, setup, editable }: { eventId: string; s
   return (
     <Section
       title="Emails"
-      description="Uses the mail settings of the system. Placeholders: {{firstName}} {{lastName}} {{event}} {{organization}} {{badgeNumber}} {{reason}}. SMS comes later."
+      description="Uses the system's email settings. These words are filled in for each person: {{firstName}} {{lastName}} {{event}} {{organization}} {{badgeNumber}} {{reason}}. SMS comes later."
       actions={editable ? <SaveBar dirty={dirty} pending={save.isPending} onSave={() => save.mutate(value)} onReset={() => setValue(setup.notifications)} /> : null}
     >
       <div className="grid gap-4 lg:grid-cols-3">

@@ -95,11 +95,11 @@ export function ApplicantDrawer({
   const move = useMutation({
     mutationFn: ({ stageKey, reason }: { stageKey: string; reason: string | null }) => accApi.move(eventId, [applicantId!], stageKey, reason),
     onSuccess: (result, variables) => {
-      reportDecision(result, `moved to ${setup.stages.find((stage) => stage.key === variables.stageKey)?.name ?? 'the stage'}`)
+      reportDecision(result, `moved to ${setup.stages.find((stage) => stage.key === variables.stageKey)?.name ?? 'the step'}`)
       setRejecting(null)
       after()
     },
-    onError: (error) => toast.error(errorMessage(error, 'The stage could not be changed.')),
+    onError: (error) => toast.error(errorMessage(error, 'The step could not be changed.')),
   })
 
   const save = useMutation({
@@ -201,7 +201,7 @@ export function ApplicantDrawer({
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
                   <Info label="Organisation">{summary.organization ?? 'Direct'}</Info>
-                  <Info label="Type">{summary.applicantType}</Info>
+                  <Info label="Category">{summary.applicantType}</Info>
                   <Info label="Role">{summary.jobTitle}</Info>
                   <Info label="Email">{summary.email}</Info>
                   <Info label="Mobile">{detail.phone}</Info>
@@ -476,6 +476,7 @@ function AccessEditor({
         <div className="mt-3 grid gap-3 rounded-md border border-border p-3">
           <label className="grid gap-1.5 text-sm">
             <span className="font-medium">Access profile</span>
+            <span className="text-xs text-muted">A set of zones given together, e.g. Media pass = Media centre + Press pit.</span>
             <select className="h-9 rounded-md border border-border bg-surface px-2 text-sm" value={profile} onChange={(event) => setProfile(event.target.value)}>
               <option value="">No profile</option>
               {setup.profiles.map((item) => (

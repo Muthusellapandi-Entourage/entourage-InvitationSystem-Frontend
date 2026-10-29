@@ -19,10 +19,10 @@ public sealed record RsvpPageSettingsDto(
     string ReasonsPrompt = "Please let us know why you’re unable to attend:",
     string[]? DeclineReasons = null,
     string ThankYouText = "Thank you for confirming your attendance! Please note that your invitation is personal and strictly non-transferable.",
-    string QrText = "Please scan the QR Code above from your mobile device to access your E-Badge or click the link below",
-    string DownloadButton = "Download E-Badge",
+    string QrText = "Please scan the QR Code above from your mobile device to access your digital pass or click the link below",
+    string DownloadButton = "Download digital pass",
     string WalletButton = "Add to Apple Wallet",
-    string InfoText = "To ensure a smooth entry, we recommend saving the QR code or E-Badge to your mobile device for quick scanning at the registration area. Please note that your E-Badge will be updated with your table details closer to the date of the event.",
+    string InfoText = "To ensure a smooth entry, we recommend saving the QR code or digital pass to your mobile device for quick scanning at the registration area. Please note that your digital pass will be updated with your table details closer to the date of the event.",
     string ContactText = "For any inquiries, feel free to contact us at Corporate Protocol.",
     string SignOff = "Warm regards!",
     string DeclineText = "Thank you for your response. We hope to see you at a future event. If your plans change, please contact the event team.")

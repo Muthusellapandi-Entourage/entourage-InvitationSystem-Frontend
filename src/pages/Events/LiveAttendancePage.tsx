@@ -30,7 +30,7 @@ export function LiveAttendancePage() {
   if (!live) {
     return (
       <p className="max-w-xl text-sm text-muted">
-        Live attendance opens while the event is Active. Set the event to Active in its settings to start checking guests in.
+        Live attendance opens while the event is Live. Make the event Live in its settings to start checking guests in.
       </p>
     )
   }

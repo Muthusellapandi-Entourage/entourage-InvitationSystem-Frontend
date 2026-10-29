@@ -30,12 +30,12 @@ export function GuestTypesPage() {
   const [destinationId, setDestinationId] = useState('')
   const [replace, setReplace] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<GuestType | null>(null)
-  useDocumentTitle(eventQuery.data ? `${eventQuery.data.name} guest types` : 'Guest types')
+  useDocumentTitle(eventQuery.data ? `${eventQuery.data.name} guest categories` : 'Guest categories')
   usePageBreadcrumbs([
     { label: 'Dashboard', to: '/' },
     { label: 'Events', to: '/events' },
     { label: eventQuery.data?.name ?? 'Event', to: `/events/${eventId}` },
-    { label: 'Guest types' },
+    { label: 'Guest categories' },
   ])
 
   const typesQuery = useQuery({
@@ -52,20 +52,20 @@ export function GuestTypesPage() {
     mutationFn: () => guestTypeApi.create(eventId, name.trim()),
     onSuccess: async () => {
       setName('')
-      toast.success('Guest type created.')
+      toast.success('Guest category created.')
       await refresh()
     },
-    onError: (error) => toast.error(messageFrom(error, 'The guest type could not be created.')),
+    onError: (error) => toast.error(messageFrom(error, 'The guest category could not be created.')),
   })
 
   const saveMutation = useMutation({
     mutationFn: () => guestTypeApi.update(eventId, editing!.id, { name: editName.trim(), isEnabled: editing!.isEnabled }),
     onSuccess: async () => {
       setEditing(null)
-      toast.success('Guest type saved.')
+      toast.success('Guest category saved.')
       await refresh()
     },
-    onError: (error) => toast.error(messageFrom(error, 'The guest type could not be saved.')),
+    onError: (error) => toast.error(messageFrom(error, 'The guest category could not be saved.')),
   })
 
   const toggleMutation = useMutation({
@@ -74,7 +74,7 @@ export function GuestTypesPage() {
       toast.success(type.isEnabled ? `${type.name} is enabled.` : `${type.name} is disabled. New assignments and sends are blocked.`)
       await refresh()
     },
-    onError: (error) => toast.error(messageFrom(error, 'The guest type could not be updated.')),
+    onError: (error) => toast.error(messageFrom(error, 'The guest category could not be updated.')),
   })
 
   const orderMutation = useMutation({
@@ -104,11 +104,11 @@ export function GuestTypesPage() {
   const deleteMutation = useMutation({
     mutationFn: (discardDesigns: boolean) => guestTypeApi.remove(eventId, pendingDelete!.id, discardDesigns),
     onSuccess: async () => {
-      toast.success('Guest type deleted.')
+      toast.success('Guest category deleted.')
       setPendingDelete(null)
       await refresh()
     },
-    onError: (error) => toast.error(messageFrom(error, 'The guest type could not be deleted.')),
+    onError: (error) => toast.error(messageFrom(error, 'The guest category could not be deleted.')),
   })
 
   const types = typesQuery.data ?? []
@@ -133,7 +133,7 @@ export function GuestTypesPage() {
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-[1.75rem] font-semibold tracking-[-0.02em]">Guest types</h1>
+          <h1 className="text-[1.75rem] font-semibold tracking-[-0.02em]">Guest categories</h1>
           <p className="mt-2 text-sm text-muted">Manage guest groups and their designs.</p>
         </div>
       </div>
@@ -146,23 +146,23 @@ export function GuestTypesPage() {
         }}
       >
         <div className="w-full sm:max-w-xs">
-          <TextField label="New guest type" value={name} onChange={(event) => setName(event.target.value)} placeholder="VIP" />
+          <TextField label="New guest category" value={name} onChange={(event) => setName(event.target.value)} placeholder="VIP" />
         </div>
         <Button type="submit" className="h-10" disabled={!name.trim() || createMutation.isPending}>
           <Plus className="size-4" aria-hidden="true" />
-          {createMutation.isPending ? 'Creating…' : 'Create guest type'}
+          {createMutation.isPending ? 'Creating…' : 'Create guest category'}
         </Button>
       </form>
 
       <div className="mt-8">
         {typesQuery.isLoading ? (
-          <p className="text-sm text-muted">Loading guest types</p>
+          <p className="text-sm text-muted">Loading guest categories</p>
         ) : typesQuery.isError ? (
-          <EmptyState title="Guest types could not be loaded" description="Try again in a moment." />
+          <EmptyState title="Guest categories could not be loaded" description="Try again in a moment." />
         ) : types.length === 0 ? (
           <EmptyState
-            title="No guest types yet"
-            description="Create a type such as VIP or Media, then design its invitation and badge."
+            title="No guest categories yet"
+            description="Create a category such as VIP or Media, then design its invitation and digital pass."
           />
         ) : (
           <div>
@@ -170,11 +170,11 @@ export function GuestTypesPage() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="w-10 py-3" />
-                  <th className="py-3 pr-3">Guest type</th>
+                  <th className="py-3 pr-3">Guest category</th>
                   <th className="py-3 pr-3 text-center">Guests</th>
                   <th className="py-3 pr-3 text-center">Invitation</th>
-                  <th className="py-3 pr-3 text-center">E-Badge</th>
-                  <th className="py-3 pr-3 text-center">Print badge</th>
+                  <th className="py-3 pr-3 text-center">Digital pass</th>
+                  <th className="py-3 pr-3 text-center">Printed badge</th>
                   <th className="py-3 pr-3 text-center">Status</th>
                   <th className="w-14 py-3 pr-3">
                     <span className="sr-only">Actions</span>
@@ -219,7 +219,7 @@ export function GuestTypesPage() {
                             }}
                           >
                             <Pencil className="mr-2 size-4" aria-hidden="true" />
-                            Edit guest type
+                            Edit guest category
                           </MenuItem>
                           <MenuItem
                             disabled={types.length < 2}
@@ -271,8 +271,8 @@ export function GuestTypesPage() {
           <h2 className="text-sm font-medium">Edit {editing.name}</h2>
           <p className="mt-1 text-sm text-muted">
             {editing.isEnabled
-              ? 'Enabled types can receive new guests.'
-              : 'Disabled types cannot receive new guests, invitations, or badges. Existing records stay.'}
+              ? 'Enabled categories can receive new guests.'
+              : 'Disabled categories cannot receive new guests, invitations, or digital passes. Existing records stay.'}
           </p>
           <div className="mt-3">
             <TextField label="Name" value={editName} onChange={(event) => setEditName(event.target.value)} />
@@ -299,7 +299,7 @@ export function GuestTypesPage() {
         >
           <h2 className="text-sm font-medium">Duplicate a design</h2>
           <p className="mt-1 text-sm text-muted">
-            Copy from {duplicate.name} into another type. The source stays unchanged, and the other design category is not copied.
+            Copy from {duplicate.name} into another guest category. The source stays unchanged, and the other design is not copied.
           </p>
           <div className="mt-3 grid gap-3">
             <SelectField
@@ -307,7 +307,7 @@ export function GuestTypesPage() {
               value={category}
               options={[
                 { value: 'invitation', label: 'Invitation' },
-                { value: 'badge', label: 'Badge' },
+                { value: 'badge', label: 'Digital pass' },
               ]}
               onChange={(event) => {
                 setCategory(event.target.value as 'invitation' | 'badge')
@@ -315,10 +315,10 @@ export function GuestTypesPage() {
               }}
             />
             <SelectField
-              label="Destination guest type"
+              label="Copy into guest category"
               value={destinationId}
               options={[
-                { value: '', label: 'Choose a type' },
+                { value: '', label: 'Choose a category' },
                 ...types
                   .filter((type) => type.id !== duplicate.id)
                   .map((type) => ({ value: type.id, label: type.name })),
@@ -331,7 +331,7 @@ export function GuestTypesPage() {
             {destinationConfigured ? (
               <label className="flex items-start gap-2 text-sm">
                 <input type="checkbox" className="mt-1" checked={replace} onChange={(event) => setReplace(event.target.checked)} />
-                <span>Replace the existing {category} design on {destination?.name}. This does not change {duplicate.name}.</span>
+                <span>Replace the existing {category === 'badge' ? 'digital pass' : 'invitation'} design on {destination?.name}. This does not change {duplicate.name}.</span>
               </label>
             ) : null}
           </div>
@@ -348,15 +348,15 @@ export function GuestTypesPage() {
 
       <ConfirmDialog
         open={pendingDelete !== null}
-        title={pendingDelete ? `Delete ${pendingDelete.name}?` : 'Delete guest type?'}
+        title={pendingDelete ? `Delete ${pendingDelete.name}?` : 'Delete guest category?'}
         description={
           pendingDelete && pendingDelete.guestCount > 0
             ? `Reassign the ${pendingDelete.guestCount} guests on ${pendingDelete.name} before deleting it.`
             : pendingDelete && (pendingDelete.invitationConfigured || pendingDelete.badgeConfigured)
-              ? `${pendingDelete.name} has a saved design. Deleting it removes that invitation and badge design. Previously issued invitations stay in guest history.`
-              : 'This removes the guest type. It does not change other events.'
+              ? `${pendingDelete.name} has a saved design. Deleting it removes that invitation and digital pass design. Previously issued invitations stay in guest history.`
+              : 'This removes the guest category. It does not change other events.'
         }
-        confirmLabel="Delete guest type"
+        confirmLabel="Delete guest category"
         pendingLabel="Deleting…"
         pending={deleteMutation.isPending}
         onConfirm={() => {

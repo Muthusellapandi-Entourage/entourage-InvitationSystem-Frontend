@@ -153,7 +153,7 @@ public sealed class GuestDirectoryService(
         var types = await db.GuestTypes.Where(item => item.EventId == eventId).ToListAsync(cancellationToken);
         if (types.Count == 0)
         {
-            throw AppException.NotFound("This event has no guest types.");
+            throw AppException.NotFound("This event has no guest categories.");
         }
 
         var incoming = request.Ids.Distinct().ToArray();
@@ -161,7 +161,7 @@ public sealed class GuestDirectoryService(
         {
             throw AppException.Validation(new Dictionary<string, string[]>
             {
-                ["ids"] = ["Include every guest type for this event."],
+                ["ids"] = ["Include every guest category for this event."],
             });
         }
 
@@ -183,16 +183,16 @@ public sealed class GuestDirectoryService(
         if (guests > 0)
         {
             throw AppException.Conflict(
-                $"Reassign the {guests} guest{(guests == 1 ? "" : "s")} on {type.Name} before deleting this guest type.",
+                $"Reassign the {guests} guest{(guests == 1 ? "" : "s")} on {type.Name} before deleting this guest category.",
                 "guestType",
-                "Guests are still assigned to this type.");
+                "Guests are still assigned to this category.");
         }
 
         var hasDesign = IsConfigured(type.InvitationDesignJson) || IsConfigured(type.BadgeDesignJson);
         if (hasDesign && !discardDesigns)
         {
             throw AppException.Conflict(
-                $"{type.Name} still has a saved design. Confirm deletion to remove the guest type and its invitation and badge designs. Guest history is not deleted.",
+                $"{type.Name} still has a saved design. Confirm deletion to remove the guest category and its invitation and badge designs. Guest history is not deleted.",
                 "guestType",
                 "Designs must be discarded explicitly.");
         }
@@ -214,7 +214,7 @@ public sealed class GuestDirectoryService(
         {
             throw AppException.Validation(new Dictionary<string, string[]>
             {
-                ["destinationGuestTypeId"] = ["Choose a different guest type."],
+                ["destinationGuestTypeId"] = ["Choose a different guest category."],
             });
         }
 
@@ -410,7 +410,7 @@ public sealed class GuestDirectoryService(
         if (guest.Name != request.Name.Trim()) changes.Add("name");
         if (guest.Email != BlankToNull(request.Email)) changes.Add("email");
         if (guest.Position != BlankToNull(request.Position)) changes.Add("position");
-        if (guest.GuestTypeId != type?.Id) changes.Add($"type → {type?.Name ?? "none"}");
+        if (guest.GuestTypeId != type?.Id) changes.Add($"category → {type?.Name ?? "none"}");
         if (guest.GuestGroupId != newGroupId) changes.Add("group");
         guest.Name = request.Name.Trim();
         guest.Email = BlankToNull(request.Email);
@@ -447,9 +447,9 @@ public sealed class GuestDirectoryService(
         if (needsAck.Count > 0 && !request.AcknowledgeTypeChange)
         {
             throw AppException.Conflict(
-                "Changing a guest type does not resend the invitation or regenerate the badge. Confirm to update the assignment only.",
+                "Changing a guest category does not resend the invitation or regenerate the badge. Confirm to update the assignment only.",
                 "acknowledgeTypeChange",
-                "Confirm the type change.");
+                "Confirm the category change.");
         }
 
         foreach (var guest in guests)
@@ -596,8 +596,8 @@ public sealed class GuestDirectoryService(
         {
             throw new AppException(
                 status == Entourage.Domain.Enums.EventStatus.Draft
-                    ? "This event is still a draft. Set it to Active before sending or recording invitations."
-                    : "This event is archived. Invitations can no longer be sent.",
+                    ? "This event is still being set up (not Live yet). Make the event Live before sending or recording invitations."
+                    : "This event is finished. Invitations can no longer be sent.",
                 StatusCodes.Status409Conflict);
         }
 
@@ -729,7 +729,7 @@ public sealed class GuestDirectoryService(
                 QrPayload = item.QrPayload,
                 GeneratedOn = now,
             });
-            GuestActivityLog.Add(db, item.GuestId, GuestActivityKinds.BadgeGenerated, $"E-badge ({item.GuestTypeName})", now);
+            GuestActivityLog.Add(db, item.GuestId, GuestActivityKinds.BadgeGenerated, $"Digital pass ({item.GuestTypeName})", now);
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -747,9 +747,9 @@ public sealed class GuestDirectoryService(
         }
 
         throw AppException.Conflict(
-            "Changing the guest type does not resend the invitation or regenerate the badge. The existing invitation, RSVP, and check-in code stay as they are.",
+            "Changing the guest category does not resend the invitation or regenerate the badge. The existing invitation, RSVP, and check-in code stay as they are.",
             "acknowledgeTypeChange",
-            "Confirm the type change.");
+            "Confirm the category change.");
     }
 
     private async Task<bool> HasArtifactsAsync(Guid guestId, CancellationToken cancellationToken)
@@ -762,7 +762,7 @@ public sealed class GuestDirectoryService(
     {
         if (guest.GuestTypeId is not Guid typeId || !types.TryGetValue(typeId, out var type))
         {
-            return new GuestBlockDto(guest.Id, guest.Name, "This guest has no valid guest type. Assign a guest type before continuing.");
+            return new GuestBlockDto(guest.Id, guest.Name, "This guest has no valid guest category. Assign a guest category before continuing.");
         }
 
         if (!type.IsEnabled)
@@ -787,7 +787,7 @@ public sealed class GuestDirectoryService(
     {
         if (guest.GuestTypeId is not Guid typeId || !types.TryGetValue(typeId, out var type))
         {
-            return (null, null, new GuestBlockDto(guest.Id, guest.Name, "This guest has no valid guest type. Assign a guest type before continuing."));
+            return (null, null, new GuestBlockDto(guest.Id, guest.Name, "This guest has no valid guest category. Assign a guest category before continuing."));
         }
 
         if (!type.IsEnabled)
@@ -800,7 +800,7 @@ public sealed class GuestDirectoryService(
             return (null, null, new GuestBlockDto(
                 guest.Id,
                 guest.Name,
-                $"The {type.Name} badge design is missing. Configure the {type.Name} badge before generating badges."));
+                $"The {type.Name} badge design is missing. Set up the {type.Name} digital pass before generating digital passes."));
         }
 
         var design = JsonSerializer.Deserialize<BadgeDesignDto>(type.BadgeDesignJson!, DesignJsonOptions);
@@ -914,7 +914,7 @@ public sealed class GuestDirectoryService(
             var rawType = row.GuestType;
             if (rawType is not null && string.IsNullOrWhiteSpace(rawType))
             {
-                errors.Add(new ImportRowErrorDto(row.Row, $"Row {row.Row} has a blank guest type."));
+                errors.Add(new ImportRowErrorDto(row.Row, $"Row {row.Row} has a blank guest category."));
                 continue;
             }
 
@@ -936,7 +936,7 @@ public sealed class GuestDirectoryService(
                     type = types.FirstOrDefault(item => item.Id == mapping.GuestTypeId && item.EventId == eventId);
                     if (type is null)
                     {
-                        errors.Add(new ImportRowErrorDto(row.Row, $"Row {row.Row} is mapped to a guest type that is not on this event."));
+                        errors.Add(new ImportRowErrorDto(row.Row, $"Row {row.Row} is mapped to a guest category that is not on this event."));
                         continue;
                     }
 
@@ -953,7 +953,7 @@ public sealed class GuestDirectoryService(
                 else
                 {
                     unmatched.Add(rawType.Trim());
-                    errors.Add(new ImportRowErrorDto(row.Row, $"Row {row.Row} has an unknown guest type \"{rawType.Trim()}\"."));
+                    errors.Add(new ImportRowErrorDto(row.Row, $"Row {row.Row} has an unknown guest category \"{rawType.Trim()}\"."));
                     continue;
                 }
             }
@@ -1076,7 +1076,7 @@ public sealed class GuestDirectoryService(
             cancellationToken);
         if (taken)
         {
-            throw AppException.Conflict("A guest type with this name already exists on the event.", "name", "Choose a different name.");
+            throw AppException.Conflict("A guest category with this name already exists on the event.", "name", "Choose a different name.");
         }
     }
 
@@ -1086,7 +1086,7 @@ public sealed class GuestDirectoryService(
         var type = await db.GuestTypes.FirstOrDefaultAsync(item => item.Id == guestTypeId && item.EventId == eventId, cancellationToken);
         if (type is null)
         {
-            throw AppException.NotFound("Guest type not found on this event.");
+            throw AppException.NotFound("Guest category not found on this event.");
         }
 
         return type;

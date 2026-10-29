@@ -422,7 +422,7 @@ public sealed class AccSetupService(AppDbContext db, AccActorResolver actors)
             var type = types[index];
             if (AccText.Clean(type.Name, 120) is null)
             {
-                errors.Add($"types[{index}].name", "Enter the type name.");
+                errors.Add($"types[{index}].name", "Enter the category name.");
             }
 
             foreach (var field in type.Fields ?? [])
@@ -482,7 +482,7 @@ public sealed class AccSetupService(AppDbContext db, AccActorResolver actors)
                 .CountAsync(item => item.EventId == eventId && item.ApplicantTypeId != null && removedIds.Contains(item.ApplicantTypeId.Value), cancellationToken);
             if (inUse > 0)
             {
-                throw AccErrors.One("types", $"A removed type still has {inUse} applicant(s). Move them to another type first.");
+                throw AccErrors.One("types", $"A removed category still has {inUse} applicant(s). Move them to another category first.");
             }
 
             foreach (var organization in await db.AccOrganizations.Where(item => item.EventId == eventId && item.ApplicantTypeId != null && removedIds.Contains(item.ApplicantTypeId.Value)).ToListAsync(cancellationToken))
@@ -493,7 +493,7 @@ public sealed class AccSetupService(AppDbContext db, AccActorResolver actors)
             db.AccApplicantTypes.RemoveRange(removed);
         }
 
-        AccAudit.Add(db, eventId, null, actor, "Applicant types updated", $"{types.Length} type(s)");
+        AccAudit.Add(db, eventId, null, actor, "Applicant categories updated", $"{types.Length} categor{(types.Length == 1 ? "y" : "ies")}");
         await db.SaveChangesAsync(cancellationToken);
         return await GetSetupAsync(eventId, cancellationToken);
     }
@@ -564,14 +564,14 @@ public sealed class AccSetupService(AppDbContext db, AccActorResolver actors)
             var name = AccText.Clean(stage.Name, 60);
             if (name is null)
             {
-                errors.Add($"stages[{index}].name", "Enter the stage name.");
+                errors.Add($"stages[{index}].name", "Enter the step name.");
                 continue;
             }
 
             var key = AccText.Key(string.IsNullOrWhiteSpace(stage.Key) ? name : stage.Key);
             if (key.Length == 0 || !keys.Add(key))
             {
-                errors.Add($"stages[{index}].name", "Each stage needs its own name.");
+                errors.Add($"stages[{index}].name", "Each step needs its own name.");
                 continue;
             }
 
@@ -581,17 +581,17 @@ public sealed class AccSetupService(AppDbContext db, AccActorResolver actors)
 
         if (cleaned.Count == 0 || cleaned[0].Kind != "open")
         {
-            errors.Add("stages", "The first stage is where new applications land, so it must be an open (in-review) stage.");
+            errors.Add("stages", "The first step is where new applications land, so it must be an open (in-review) step.");
         }
 
         if (!cleaned.Any(item => item.Kind == "approved"))
         {
-            errors.Add("stages", "Add at least one approved stage.");
+            errors.Add("stages", "Add at least one approved step.");
         }
 
         if (!cleaned.Any(item => item.Kind == "rejected"))
         {
-            errors.Add("stages", "Add at least one rejected stage.");
+            errors.Add("stages", "Add at least one rejected step.");
         }
 
         errors.ThrowIfAny();
@@ -602,13 +602,13 @@ public sealed class AccSetupService(AppDbContext db, AccActorResolver actors)
             var inUse = await db.AccApplicants.AsNoTracking().CountAsync(item => item.EventId == eventId && removedKeys.Contains(item.StageKey), cancellationToken);
             if (inUse > 0)
             {
-                throw AccErrors.One("stages", $"A removed stage still holds {inUse} applicant(s). Move them first.");
+                throw AccErrors.One("stages", $"A removed step still holds {inUse} applicant(s). Move them first.");
             }
         }
 
         entity.StagesJson = AccJson.Write(cleaned);
         entity.UpdatedOn = DateTime.UtcNow;
-        AccAudit.Add(db, eventId, null, actor, "Stages updated", string.Join(" → ", cleaned.Select(item => item.Name)));
+        AccAudit.Add(db, eventId, null, actor, "Steps updated", string.Join(" → ", cleaned.Select(item => item.Name)));
         await db.SaveChangesAsync(cancellationToken);
         return await GetSetupAsync(eventId, cancellationToken);
     }
@@ -676,7 +676,7 @@ public sealed class AccSetupService(AppDbContext db, AccActorResolver actors)
             await SummaryAsync(entity, cancellationToken),
             [.. stages.Select(stage => new AccCountDto(stage.Key, stage.Name, applicants.Count(item => item.StageKey == stage.Key), stage.Color))],
             [.. types.Select(type => new AccCountDto(type.Id.ToString(), type.Name, applicants.Count(item => item.ApplicantTypeId == type.Id)))
-                .Append(new AccCountDto("none", "No type", applicants.Count(item => item.ApplicantTypeId == null)))
+                .Append(new AccCountDto("none", "No category", applicants.Count(item => item.ApplicantTypeId == null)))
                 .Where(item => item.Count > 0 || item.Key != "none")],
             [.. organizations.Select(org => new AccCountDto(org.Id.ToString(), org.Name, applicants.Count(item => item.OrganizationId == org.Id)))
                 .Append(new AccCountDto("none", "Individual / direct", applicants.Count(item => item.OrganizationId == null)))

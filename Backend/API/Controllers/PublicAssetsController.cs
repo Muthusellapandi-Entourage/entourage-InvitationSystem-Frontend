@@ -19,6 +19,10 @@ public sealed class PublicAssetsController(IEventAssetService assets) : Controll
 
         Response.Headers.CacheControl = "public, max-age=86400";
         Response.Headers.XContentTypeOptions = "nosniff";
+        // Public images: readable by the app's scripts too (e.g. "use from brand kit"), even from the browser
+        // cache filled by an ordinary <img>. Same as the public font files.
+        Response.Headers.AccessControlAllowOrigin = "*";
+        Response.Headers["Cross-Origin-Resource-Policy"] = "cross-origin";
         return PhysicalFile(file.Path, file.ContentType);
     }
 }

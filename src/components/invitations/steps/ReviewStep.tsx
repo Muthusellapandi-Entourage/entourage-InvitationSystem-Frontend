@@ -118,7 +118,7 @@ export function ReviewStep({
             </div>
           ) : (
             <>
-              <InfoNote tone="warning">Guest links become available when your event is active.</InfoNote>
+              <InfoNote tone="warning">Guest links become available when your event is Live.</InfoNote>
               <Button variant="secondary" disabled>
                 <Copy className="size-4" aria-hidden="true" />
                 Copy guest link

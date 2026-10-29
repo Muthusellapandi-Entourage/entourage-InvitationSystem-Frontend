@@ -21,11 +21,19 @@ export const accStatusTone: Record<AccEventStatus, BadgeTone> = {
   Archived: 'gray',
 }
 
+/** What each status is called on screen. The stored values stay Draft / Open / Closed / Archived. */
+export const accStatusLabel: Record<AccEventStatus, string> = {
+  Draft: 'Setting up',
+  Open: 'Open',
+  Closed: 'Closed',
+  Archived: 'Finished',
+}
+
 export const accStatusHelp: Record<AccEventStatus, string> = {
-  Draft: 'Set-up only. Portals and the public link are closed.',
-  Open: 'Taking applications from portals and the public link.',
-  Closed: 'No new applications; vetting continues.',
-  Archived: 'Read-only record. Portal sign-in is closed.',
+  Draft: 'You are still setting things up. Organisations and the public link cannot apply yet.',
+  Open: 'People can apply through their organisation or the public link.',
+  Closed: 'No new applications. You can keep checking and approving the ones you have.',
+  Archived: 'The event is over. Everything is kept for reference, and organisations can no longer sign in.',
 }
 
 function toSlug(value: string) {
@@ -81,7 +89,7 @@ export function AccEventsPage() {
         ) : events.length === 0 ? (
           <EmptyState
             title="No accreditation events yet"
-            description="Create one to set up zones, applicant types and organisations."
+            description="Create one to set up zones, applicant categories and organisations."
             action={canManage ? <Button onClick={() => setCreating(true)}>New accreditation event</Button> : undefined}
           />
         ) : (
@@ -114,7 +122,7 @@ export function AccEventsPage() {
                       {formatDate(event.startDate)} – {formatDate(event.endDate)}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge tone={accStatusTone[event.status]}>{event.status}</Badge>
+                      <Badge tone={accStatusTone[event.status]}>{accStatusLabel[event.status]}</Badge>
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{event.applicants}</td>
                     <td className="px-4 py-3 text-right tabular-nums text-warning">{event.pending}</td>
@@ -234,7 +242,7 @@ export function AccEventDialog({ open, onClose, initial, eventId }: { open: bool
                     }
                     onClick={() => set({ status })}
                   >
-                    {status}
+                    {accStatusLabel[status]}
                   </button>
                 ))}
               </div>
@@ -307,7 +315,7 @@ function CloneDialog({ source, onClose }: { source: AccEventSummary | null; onCl
       open={Boolean(source)}
       onClose={onClose}
       title="Clone accreditation event"
-      description="Copies zones, access profiles, applicant types, stages, emails and organisations. People are not copied."
+      description="Copies zones, access profiles, applicant categories, approval steps, emails and organisations. People are not copied."
     >
       <form
         className="grid gap-4"

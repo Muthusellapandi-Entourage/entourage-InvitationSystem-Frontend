@@ -7,6 +7,7 @@ import { fontApi } from '@/api/fontApi'
 import { invitationApi } from '@/api/invitationApi'
 import { rsvpApi, type RsvpPageSettings, type RsvpPreviewView } from '@/api/rsvpApi'
 import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
+import { BrandImageButton } from '@/components/brand/BrandImageButton'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
 
@@ -372,6 +373,7 @@ function ImagePick({
               }}
             />
           </label>
+          <BrandImageButton disabled={busy} onFile={onFile} className="h-11 px-4 text-sm" />
           {assetId ? (
             <button type="button" className="text-sm font-medium text-danger hover:underline" onClick={onClear}>
               Remove

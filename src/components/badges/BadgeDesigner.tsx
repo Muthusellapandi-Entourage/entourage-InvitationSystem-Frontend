@@ -157,12 +157,12 @@ export function BadgeDesigner({
     try {
       const canvas = await painted()
       if (canvas.width !== design.width || canvas.height !== design.height) {
-        throw new Error('The badge could not be rendered.')
+        throw new Error('The digital pass could not be drawn.')
       }
       if (kind === 'png') await downloadBadgePng(canvas)
       else downloadBadgePdf(canvas)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The badge could not be downloaded.')
+      toast.error(error instanceof Error ? error.message : 'The digital pass could not be downloaded.')
     } finally {
       setExporting(null)
     }
@@ -174,7 +174,7 @@ export function BadgeDesigner({
     try {
       const canvas = await painted()
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-      if (!blob || blob.size === 0) throw new Error('The badge could not be rendered.')
+      if (!blob || blob.size === 0) throw new Error('The digital pass could not be drawn.')
       const url = URL.createObjectURL(blob)
       setPreviewUrl((current) => {
         if (current) URL.revokeObjectURL(current)
@@ -199,7 +199,7 @@ export function BadgeDesigner({
       <header className="flex h-14 shrink-0 items-center gap-4 overflow-x-auto border-b border-border bg-surface px-5">
         <div className="flex shrink-0 items-center gap-2.5">
           <LogoMark className="size-6 text-accent" />
-          <span className="whitespace-nowrap text-sm font-semibold">Badge designer</span>
+          <span className="whitespace-nowrap text-sm font-semibold">Digital pass designer</span>
         </div>
         <span className="h-5 w-px shrink-0 bg-border" aria-hidden="true" />
         <Link to={backTo ?? `/events/${eventId}`} className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-sm text-muted hover:text-foreground">
@@ -224,7 +224,7 @@ export function BadgeDesigner({
             {exporting === 'preview' ? 'Preparing…' : 'Preview'}
           </Button>
           <Button className="whitespace-nowrap" onClick={onSave} disabled={saving || uploading || exporting !== null}>
-            {saving ? 'Saving…' : 'Save Template'}
+            {saving ? 'Saving…' : 'Save design'}
           </Button>
         </div>
       </header>
@@ -253,7 +253,7 @@ export function BadgeDesigner({
           onBandCommit={() => undefined}
           onImageCommit={commitImage}
           labels={{ background: 'Background', qr: 'QR code', name: 'Guest name' }}
-          frameTitle="Badge preview"
+          frameTitle="Digital pass preview"
           yMax={design.height}
           onImageMetrics={setMetrics}
           zoom={zoom}
@@ -268,7 +268,7 @@ export function BadgeDesigner({
           onGuidesChange={updateGuides}
           onClearGuides={() => setConfirmClear(true)}
           mobile={false}
-          heading="Badge"
+          heading="Digital pass"
           headingAside={<span className="text-xs text-muted">{design.width} × {design.height} px</span>}
         />
       </div>
@@ -276,7 +276,7 @@ export function BadgeDesigner({
       <ConfirmDialog
         open={confirmClear}
         title="Clear all guides?"
-        description="This removes every guide on this badge. Snapping to the canvas center and edges keeps working."
+        description="This removes every guide on this digital pass. Snapping to the canvas center and edges keeps working."
         confirmLabel="Clear guides"
         pendingLabel="Clearing…"
         onConfirm={() => {
@@ -297,14 +297,14 @@ export function BadgeDesigner({
         >
           <div className="p-5">
             <h2 id="badge-preview-title" className="text-base font-semibold">
-              Badge preview
+              Digital pass preview
             </h2>
             <p className="mt-1 text-sm text-muted">
               Sample guest “{sampleGuestName}”. This QR code is not a check-in credential.
             </p>
             <img
               src={previewUrl}
-              alt="Badge preview with the sample guest name and a sample QR code"
+              alt="Digital pass preview with the sample guest name and a sample QR code"
               width={design.width}
               height={design.height}
               className="mt-4 max-h-[70vh] w-full border border-border bg-white object-contain"

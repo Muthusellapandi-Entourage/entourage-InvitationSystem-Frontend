@@ -36,11 +36,17 @@ internal static class DesignAssetIds
         // The thank-you artwork and the RSVP page's background and logo too.
         var rsvp = await db.Events.AsNoTracking()
             .Where(item => item.Id == eventId)
-            .Select(item => new { item.ThankYouAssetId, item.RsvpPageJson, item.RegistrationJson, item.KioskJson })
+            .Select(item => new { item.ThankYouAssetId, item.RsvpPageJson, item.RegistrationJson, item.KioskJson, item.BrandKitJson })
             .FirstOrDefaultAsync(cancellationToken);
         if (rsvp?.ThankYouAssetId is Guid thankYouId)
         {
             ids.Add(thankYouId);
+        }
+
+        // Brand kit images are kept even when no design uses them yet.
+        foreach (var id in BrandKitService.AssetIds(rsvp?.BrandKitJson))
+        {
+            ids.Add(id);
         }
 
         var page = RsvpPageService.Read(rsvp?.RsvpPageJson);

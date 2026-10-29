@@ -18,8 +18,8 @@ export function OverviewPage() {
   const events = query.data ?? []
   const counts = [
     { label: 'Total events', value: events.length },
-    { label: 'Active events', value: events.filter((event) => event.status === 'Active').length },
-    { label: 'Draft events', value: events.filter((event) => event.status === 'Draft').length },
+    { label: 'Live events', value: events.filter((event) => event.status === 'Active').length },
+    { label: 'Events setting up', value: events.filter((event) => event.status === 'Draft').length },
   ]
 
   return (

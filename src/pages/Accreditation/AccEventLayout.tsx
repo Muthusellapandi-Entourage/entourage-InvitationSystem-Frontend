@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { Badge } from '@/components/ui/StatusBadge'
 import { cn } from '@/lib/cn'
 import { usePageBreadcrumbs } from '@/stores/breadcrumbStore'
-import { AccEventDialog, accStatusHelp, accStatusTone } from '@/pages/Accreditation/AccEventsPage'
+import { AccEventDialog, accStatusHelp, accStatusLabel, accStatusTone } from '@/pages/Accreditation/AccEventsPage'
 
 /** The event's setup (zones, types, stages…) — shared by every tab. */
 export function useAccSetup(eventId: string) {
@@ -21,7 +21,7 @@ export function useAccSetup(eventId: string) {
 
 export function AccEventLayout() {
   const { accEventId = '' } = useParams()
-  const { canManage, canVet, canWork, canPrint, isAdministrator } = useAccRole()
+  const { canManage, canVet, canWork, canPrint, canScan, isAdministrator } = useAccRole()
   const query = useAccSetup(accEventId)
   const [editing, setEditing] = useState(false)
   const setup = query.data
@@ -63,8 +63,9 @@ export function AccEventLayout() {
       : []),
     ...(canManage ? [{ label: 'Badges', path: 'badges' }] : []),
     ...(canPrint ? [{ label: 'Print queue', path: 'print' }] : []),
+    ...(canScan ? [{ label: 'Gates', path: 'live' }] : []),
     ...(canWork ? [{ label: 'Set-up', path: 'setup' }] : []),
-    ...(canVet ? [{ label: 'Audit log', path: 'audit' }] : []),
+    ...(canVet ? [{ label: 'History', path: 'audit' }] : []),
   ]
   const publicLink = `${window.location.origin}${setup.publicApplyPath}`
 
@@ -78,7 +79,7 @@ export function AccEventLayout() {
         <div className="min-w-0">
           <h1 className="text-[1.75rem] font-semibold tracking-[-0.02em]">{event.name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
-            <Badge tone={accStatusTone[event.status]}>{event.status}</Badge>
+            <Badge tone={accStatusTone[event.status]}>{accStatusLabel[event.status]}</Badge>
             <span>
               {formatDate(event.startDate)} – {formatDate(event.endDate)}
             </span>
@@ -119,7 +120,7 @@ export function AccEventLayout() {
       </div>
       {event.status !== 'Open' ? (
         <p role="note" className={cn('mt-4 rounded-lg border px-4 py-3 text-sm', event.status === 'Draft' ? 'border-warning/40 bg-warning-soft' : 'border-border bg-hover')}>
-          <span className="font-semibold">{event.status}.</span> {accStatusHelp[event.status]}
+          <span className="font-semibold">{accStatusLabel[event.status]}.</span> {accStatusHelp[event.status]}
         </p>
       ) : null}
       <nav aria-label="Accreditation event" className="mt-6 flex flex-wrap gap-1 border-b border-border">

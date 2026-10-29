@@ -129,7 +129,7 @@ public sealed class AccOrganizationService(AppDbContext db, AccActorResolver act
 
         if (request.ApplicantTypeId is { } typeId && !await db.AccApplicantTypes.AsNoTracking().AnyAsync(item => item.Id == typeId && item.EventId == entity.EventId, cancellationToken))
         {
-            errors.Add("applicantTypeId", "Choose an applicant type from this event.");
+            errors.Add("applicantTypeId", "Choose an applicant category from this event.");
         }
 
         errors.ThrowIfAny();

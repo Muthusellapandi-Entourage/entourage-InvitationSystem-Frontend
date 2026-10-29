@@ -41,7 +41,7 @@ export function FrontDeskPage() {
     try {
       const payload = await frontDeskApi.print(token, guest.id)
       if (!payload.design) {
-        toast.error(`No print badge design for ${payload.guest.guestType ?? 'this guest'}. Ask the organiser to design it (Guest types → Print badge).`)
+        toast.error(`No printed badge design for ${payload.guest.guestType ?? 'this guest'}. Ask the organiser to design it (Guest categories → Printed badge).`)
         return
       }
       if (direct) await sendToPrinter(payload)
@@ -160,7 +160,7 @@ export function FrontDeskPage() {
 
         {!live ? (
           <p className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
-            The event is not live yet. You can look up guests, but checking in opens once the organiser sets the event to Active.
+            The event is not live yet. You can look up guests, but checking in opens once the organiser sets the event to Live.
           </p>
         ) : null}
         {query.isError ? <p className="text-sm text-danger">Connection lost — retrying…</p> : null}
@@ -225,7 +225,7 @@ export function FrontDeskPage() {
                 <thead className="bg-surface text-xs uppercase tracking-wide text-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3 font-medium">Guest</th>
-                    <th scope="col" className="px-4 py-3 font-medium">E-Badge QR</th>
+                    <th scope="col" className="px-4 py-3 font-medium">Pass QR code</th>
                     <th scope="col" className="px-4 py-3 font-medium">Company · type</th>
                     <th scope="col" className="px-4 py-3 font-medium">Seat</th>
                     <th scope="col" className="px-4 py-3 font-medium">RSVP</th>
@@ -466,7 +466,7 @@ function DeskScanner({
       <form onSubmit={(event) => void submit(event)}>
         <label htmlFor="desk-scan" className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted">
           <ScanLine className="size-4 text-accent" aria-hidden="true" />
-          Scan E-Badge
+          Scan pass
         </label>
         <div className="mt-2 flex gap-2">
           <input
@@ -515,7 +515,7 @@ function DeskScanner({
         )}
       >
         {!result ? (
-          <p className="text-sm text-muted">Scan a guest’s E-Badge. The result and a Print button appear here.</p>
+          <p className="text-sm text-muted">Scan a guest’s digital pass. The result and a Print button appear here.</p>
         ) : (
           <>
             <span
@@ -646,7 +646,7 @@ function BadgeQr({ guest, size = 56, onOpen }: { guest: FrontDeskGuest; size?: n
     <button
       type="button"
       onClick={() => onOpen(guest)}
-      aria-label={`Show ${guest.name}'s E-Badge QR code large`}
+      aria-label={`Show ${guest.name}'s pass QR code large`}
       className="block shrink-0 rounded-md border border-border bg-white p-1 hover:ring-2 hover:ring-accent"
       style={{ width: size + 10, height: size + 10 }}
     >
@@ -666,11 +666,11 @@ function QrDialog({ guest, onClose }: { guest: FrontDeskGuest | null; onClose: (
     }
   }, [guest?.checkInCode])
   return (
-    <Modal open={guest !== null} width="sm" title={guest?.name ?? 'E-Badge QR'} description="Scan this with the door scanner to check the guest in." onClose={onClose}>
+    <Modal open={guest !== null} width="sm" title={guest?.name ?? 'Pass QR code'} description="Scan this with the door scanner to check the guest in." onClose={onClose}>
       {guest ? (
         <div className="flex flex-col items-center gap-3">
           <div className="rounded-xl bg-white p-3">
-            {src ? <img src={src} alt={`E-Badge QR code for ${guest.name}`} width={280} height={280} className="block size-[min(280px,70vw)]" /> : <div className="size-[min(280px,70vw)]" />}
+            {src ? <img src={src} alt={`Pass QR code for ${guest.name}`} width={280} height={280} className="block size-[min(280px,70vw)]" /> : <div className="size-[min(280px,70vw)]" />}
           </div>
           <p className="break-all text-center font-mono text-xs text-muted">{guest.checkInCode}</p>
           {guest.seat ? <p className="text-sm">Seat: <span className="font-semibold">{guest.seat}</span></p> : null}

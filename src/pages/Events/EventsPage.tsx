@@ -9,14 +9,14 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useEvents } from '@/hooks/useEvents'
 import { cn } from '@/lib/cn'
 import { usePageBreadcrumbs } from '@/stores/breadcrumbStore'
-import { parseStatusParam, statusParam } from '@/utils/status'
+import { parseStatusParam, statusLabel, statusParam } from '@/utils/status'
 import type { EventStatus } from '@/types/event'
 
 const filters: { label: string; value: EventStatus | '' }[] = [
   { label: 'All', value: '' },
-  { label: 'Active', value: 'Active' },
-  { label: 'Draft', value: 'Draft' },
-  { label: 'Archived', value: 'Archived' },
+  { label: statusLabel.Active, value: 'Active' },
+  { label: statusLabel.Draft, value: 'Draft' },
+  { label: statusLabel.Archived, value: 'Archived' },
 ]
 
 export function EventsPage() {

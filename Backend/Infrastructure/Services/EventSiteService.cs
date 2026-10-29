@@ -440,10 +440,10 @@ public sealed class EventSiteService(
             <main class="box">
               <p class="eyebrow">{WebUtility.HtmlEncode(site.EventName)}</p>
               {heading}
-              <a class="qr" href="{badge}" aria-label="Open your E-Badge">
+              <a class="qr" href="{badge}" aria-label="Open your digital pass">
                 <img src="{EventDomains.QrPath}?g={guest.InviteToken}" alt="Your check-in QR code" width="200" height="200">
               </a>
-              <p class="muted">Show this QR code at the entrance. Tap it to open your E-Badge.</p>
+              <p class="muted">Show this QR code at the entrance. Tap it to open your digital pass.</p>
               {download}
               {wallet}
               {BackLink(guest)}
@@ -463,12 +463,12 @@ public sealed class EventSiteService(
 
         if (guest.RsvpStatus != GuestRsvp.Accepted)
         {
-            return Message(site, 403, "E-Badge not available yet", "Your E-Badge appears here after you accept the invitation.", BackLink(guest));
+            return Message(site, 403, "Digital pass not available yet", "Your digital pass appears here after you accept the invitation.", BackLink(guest));
         }
 
         var hasBadge = await HasBadgeDesignAsync(site, guest, cancellationToken);
         var image = hasBadge
-            ? $"<img class=\"badge\" src=\"{EventDomains.BadgeImagePath}?g={guest.InviteToken}\" alt=\"E-Badge for {WebUtility.HtmlEncode(guest.Name)}\">"
+            ? $"<img class=\"badge\" src=\"{EventDomains.BadgeImagePath}?g={guest.InviteToken}\" alt=\"Digital pass for {WebUtility.HtmlEncode(guest.Name)}\">"
             : $"<div class=\"qr\"><img src=\"{EventDomains.QrPath}?g={guest.InviteToken}\" alt=\"Your check-in QR code\" width=\"240\" height=\"240\"></div>";
         var download = hasBadge ? DownloadButton(guest) : string.Empty;
         var wallet = await WalletButtonAsync(site, guest, cancellationToken);
@@ -569,7 +569,7 @@ public sealed class EventSiteService(
             cancellationToken);
 
     private static string DownloadButton(Guest guest) =>
-        $"<a class=\"button primary\" href=\"{EventDomains.BadgeImagePath}?g={guest.InviteToken}&amp;download=1\">Download E-Badge</a>";
+        $"<a class=\"button primary\" href=\"{EventDomains.BadgeImagePath}?g={guest.InviteToken}&amp;download=1\">Download digital pass</a>";
 
     /// <summary>"Add to Apple Wallet", once a Wallet certificate is set up. Shown on Apple devices only (by the page script).</summary>
     private async Task<string> WalletButtonAsync(Site site, Guest guest, CancellationToken cancellationToken)

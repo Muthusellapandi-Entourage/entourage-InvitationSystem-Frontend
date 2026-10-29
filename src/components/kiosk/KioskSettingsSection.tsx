@@ -7,6 +7,7 @@ import { invitationApi } from '@/api/invitationApi'
 import { kioskApi, kioskUrl, type KioskSettings } from '@/api/printBadgeApi'
 import { KioskScreen, type KioskStep } from '@/components/kiosk/KioskScreen'
 import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
+import { BrandImageButton } from '@/components/brand/BrandImageButton'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
 import { sampleGuest } from '@/printing/PrintBadgeView'
@@ -36,20 +37,20 @@ export function KioskSettingsSection({ eventId, eventName }: { eventId: string; 
     onSuccess: (saved) => {
       queryClient.setQueryData(['kiosk-settings', eventId], saved)
       setDraft(saved)
-      toast.success('Kiosk saved.')
+      toast.success('Self check-in saved.')
     },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'The kiosk could not be saved.'),
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'The self check-in settings could not be saved.'),
   })
   const share = useMutation({
     mutationFn: (kind: 'renew' | 'disable') => (kind === 'renew' ? kioskApi.renew(eventId) : kioskApi.disable(eventId)),
     onSuccess: (result) => {
       queryClient.setQueryData(['kiosk-share', eventId], result)
-      toast.success(result.token ? 'Kiosk link ready.' : 'Kiosk link turned off.')
+      toast.success(result.token ? 'Self check-in link ready.' : 'Self check-in link turned off.')
     },
     onError: (error) => toast.error(error instanceof ApiError ? error.message : 'That did not work.'),
   })
 
-  if (!draft || !settingsQuery.data) return <p className="text-sm text-muted">Loading the kiosk…</p>
+  if (!draft || !settingsQuery.data) return <p className="text-sm text-muted">Loading self check-in…</p>
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(settingsQuery.data)
   const set = (change: Partial<KioskSettings>) => setDraft({ ...draft, ...change })
@@ -84,23 +85,23 @@ export function KioskSettingsSection({ eventId, eventName }: { eventId: string; 
             <MonitorSmartphone className="size-5" aria-hidden="true" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">Self check-in kiosk</h2>
-            <p className="text-sm text-muted">Guests scan their E-Badge, confirm it’s them, and their badge prints. No staff needed.</p>
+            <h2 className="text-lg font-semibold tracking-tight">Self check-in screen</h2>
+            <p className="text-sm text-muted">Guests scan their digital pass, confirm it’s them, and their badge prints. No staff needed.</p>
           </div>
         </div>
         <Button disabled={!dirty || save.isPending} onClick={() => save.mutate(draft)}>
           {save.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-          Save kiosk
+          Save self check-in
         </Button>
       </div>
 
       {/* Link */}
       <div className="border-b border-border py-5">
-        <p className="text-xs font-medium uppercase tracking-wider text-muted">Kiosk link</p>
+        <p className="text-xs font-medium uppercase tracking-wider text-muted">Self check-in link</p>
         {url ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-3 py-2.5 text-sm text-accent">{url}</code>
-            <Button variant="secondary" onClick={() => void navigator.clipboard.writeText(url).then(() => toast.success('Kiosk link copied.'))}>
+            <Button variant="secondary" onClick={() => void navigator.clipboard.writeText(url).then(() => toast.success('Self check-in link copied.'))}>
               <Copy className="size-4" aria-hidden="true" />
               Copy
             </Button>
@@ -108,7 +109,7 @@ export function KioskSettingsSection({ eventId, eventName }: { eventId: string; 
               <ExternalLink className="size-4" aria-hidden="true" />
               Open
             </Button>
-            <Button variant="secondary" disabled={share.isPending} onClick={() => window.confirm('Make a new link? The current kiosk link stops working.') && share.mutate('renew')}>
+            <Button variant="secondary" disabled={share.isPending} onClick={() => window.confirm('Make a new link? The current self check-in link stops working.') && share.mutate('renew')}>
               <RefreshCw className="size-4" aria-hidden="true" />
               New link
             </Button>
@@ -119,16 +120,16 @@ export function KioskSettingsSection({ eventId, eventName }: { eventId: string; 
           </div>
         ) : (
           <div className="mt-2 flex flex-wrap items-center gap-3">
-            <p className="text-sm text-muted">No kiosk link yet.</p>
+            <p className="text-sm text-muted">No self check-in link yet.</p>
             <Button disabled={share.isPending} onClick={() => share.mutate('renew')}>
-              Create kiosk link
+              Create self check-in link
             </Button>
           </div>
         )}
         <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted">
           <Info className="mt-0.5 size-3.5 shrink-0 text-accent" aria-hidden="true" />
-          Open the link on the kiosk laptop with a USB scanner (or a tablet with its camera) and the badge printer set as the default printer. To print without the
-          dialog, start Chrome in kiosk mode: <code className="font-mono">chrome --kiosk --kiosk-printing {url ?? '<kiosk link>'}</code>
+          Open the link on the self check-in laptop with a USB scanner (or a tablet with its camera) and the badge printer set as the default printer. To print without the
+          print window popping up, start Chrome like this: <code className="font-mono">chrome --kiosk --kiosk-printing {url ?? '<self check-in link>'}</code>
         </p>
       </div>
 
@@ -207,7 +208,7 @@ export function KioskSettingsSection({ eventId, eventName }: { eventId: string; 
                 <KioskScreen settings={draft} eventName={eventName} assetOrigin={assetOrigin} step={steps[preview]} countdown={draft.resetSeconds} preview />
               </div>
             </div>
-            <p className="mt-2 text-xs text-muted">The kiosk fills the whole screen. Badges print with each guest type’s print badge design.</p>
+            <p className="mt-2 text-xs text-muted">The self check-in screen fills the whole screen. Badges print with each guest category’s printed badge design.</p>
           </div>
         </div>
       </div>
@@ -282,6 +283,7 @@ function ImagePick({ label, assetId, busy, onFile, onClear }: { label: string; a
               }}
             />
           </label>
+          <BrandImageButton disabled={busy} onFile={onFile} />
           {assetId ? (
             <button type="button" className="text-sm font-medium text-danger hover:underline" onClick={onClear}>
               Remove

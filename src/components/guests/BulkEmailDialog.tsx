@@ -88,7 +88,7 @@ export function BulkEmailDialog({
                     {without} {without === 1 ? 'guest has' : 'guests have'} no email address and will be skipped.
                   </li>
                 ) : null}
-                <li className="text-muted">Guests without a guest type, or whose type has no invitation design, are skipped and listed afterwards.</li>
+                <li className="text-muted">Guests without a guest category, or whose category has no invitation design, are skipped and listed afterwards.</li>
               </ul>
             )}
           </>

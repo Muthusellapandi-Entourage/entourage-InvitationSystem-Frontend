@@ -109,7 +109,7 @@ export function EventTable({ events, loading }: { events: EventItem[]; loading?:
                           disabled={busy}
                           onClick={() => statusMutation.mutate({ id: event.id, status: 'Archived' })}
                         >
-                          Deactivate
+                          Mark finished
                         </Button>
                       ) : (
                         <Button
@@ -118,7 +118,7 @@ export function EventTable({ events, loading }: { events: EventItem[]; loading?:
                           disabled={busy}
                           onClick={() => statusMutation.mutate({ id: event.id, status: 'Active' })}
                         >
-                          Activate
+                          Go live
                         </Button>
                       )}
                       <Button

@@ -7,7 +7,7 @@ import { readSheet, type SheetGrid } from '@/guests/spreadsheet'
 import { bulkColumns, errorMessage, guessColumn, type BulkColumnKey } from '@/components/accreditation/shared'
 
 const templateCsv =
-  'First name,Last name,Email,Mobile,Role,Nationality,Date of birth,Passport number,Applicant type,Photo\n' +
+  'First name,Last name,Email,Mobile,Role,Nationality,Date of birth,Passport number,Applicant category,Photo\n' +
   'Sara,Ahmed,sara@example.com,+971500000000,Photographer,UAE,1990-04-12,P1234567,Media,sara.jpg\n'
 
 /**
@@ -191,7 +191,7 @@ export function BulkUploadDialog({
 
         {typeNames.length ? (
           <p className="text-xs text-muted">
-            Applicant type values: {typeNames.join(', ')}. Dates as YYYY-MM-DD or DD/MM/YYYY.
+            Applicant categories you can use: {typeNames.join(', ')}. Dates as YYYY-MM-DD or DD/MM/YYYY.
           </p>
         ) : null}
 

@@ -2,6 +2,7 @@ import { ChevronDown, Info, Lightbulb, Trash2, Upload } from 'lucide-react'
 import { useId, useRef, type ChangeEvent, type ReactNode } from 'react'
 import { apiBaseUrl } from '@/api/client'
 import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
+import { BrandImageButton } from '@/components/brand/BrandImageButton'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
 
@@ -325,6 +326,7 @@ export function UploadCard({
           <Button variant="secondary" className="border-accent text-accent hover:bg-accent-soft" disabled={uploading} onClick={() => inputRef.current?.click()}>
             {uploading ? 'Uploading…' : 'Change image'}
           </Button>
+          <BrandImageButton compact disabled={uploading} onFile={onUpload} />
           <button
             type="button"
             aria-label={`Remove ${title.toLowerCase()}`}
@@ -347,6 +349,11 @@ export function UploadCard({
           <span className="text-xs">WEBP, PNG, or JPG</span>
         </button>
       )}
+      {!assetId ? (
+        <div className="mt-2 flex items-center gap-2 text-xs text-muted">
+          or <BrandImageButton disabled={uploading} onFile={onUpload} label="Choose from brand kit" />
+        </div>
+      ) : null}
       {hint ? <p className="mt-2 text-xs text-muted">{hint}</p> : null}
     </div>
   )
@@ -368,25 +375,14 @@ export function ColorSwatchField({
   onNone?: () => void
 }) {
   const id = useId()
-  // "None" (no colour) keeps its own look; otherwise the field takes a colour with opacity (#RRGGBBAA).
+  // "None" / "Mixed" (no single colour) uses the same picker, showing the label until a colour is chosen.
   if (none) {
     return (
       <div className="grid gap-1.5">
-        <label htmlFor={id} className="text-sm font-medium">
+        <span id={id} className="text-sm font-medium">
           {label}
-        </label>
-        <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface pr-2 pl-1.5">
-          <label className="relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-border">
-            <span className="sr-only">Pick {label.toLowerCase()}</span>
-            <span
-              aria-hidden="true"
-              className="absolute inset-0"
-              style={{ background: 'linear-gradient(135deg, transparent 45%, #c0392b 45%, #c0392b 55%, transparent 55%)' }}
-            />
-            <input type="color" className="absolute inset-0 size-full cursor-pointer opacity-0" value="#FFFFFF" onChange={(event) => onChange(event.target.value.toUpperCase())} />
-          </label>
-          <input id={id} value={noneLabel} readOnly className="h-full min-w-0 flex-1 bg-transparent text-sm" />
-        </div>
+        </span>
+        <AlphaColorInput label={label} value={null} emptyLabel={noneLabel} onChange={onChange} />
       </div>
     )
   }

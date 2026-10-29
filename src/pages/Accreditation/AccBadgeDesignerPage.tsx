@@ -36,6 +36,10 @@ import {
 import { badgePaperPresets, printBadgeBatch } from '@/components/accreditation/printBadges'
 import { errorMessage } from '@/components/accreditation/shared'
 import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
+import { brandApi, type BrandItem } from '@/api/brandApi'
+import { apiBaseUrl } from '@/api/client'
+import { useBrandFonts, useBrandKit } from '@/brand/useBrandKit'
+import { BrandImageButton } from '@/components/brand/BrandImageButton'
 import { Button } from '@/components/ui/Button'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { cn } from '@/lib/cn'
@@ -93,6 +97,9 @@ export function AccBadgeDesignerPage() {
   const [printing, setPrinting] = useState(false)
   const stageRef = useRef<HTMLDivElement>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
+  const { kit: brandKit } = useBrandKit()
+  useBrandFonts(brandKit.fonts)
+  const brandFontNames = brandKit.fonts.map((font) => font.name)
 
   useEffect(() => {
     if (template && !design) setDesign(template.design)
@@ -182,6 +189,25 @@ export function AccBadgeDesignerPage() {
         })
     } catch (error) {
       toast.error(errorMessage(error, 'The image could not be uploaded.'))
+    } finally {
+      setUploading(null)
+    }
+  }
+
+  /** A brand kit image: copied into accreditation storage, then placed like an upload. */
+  async function placeBrandImage(item: BrandItem, target: 'background' | 'image') {
+    setUploading(target)
+    try {
+      const saved = await brandApi.importToAccreditation(accEventId, item.assetId)
+      setImages((current) => ({ ...current, [saved.id]: `${apiBaseUrl}${item.url}` }))
+      if (target === 'background') setDesign((current) => (current ? { ...current, backgroundFileId: saved.id } : current))
+      else
+        setDesign((current) => {
+          if (!current) return current
+          const element = newElement('image', current, saved.id)
+          setSelectedId(element.id)
+          return { ...current, elements: [...current.elements, element] }
+        })
     } finally {
       setUploading(null)
     }
@@ -315,6 +341,7 @@ export function AccBadgeDesignerPage() {
             <AlphaColorInput label="Background colour" value={design.backgroundColor} onChange={(backgroundColor) => setDesign({ ...design, backgroundColor })} />
             <div className="mt-2 flex items-center gap-2">
               <UploadButton label={design.backgroundFileId ? 'Replace image' : 'Background image'} busy={uploading === 'background'} onFile={(file) => void uploadImage(file, 'background')} />
+              <BrandImageButton compact disabled={uploading !== null} onPick={(item) => placeBrandImage(item, 'background')} />
               {design.backgroundFileId ? (
                 <button type="button" className="text-xs font-medium text-danger hover:underline" onClick={() => setDesign({ ...design, backgroundFileId: null })}>
                   Remove
@@ -328,7 +355,10 @@ export function AccBadgeDesignerPage() {
               <div className="grid grid-cols-2 gap-2">
                 {group.kinds.map((kind) =>
                   kind === 'image' ? (
-                    <UploadButton key={kind} label="Image / logo" busy={uploading === 'image'} onFile={(file) => void uploadImage(file, 'image')} />
+                    <span key={kind} className="contents">
+                      <UploadButton label="Image / logo" busy={uploading === 'image'} onFile={(file) => void uploadImage(file, 'image')} />
+                      <BrandImageButton label="Brand image" disabled={uploading !== null} onPick={(item) => placeBrandImage(item, 'image')} />
+                    </span>
                   ) : (
                     <button
                       key={kind}
@@ -439,14 +469,12 @@ export function AccBadgeDesignerPage() {
               {selected.kind === 'rect' || (isText(selected.kind) && selected.kind !== 'profileBand') ? (
                 <div className="mt-4">
                   <span className="mb-1.5 block text-sm font-medium">{selected.kind === 'rect' ? 'Fill' : 'Box fill'}</span>
-                  <div className="flex items-center gap-2">
-                    <AlphaColorInput label="Fill colour" value={selected.fill ?? '#FFFFFF00'} onChange={(fill) => setElement(selected.id, { fill })} />
-                    {selected.kind !== 'rect' && selected.fill ? (
-                      <button type="button" className="text-xs text-muted hover:text-foreground" onClick={() => setElement(selected.id, { fill: null })}>
-                        None
-                      </button>
-                    ) : null}
-                  </div>
+                  <AlphaColorInput
+                    label="Fill colour"
+                    value={selected.fill}
+                    onChange={(fill) => setElement(selected.id, { fill })}
+                    onClear={selected.kind !== 'rect' ? () => setElement(selected.id, { fill: null }) : undefined}
+                  />
                 </div>
               ) : null}
 
@@ -466,7 +494,7 @@ export function AccBadgeDesignerPage() {
                         value={selected.font ?? 'Inter'}
                         onChange={(change) => setElement(selected.id, { font: change.target.value === 'Inter' ? null : change.target.value })}
                       >
-                        {badgeFonts.map((font) => (
+                        {[...badgeFonts, ...brandFontNames.filter((font) => !badgeFonts.includes(font))].map((font) => (
                           <option key={font}>{font}</option>
                         ))}
                       </select>
@@ -578,7 +606,7 @@ export function AccBadgeDesignerPage() {
                 ['lastName', 'Last name'],
                 ['organization', 'Organisation'],
                 ['jobTitle', 'Role / job title'],
-                ['applicantType', 'Applicant type'],
+                ['applicantType', 'Applicant category'],
                 ['nationality', 'Nationality'],
                 ['accessProfile', 'Access profile'],
               ] as const
@@ -633,7 +661,7 @@ function hintFor(kind: AccBadgeKind) {
     case 'profileBand':
       return 'A band in the access profile colour with its name — readable from a distance.'
     case 'qr':
-      return 'The badge code the gate scanners read. It changes when a badge is revoked.'
+      return 'The badge code the gate scanners read. It changes when a badge is cancelled.'
     case 'photo':
       return 'The applicant’s photo.'
     case 'badgeNumber':

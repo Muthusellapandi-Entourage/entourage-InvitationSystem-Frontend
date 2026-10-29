@@ -23,7 +23,7 @@ public sealed class ReorderGuestTypesRequestValidator : AbstractValidator<Reorde
 {
     public ReorderGuestTypesRequestValidator()
     {
-        RuleFor(request => request.Ids).NotNull().Must(ids => ids.Length > 0).WithMessage("Choose the guest types to reorder.");
+        RuleFor(request => request.Ids).NotNull().Must(ids => ids.Length > 0).WithMessage("Choose the guest categories to reorder.");
     }
 }
 

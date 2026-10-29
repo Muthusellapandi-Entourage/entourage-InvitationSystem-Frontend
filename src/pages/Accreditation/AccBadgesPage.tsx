@@ -77,7 +77,7 @@ export function AccBadgesPage() {
         <div>
           <h2 className="text-lg font-semibold">Badge templates</h2>
           <p className="mt-1 text-sm text-muted">
-            Physical badge layouts. Give each applicant type its own template; everyone else gets the default.
+            Physical badge layouts. Give each applicant category its own template; everyone else gets the default.
           </p>
         </div>
         {canManage ? (
@@ -149,7 +149,7 @@ export function AccBadgesPage() {
                             </button>
                           )
                         })}
-                        {types.length === 0 ? <span className="text-xs text-muted">No applicant types.</span> : null}
+                        {types.length === 0 ? <span className="text-xs text-muted">No applicant categories.</span> : null}
                       </div>
                     </div>
                     {canManage ? (
@@ -190,7 +190,7 @@ export function AccBadgesPage() {
       <ConfirmDialog
         open={Boolean(deleting)}
         title={`Remove ${deleting?.name ?? ''}?`}
-        description="Its applicant types fall back to the default template. Printed badges are not affected."
+        description="Its applicant categories fall back to the default template. Printed badges are not affected."
         confirmLabel="Remove"
         pendingLabel="Removing…"
         pending={remove.isPending}

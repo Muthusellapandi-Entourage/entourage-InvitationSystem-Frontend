@@ -33,7 +33,7 @@ type Outcome =
 export function CheckInPage() {
   const { eventId = '' } = useParams()
   const event = useEvent(eventId).data
-  useDocumentTitle(event ? `EventPass · ${event.name}` : 'EventPass')
+  useDocumentTitle(event ? `Door scanner · ${event.name}` : 'Door scanner')
   const [value, setValue] = useState('')
   const [outcome, setOutcome] = useState<Outcome>({ kind: 'idle' })
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -100,7 +100,7 @@ export function CheckInPage() {
       const code = raw.trim()
       setValue('')
       if (!code) {
-        setOutcome({ kind: 'error', title: 'No E-Badge value', message: 'Nothing was scanned. Scan the QR code on the E-Badge.' })
+        setOutcome({ kind: 'error', title: 'Nothing scanned', message: 'Nothing was scanned. Scan the QR code on the digital pass.' })
         beep('error')
         return
       }
@@ -154,7 +154,7 @@ export function CheckInPage() {
               <LogoMark className="size-5" />
             </span>
             <div className="min-w-0">
-              <h1 className="text-lg font-semibold tracking-tight">EventPass</h1>
+              <h1 className="text-lg font-semibold tracking-tight">Door scanner</h1>
               <p className="truncate text-sm text-muted">Door check-in{event ? ` · ${event.name}` : ''}</p>
             </div>
           </div>
@@ -194,7 +194,7 @@ export function CheckInPage() {
                 autoCapitalize="off"
                 spellCheck={false}
                 enterKeyHint="go"
-                placeholder="Scan the E-Badge — the code appears here"
+                placeholder="Scan the digital pass — the code appears here"
                 className="mt-3 h-14 w-full rounded-md border border-border bg-background px-4 text-base font-medium text-foreground placeholder:text-placeholder focus:border-accent"
               />
               <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted">
@@ -347,7 +347,7 @@ function ResultCard({ outcome, timezone }: { outcome: Outcome; timezone?: string
         </span>
         <span className="text-xl font-semibold">Ready to scan</span>
         <span className="max-w-sm text-sm leading-relaxed text-muted">
-          Scan a guest&apos;s E-Badge with the barcode reader, or turn on the camera in settings.
+          Scan a guest&apos;s digital pass with the barcode reader, or turn on the camera in settings.
         </span>
       </section>
     )
@@ -388,7 +388,7 @@ function ResultCard({ outcome, timezone }: { outcome: Outcome; timezone?: string
             ? 'Guest not found'
             : outcome.status === 'Closed'
               ? 'Check-in closed'
-              : 'No E-Badge value'
+              : 'Code not recognised'
   const guest = outcome.kind === 'result' ? outcome.guest : null
 
   return (

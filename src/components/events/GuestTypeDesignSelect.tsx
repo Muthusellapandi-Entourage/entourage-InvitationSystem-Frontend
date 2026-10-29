@@ -14,9 +14,9 @@ export function GuestTypeDesignSelect({
 }) {
   return (
     <label className="flex shrink-0 items-center gap-2 text-sm">
-      <span className="shrink-0 text-muted">Guest type</span>
+      <span className="shrink-0 text-muted">Guest category</span>
       <select
-        aria-label="Guest type design to load"
+        aria-label="Guest category design to load"
         className="h-9 max-w-52 rounded-md border border-border bg-surface px-2 text-sm text-foreground"
         value={value}
         onChange={(event) => onChange(event.target.value)}

@@ -18,7 +18,7 @@ export const elementLabels: Record<PrintBadgeElement['kind'], string> = {
   name: 'Guest name',
   position: 'Position',
   company: 'Company',
-  guestType: 'Guest type',
+  guestType: 'Guest category',
   seat: 'Table / seat',
   text: 'Text',
   qr: 'QR code',
@@ -137,7 +137,8 @@ export function PrintBadgeView({
               justifyContent: element.valign === 'top' ? 'flex-start' : element.valign === 'bottom' ? 'flex-end' : 'center',
               textAlign: element.align,
               color: element.color,
-              fontFamily: fonts[element.font ?? 'Inter'] ?? fonts.Inter,
+              // Brand fonts are registered by name; built-in ones get their fallbacks.
+              fontFamily: fonts[element.font ?? 'Inter'] ?? `"${element.font}", ${fonts.Inter}`,
               fontSize: size,
               fontWeight: element.fontWeight === 'bold' ? 700 : element.fontWeight === 'semibold' ? 600 : 400,
               lineHeight: 1.15,

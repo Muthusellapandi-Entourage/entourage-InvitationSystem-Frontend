@@ -18,7 +18,7 @@ function csvCell(value: string | null) {
 export function AccAuditPage() {
   const { accEventId = '' } = useParams()
   const [filter, setFilter] = useState('')
-  useDocumentTitle('Audit log')
+  useDocumentTitle('History')
   const query = useInfiniteQuery({
     queryKey: ['acc', 'audit', accEventId],
     queryFn: ({ pageParam }) => accApi.audit(accEventId, { take: PAGE, before: pageParam ?? undefined }),
@@ -46,7 +46,7 @@ export function AccAuditPage() {
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Audit log</h2>
+          <h2 className="text-lg font-semibold">History</h2>
           <p className="mt-1 text-sm text-muted">Every change, decision and ID view. Entries are never edited or deleted.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -55,7 +55,7 @@ export function AccAuditPage() {
             <input
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
-              aria-label="Filter the log"
+              aria-label="Filter the history"
               placeholder="Filter…"
               className="h-10 w-56 rounded-md border border-border bg-surface pl-8 pr-3 text-sm placeholder:text-muted"
             />
@@ -70,7 +70,7 @@ export function AccAuditPage() {
         {query.isLoading ? (
           <Skeleton className="h-64 w-full" />
         ) : query.isError ? (
-          <p role="alert" className="text-sm text-danger">{errorMessage(query.error, 'The audit log could not be loaded.')}</p>
+          <p role="alert" className="text-sm text-danger">{errorMessage(query.error, 'The history could not be loaded.')}</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border">
             <table className="w-full min-w-[48rem] text-left text-sm">

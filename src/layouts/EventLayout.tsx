@@ -15,14 +15,15 @@ import { cn } from '@/lib/cn'
 const modules = [
   // In event workflow order: set up → prepare & invite → plan → event day → review.
   { label: 'Overview', path: '', enabled: true },
+  { label: 'Brand kit', path: 'brand', enabled: true },
   { label: 'Guests', path: 'guests', enabled: true },
-  { label: 'Guest types', path: 'guest-types', enabled: true },
+  { label: 'Guest categories', path: 'guest-types', enabled: true },
   { label: 'Invitations', path: 'invitations', enabled: true },
-  { label: 'E-Badges', path: 'badges', enabled: true },
+  { label: 'Digital passes', path: 'badges', enabled: true },
   { label: 'Self-registration', path: 'registration', enabled: true },
   { label: 'Responses', path: 'rsvp', enabled: true },
   { label: 'Seating', path: 'seating', enabled: true },
-  { label: 'Scanner', path: 'check-in', enabled: true },
+  { label: 'Check-in', path: 'check-in', enabled: true },
   { label: 'Live attendance', path: 'live', enabled: true, liveOnly: true },
   { label: 'Analytics', path: 'analytics', enabled: true },
 ]
@@ -139,12 +140,12 @@ export function EventLayout() {
             event.status === 'Draft' ? 'border-warning/40 bg-warning-soft' : 'border-border bg-hover',
           )}
         >
-          <span className="font-semibold">{event.status === 'Draft' ? 'Draft — not live yet.' : 'Archived — read-only.'}</span>{' '}
+          <span className="font-semibold">{event.status === 'Draft' ? 'Setting up — not live yet.' : 'Finished — view only.'}</span>{' '}
           {event.status === 'Draft'
-            ? 'You can set everything up, but invitations cannot be sent, guest links are closed and the door scanner is off. Set the event to Active when you are ready.'
-            : 'Nothing can be changed, invitations cannot be sent, and guest links and the door scanner are closed. Set the event to Active to reopen it.'}{' '}
+            ? 'Prepare everything here. Invitations can’t be sent, guest links are closed and the door scanner is off until you make the event Live.'
+            : 'Nothing can be changed, invitations can’t be sent, and guest links and the door scanner are closed. Make the event Live again to reopen it.'}{' '}
           <Link to={`/events/${event.id}/settings`} className="font-medium underline underline-offset-4">
-            Change status
+            {event.status === 'Draft' ? 'Go live' : 'Change status'}
           </Link>
         </p>
       ) : null}
@@ -157,7 +158,7 @@ export function EventLayout() {
                 key={module.label}
                 className="shrink-0 px-3 py-2 text-sm text-muted"
                 aria-disabled="true"
-                title={waitingForLive ? 'Available while the event is Active' : undefined}
+                title={waitingForLive ? 'Available while the event is Live' : undefined}
               >
                 {module.label}
               </span>

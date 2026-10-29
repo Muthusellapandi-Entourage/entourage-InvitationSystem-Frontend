@@ -249,8 +249,8 @@ function csvCell(value: string | number | null | undefined) {
 /** The filtered guests as a spreadsheet (opens in Excel, Arabic names included). */
 export function analyticsCsv(guests: AnalyticsGuest[], timezone: string) {
   const header = [
-    'Name', 'Position', 'Guest type', 'Group', 'RSVP', 'Replied', 'Decline reason', 'Invitations', 'First invited',
-    'Emails', 'Reminders', 'Email failures', 'Badges', 'Table', 'Seat', 'Check-ins', 'First check-in', 'Seated at',
+    'Name', 'Position', 'Guest category', 'Group', 'RSVP', 'Replied', 'Decline reason', 'Invitations', 'First invited',
+    'Emails', 'Reminders', 'Email failures', 'Digital passes', 'Table', 'Seat', 'Check-ins', 'First check-in', 'Seated at',
   ]
   const rows = guests.map((guest) => [
     guest.name,

@@ -36,7 +36,7 @@ export const badgeKindLabels: Record<AccBadgeKind, string> = {
   lastName: 'Last name',
   organization: 'Organisation',
   jobTitle: 'Role / job title',
-  applicantType: 'Applicant type',
+  applicantType: 'Applicant category',
   badgeNumber: 'Badge number',
   nationality: 'Nationality',
   accessProfile: 'Access profile name',
@@ -57,6 +57,11 @@ const fonts: Record<string, string> = {
   'Times New Roman': '"Times New Roman", Times, serif',
 }
 export const badgeFonts = Object.keys(fonts)
+
+/** Built-in fonts get fallbacks; brand fonts (registered by name from the event's brand kit) fall back to Inter. */
+function fontFamily(name: string | null) {
+  return fonts[name ?? 'Inter'] ?? `"${name}", ${fonts.Inter}`
+}
 
 export function badgeText(element: AccBadgeElement, person: BadgePerson, eventName: string) {
   const value: string | null =
@@ -219,7 +224,7 @@ export function AccBadgeView({
                       background: zone.color,
                       color: element.color,
                       borderRadius: px(element.radius ?? 0),
-                      fontFamily: fonts[element.font ?? 'Inter'] ?? fonts.Inter,
+                      fontFamily: fontFamily(element.font),
                       fontWeight: 800,
                       fontSize: Math.min(fontPx(element), size * (zone.code.length > 2 ? 0.42 : 0.62)),
                       lineHeight: 1,
@@ -247,7 +252,7 @@ export function AccBadgeView({
               justifyContent: element.valign === 'top' ? 'flex-start' : element.valign === 'bottom' ? 'flex-end' : 'center',
               textAlign: element.align,
               color: element.color,
-              fontFamily: fonts[element.font ?? 'Inter'] ?? fonts.Inter,
+              fontFamily: fontFamily(element.font),
               fontSize: size,
               fontWeight: element.fontWeight === 'bold' ? 700 : element.fontWeight === 'semibold' ? 600 : 400,
               lineHeight: 1.15,

@@ -67,5 +67,8 @@ public sealed class Event
     /// <summary>Look and wording of the self check-in kiosk, as JSON. Null = defaults.</summary>
     public string? KioskJson { get; set; }
 
+    /// <summary>Brand kit as JSON: colours and image groups (logos, backgrounds, custom). Fonts are the event's fonts.</summary>
+    public string? BrandKitJson { get; set; }
+
     public User? Creator { get; set; }
 }

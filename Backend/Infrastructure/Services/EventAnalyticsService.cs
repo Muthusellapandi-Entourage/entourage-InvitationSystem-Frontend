@@ -116,7 +116,7 @@ public sealed class EventAnalyticsService(AppDbContext db)
                     guest.Name,
                     guest.Position,
                     !string.IsNullOrWhiteSpace(guest.Email),
-                    guest.GuestTypeId is Guid typeId && types.TryGetValue(typeId, out var typeName) ? typeName : "No guest type",
+                    guest.GuestTypeId is Guid typeId && types.TryGetValue(typeId, out var typeName) ? typeName : "No guest category",
                     guest.GuestGroupId is Guid groupId && groups.TryGetValue(groupId, out var groupName) ? groupName : "No group",
                     guest.RsvpStatus,
                     guest.RsvpUpdatedOn,

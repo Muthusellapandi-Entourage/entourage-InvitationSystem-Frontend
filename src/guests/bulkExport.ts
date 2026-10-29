@@ -148,7 +148,7 @@ export async function exportBadges(
       if (format === 'png') files.add(item.name, 'png', await canvasBlob(canvas, 'image/png'))
       else files.add(item.name, 'pdf', singlePagePdf(canvas, 1, 'PNG'))
     } catch (error) {
-      skipped.push({ guestId: item.guestId, name: item.name, reason: error instanceof Error ? error.message : 'The badge could not be drawn.' })
+      skipped.push({ guestId: item.guestId, name: item.name, reason: error instanceof Error ? error.message : 'The digital pass could not be drawn.' })
     }
     done += 1
     onProgress(done, ready.length)
@@ -158,7 +158,7 @@ export async function exportBadges(
 
   const produced = files.count
   if (produced === 0) return { count: 0, skipped }
-  await files.save(`${zipBase}-e-badges-${format === 'png' ? 'images' : 'pdf'}.zip`)
+  await files.save(`${zipBase}-digital-passes-${format === 'png' ? 'images' : 'pdf'}.zip`)
   const failedIds = new Set(skipped.map((item) => item.guestId))
   const recorded = ready.filter((item) => !failedIds.has(item.guestId)).map((item) => item.guestId)
   if (recorded.length > 0) await guestApi.commitBadges(eventId, recorded)
@@ -172,7 +172,7 @@ export async function exportBadges(
  */
 export async function exportGuestBadge(eventId: string, eventName: string, guest: Guest, format: 'png' | 'pdf') {
   const png = await guestApi.badgeImage(eventId, guest.id)
-  if (png.size === 0) throw new Error('The e-badge could not be drawn.')
+  if (png.size === 0) throw new Error('The digital pass could not be drawn.')
   const base = guestFileBase(eventName, guest.name)
   if (format === 'png') {
     downloadBlob(png, `${base}.png`)
@@ -182,7 +182,7 @@ export async function exportGuestBadge(eventId: string, eventName: string, guest
     canvas.width = bitmap.width
     canvas.height = bitmap.height
     const context = canvas.getContext('2d')
-    if (!context) throw new Error('The e-badge could not be drawn.')
+    if (!context) throw new Error('The digital pass could not be drawn.')
     context.drawImage(bitmap, 0, 0)
     bitmap.close()
     downloadBlob(singlePagePdf(canvas, 1, 'PNG'), `${base}.pdf`)
@@ -294,11 +294,11 @@ export async function exportInvitations(
   const ready = guests.filter((guest) => {
     const design = guest.guestTypeId ? designs.get(guest.guestTypeId) : undefined
     if (!guest.guestTypeId) {
-      skipped.push({ guestId: guest.id, name: guest.name, reason: 'No guest type, so there is no invitation design.' })
+      skipped.push({ guestId: guest.id, name: guest.name, reason: 'No guest category, so there is no invitation design.' })
       return false
     }
     if (!design) {
-      skipped.push({ guestId: guest.id, name: guest.name, reason: `The ${guest.guestTypeName ?? 'guest type'} invitation design has not been configured.` })
+      skipped.push({ guestId: guest.id, name: guest.name, reason: `The ${guest.guestTypeName ?? 'guest category'} invitation design has not been configured.` })
       return false
     }
     return true
@@ -369,7 +369,7 @@ export function downloadGuestReport(
     const current = latestByName.get(key)
     if (!current || response.createdOn > current.createdOn) latestByName.set(key, response)
   }
-  const header = ['Name', 'Email', 'Position', 'Group', 'Guest type', 'Invitation', 'Invitation date', 'RSVP', 'RSVP date', 'Badge', 'Check-in code']
+  const header = ['Name', 'Email', 'Position', 'Group', 'Guest category', 'Invitation', 'Invitation date', 'RSVP', 'RSVP date', 'Digital pass', 'Check-in code']
   const rows = guests.map((guest) => {
     const reply = latestByName.get(guest.name.trim().toLowerCase())
     return [
@@ -377,7 +377,7 @@ export function downloadGuestReport(
       guest.email,
       guest.position,
       guest.guestGroupName ?? 'No group',
-      guest.guestTypeName ?? 'No guest type',
+      guest.guestTypeName ?? 'No guest category',
       guest.invitationCount > 0 ? 'Sent' : 'Not sent',
       formatDate(guest.lastInvitationOn),
       reply ? reply.status : guest.invitationCount > 0 ? 'No reply' : '',

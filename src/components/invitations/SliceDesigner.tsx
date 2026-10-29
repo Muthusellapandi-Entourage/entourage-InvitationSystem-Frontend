@@ -6,6 +6,7 @@ import { ApiError, apiBaseUrl } from '@/api/client'
 import { fontApi, type EventFont } from '@/api/fontApi'
 import { invitationApi } from '@/api/invitationApi'
 import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
+import { BrandImageButton } from '@/components/brand/BrandImageButton'
 import { Button } from '@/components/ui/Button'
 import {
   builtInNameFonts,
@@ -197,7 +198,7 @@ export function SliceDesigner({
     if (on) {
       const last = cuts[cuts.length - 1] ?? 0
       if (height - last < MIN_STRIP * 2) {
-        toast.error('Make the Accept / Decline slice taller first; there is no room for a footer.')
+        toast.error('Make the Accept / Decline section taller first; there is no room for a footer.')
         return
       }
       setCuts([...cuts, Math.round(last + (height - last) / 2)])
@@ -333,8 +334,8 @@ export function SliceDesigner({
       const pieces = piecesFor(width, accept, decline)
       const total = strips.length - 1 + pieces.length
       let done = 0
-      const step = () => setPreparing(`Cutting and uploading slices… ${++done} of ${total}`)
-      setPreparing(`Cutting and uploading slices… 0 of ${total}`)
+      const step = () => setPreparing(`Cutting and uploading sections… ${++done} of ${total}`)
+      setPreparing(`Cutting and uploading sections… 0 of ${total}`)
       for (const [index, strip] of strips.entries()) {
         if (index === buttonsIndex) {
           const uploaded: SlicePiece[] = []
@@ -354,7 +355,7 @@ export function SliceDesigner({
       const slices: SliceDesign = { sourceAssetId: source.assetId, sourceWidth: width, sourceHeight: height, strips: output, name }
       onSave({ ...design, width: clamp(Math.round(emailWidth), 400, 1000), slices })
     } catch (error) {
-      toast.error(messageOf(error, 'The slices could not be uploaded.'))
+      toast.error(messageOf(error, 'The sections could not be uploaded.'))
     } finally {
       setPreparing(null)
     }
@@ -375,14 +376,14 @@ export function SliceDesigner({
         </button>
         <span className="h-5 w-px bg-border" aria-hidden="true" />
         <h1 className="truncate text-sm font-semibold">{title}</h1>
-        <span className="rounded bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">Single image</span>
+        <span className="rounded bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">One-image invitation</span>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="ghost" onClick={onUseClassic}>
             Use classic designer
           </Button>
           <Button disabled={!source || !image || saving || preparing !== null || problems.length > 0} onClick={() => void save()}>
             {saving || preparing ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Scissors className="size-4" aria-hidden="true" />}
-            {preparing ? 'Preparing…' : saving ? 'Saving…' : 'Slice & save'}
+            {preparing ? 'Preparing…' : saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </header>
@@ -397,7 +398,12 @@ export function SliceDesigner({
         {/* Design with cut lines; slice names sit in the gutter on the left, outside the design. */}
         <main className="min-w-0 flex-1 overflow-auto bg-[#1b1b19] p-6">
           {!source ? (
-            <UploadDrop uploading={uploading} onFile={(file) => void uploadSource(file)} />
+            <div className="grid gap-3">
+              <UploadDrop uploading={uploading} onFile={(file) => void uploadSource(file)} />
+              <div className="flex items-center justify-center gap-2 text-sm text-white/60">
+                or <BrandImageButton label="Use a design from the brand kit" disabled={uploading} onFile={(file) => uploadSource(file)} />
+              </div>
+            </div>
           ) : !image ? (
             <p className="text-sm text-white/60">Loading design…</p>
           ) : (
@@ -493,7 +499,7 @@ export function SliceDesigner({
           )}
           {source && image ? (
             <p className="mt-3 text-center text-xs text-white/55">
-              Drag the blue lines to set each slice. Drag the green and red boxes over your Accept and Decline buttons. Hold Alt to move without snapping.
+              Drag the blue lines to set each section. Drag the green and red boxes over your Accept and Decline buttons. Hold Alt to move without snapping.
             </p>
           ) : null}
         </main>
@@ -527,7 +533,7 @@ export function SliceDesigner({
           </Section>
 
           {source ? (
-            <Section title="Slices">
+            <Section title="Sections">
               <ol className="grid gap-1.5">
                 {strips.map((strip, index) => (
                   <li key={strip.label} className="flex items-center gap-2 text-sm">
@@ -558,7 +564,7 @@ export function SliceDesigner({
               </ol>
               <label className="mt-1 flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={footer} onChange={(event) => toggleFooter(event.target.checked)} />
-                Footer slice (optional)
+                Footer section (optional)
               </label>
             </Section>
           ) : null}
@@ -679,7 +685,7 @@ export function SliceDesigner({
             <TextRow label="Sample name" value={sample.name} onChange={(value) => setSample({ ...sample, name: value })} />
             {name.positionEnabled ? <TextRow label="Sample position" value={sample.position} onChange={(value) => setSample({ ...sample, position: value })} /> : null}
             <p className="text-xs text-muted">
-              Each guest gets their own name image when the invitation is sent or downloaded. Long names shrink to fit the slice. For your brand font, upload
+              Each guest gets their own name image when the invitation is sent or downloaded. Long names shrink to fit the section. For your brand font, upload
               its .ttf or .otf above; the built-in fonts may look different on the server.
             </p>
           </Section>
@@ -827,7 +833,7 @@ function UploadDrop({ uploading, onFile }: { uploading: boolean; onFile: (file: 
       {uploading ? <Loader2 className="size-8 animate-spin text-accent" aria-hidden="true" /> : <Upload className="size-8 text-accent" aria-hidden="true" />}
       <span className="text-base font-semibold">Upload the full invitation design</span>
       <span className="text-sm text-white/60">
-        One PNG or JPG with the header, an empty guest name area, the details, the Accept / Decline buttons and an optional footer. You slice it next.
+        One PNG or JPG with the header, an empty guest name area, the details, the Accept / Decline buttons and an optional footer. You mark its sections next.
       </span>
       <input
         type="file"
@@ -1070,7 +1076,7 @@ function validate(strips: { label: string; height: number }[], accept: Span | nu
   const problems: string[] = []
   if (!accept || !decline) problems.push('Place the Accept and Decline areas.')
   if (accept && decline && overlaps(accept, decline)) problems.push('The Accept and Decline areas overlap.')
-  for (const strip of strips) if (strip.height < 4) problems.push(`The ${strip.label} slice is too thin. Drag the lines apart.`)
+  for (const strip of strips) if (strip.height < 4) problems.push(`The ${strip.label} section is too thin. Drag the lines apart.`)
   return problems
 }
 

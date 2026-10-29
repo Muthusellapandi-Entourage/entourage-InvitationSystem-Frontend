@@ -23,7 +23,8 @@ export function CreateEventPage() {
     onSuccess: async (event) => {
       toast.success('Event created successfully.')
       await queryClient.invalidateQueries({ queryKey: ['events'] })
-      navigate(`/events/${event.id}`)
+      // Next step: the brand kit (logos, fonts, backgrounds, colours) used by every designer.
+      navigate(`/events/${event.id}/brand?new=1`)
     },
     onError: (error) => {
       if (error instanceof ApiError && error.errors) return

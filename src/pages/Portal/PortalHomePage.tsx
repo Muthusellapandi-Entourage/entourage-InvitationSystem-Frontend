@@ -128,7 +128,7 @@ export function PortalHomePage() {
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => setBulk(true)} disabled={quotaFull}>
               <Upload className="size-4" aria-hidden="true" />
-              Bulk upload
+              Upload a list
             </Button>
             <Button onClick={() => setAdding(true)} disabled={quotaFull}>
               <Plus className="size-4" aria-hidden="true" />
@@ -144,7 +144,7 @@ export function PortalHomePage() {
           <thead className="border-b border-border bg-hover/50 text-xs text-muted">
             <tr>
               <th className="px-4 py-3 font-medium">Name</th>
-              <th className="px-4 py-3 font-medium">Type</th>
+              <th className="px-4 py-3 font-medium">Category</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium">Badge</th>
               <th className="px-4 py-3 font-medium">Submitted</th>
@@ -207,7 +207,7 @@ export function PortalHomePage() {
       <BulkUploadDialog
         open={bulk}
         onClose={() => setBulk(false)}
-        title="Bulk upload your team"
+        title="Upload a list of your team"
         typeNames={info.types.map((type) => type.name)}
         upload={portalApi.upload}
         submit={portalApi.bulk}

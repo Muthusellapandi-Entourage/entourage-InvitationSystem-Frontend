@@ -30,6 +30,7 @@ export function useAccRole() {
     canVet: admin || role === 'AccreditationAdmin' || role === 'SecurityManager',
     canWork: admin || ['AccreditationAdmin', 'SecurityManager', 'DataEntryClerk'].includes(role),
     canPrint: admin || ['AccreditationAdmin', 'SecurityManager', 'PrintOperator'].includes(role),
+    canScan: admin || ['AccreditationAdmin', 'SecurityManager', 'GateGuard'].includes(role),
   }
 }
 
@@ -79,7 +80,7 @@ export function StageChip({ stage, fallback }: { stage: AccStage | undefined; fa
       style={{ backgroundColor: `${color.slice(0, 7)}26`, color: color.slice(0, 7) }}
     >
       <span className="size-1.5 rounded-full" style={{ backgroundColor: color.slice(0, 7) }} aria-hidden="true" />
-      {stage?.name ?? fallback ?? 'Unknown stage'}
+      {stage?.name ?? fallback ?? 'Unknown step'}
     </span>
   )
 }
@@ -372,7 +373,7 @@ export function ApplicantForm({
                 value={value.applicantTypeId ?? ''}
                 onChange={(event) => set({ applicantTypeId: event.target.value || null, customFields: {}, documents: {} })}
               >
-                <option value="">{strict ? 'Choose…' : 'No type'}</option>
+                <option value="">{strict ? 'Choose…' : 'No category'}</option>
                 {types.map((item) => (
                   <option key={item.id ?? item.name} value={item.id ?? ''}>
                     {item.name}
@@ -560,7 +561,7 @@ export const bulkColumns = [
   { key: 'nationality', label: 'Nationality', aliases: ['nationality', 'country'] },
   { key: 'dateOfBirth', label: 'Date of birth', aliases: ['date of birth', 'dob', 'birth date', 'birthdate'] },
   { key: 'idNumber', label: 'Passport / ID number', aliases: ['passport', 'passport number', 'id', 'id number', 'national id', 'emirates id'] },
-  { key: 'applicantType', label: 'Applicant type', aliases: ['type', 'applicant type', 'category'] },
+  { key: 'applicantType', label: 'Applicant category', aliases: ['type', 'applicant type', 'category', 'applicant category'] },
   { key: 'photo', label: 'Photo file name', aliases: ['photo', 'photo file', 'image', 'picture'] },
 ] as const
 

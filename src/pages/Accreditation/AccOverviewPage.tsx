@@ -34,12 +34,16 @@ function Bars({ items, eventId, filter }: { items: AccCount[]; eventId: string; 
 
 export function AccOverviewPage() {
   const { accEventId = '' } = useParams()
-  const { canWork, canPrint } = useAccRole()
+  const { canWork, canPrint, canScan } = useAccRole()
   const query = useQuery({ queryKey: ['acc', 'overview', accEventId], queryFn: () => accApi.overview(accEventId), enabled: canWork })
   useDocumentTitle('Accreditation overview')
 
-  // Print operators only work the print queue.
-  if (!canWork) return canPrint ? <Navigate to={`/accreditation/${accEventId}/print`} replace /> : <p className="text-sm text-muted">Nothing to show for your role yet.</p>
+  // Print operators work the print queue; gate guards the gates.
+  if (!canWork) {
+    if (canPrint) return <Navigate to={`/accreditation/${accEventId}/print`} replace />
+    if (canScan) return <Navigate to={`/accreditation/${accEventId}/live`} replace />
+    return <p className="text-sm text-muted">Nothing to show for your role yet.</p>
+  }
 
   if (query.isLoading) {
     return (
@@ -67,10 +71,10 @@ export function AccOverviewPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Pipeline">
+        <Section title="Approval steps">
           <Bars items={data.byStage} eventId={accEventId} filter="stage" />
         </Section>
-        <Section title="Applicant types">
+        <Section title="Applicant categories">
           <Bars items={data.byType} eventId={accEventId} filter="typeId" />
         </Section>
         <Section title="Organisations">

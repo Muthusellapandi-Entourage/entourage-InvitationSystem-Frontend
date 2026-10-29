@@ -292,7 +292,7 @@ export function AnalyticsPage() {
             onChange={(change) => set({ search: change.target.value })}
           />
         </label>
-        <MultiSlicer label="Guest type" options={options('guestType', 'types')} selected={filters.types} onChange={(types) => set({ types })} />
+        <MultiSlicer label="Guest category" options={options('guestType', 'types')} selected={filters.types} onChange={(types) => set({ types })} />
         <MultiSlicer label="Group" options={options('group', 'groups')} selected={filters.groups} onChange={(groups) => set({ groups })} />
         <MultiSlicer
           label="RSVP"
@@ -457,7 +457,7 @@ export function AnalyticsPage() {
           actions={
             <Segmented
               value={dimension}
-              options={[{ value: 'type', label: 'Guest type' }, { value: 'group', label: 'Group' }, { value: 'table', label: 'Table' }]}
+              options={[{ value: 'type', label: 'Guest category' }, { value: 'group', label: 'Group' }, { value: 'table', label: 'Table' }]}
               onChange={setDimension}
             />
           }

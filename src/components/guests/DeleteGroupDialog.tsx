@@ -63,14 +63,14 @@ export function DeleteGroupDialog({
               <Choice
                 checked={!deleteGuests}
                 title="Keep the guests"
-                description="They stay on the event with their invitations, badges and seats, just without a group."
+                description="They stay on the event with their invitations, digital passes and seats, just without a group."
                 onSelect={() => setDeleteGuests(false)}
               />
               <Choice
                 checked={deleteGuests}
                 danger
                 title={`Delete the ${count} ${count === 1 ? 'guest' : 'guests'} too`}
-                description="Removes them from the event with their invitation and badge history, and frees their seats. This cannot be undone."
+                description="Removes them from the event with their invitation and digital pass history, and frees their seats. This cannot be undone."
                 onSelect={() => setDeleteGuests(true)}
               />
             </div>

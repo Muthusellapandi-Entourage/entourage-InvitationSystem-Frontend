@@ -29,15 +29,15 @@ public sealed class CheckInService(AppDbContext db)
             return new CheckInResultDto(
                 Closed,
                 status == EventStatus.Draft
-                    ? "Check-in is closed: this event is still a draft. Set it to Active to open the door."
-                    : "Check-in is closed: this event is archived.",
+                    ? "Check-in is closed: this event is still being set up (not Live yet). Make the event Live to open the door."
+                    : "Check-in is closed: this event is finished.",
                 null);
         }
 
         var code = ReadCode(request.Code);
         if (code is null)
         {
-            return new CheckInResultDto(Invalid, "No E-Badge value. Scan the QR code on the guest's E-Badge.", null);
+            return new CheckInResultDto(Invalid, "Nothing was scanned. Scan the QR code on the guest's digital pass.", null);
         }
 
         var guest = await db.Guests
@@ -55,7 +55,7 @@ public sealed class CheckInService(AppDbContext db)
     {
         if (await EventStatusAsync(eventId, cancellationToken) != EventStatus.Active)
         {
-            return new CheckInResultDto(Closed, "Check-in is closed: the event is not Active.", null);
+            return new CheckInResultDto(Closed, "Check-in is closed: the event is not Live.", null);
         }
 
         var guest = await db.Guests.FirstOrDefaultAsync(item => item.EventId == eventId && item.Id == guestId, cancellationToken);

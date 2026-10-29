@@ -30,6 +30,7 @@ import {
   type RegistrationSettings,
 } from '@/api/registrationApi'
 import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
+import { BrandImageButton } from '@/components/brand/BrandImageButton'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/StatusBadge'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -157,7 +158,7 @@ export function RegistrationPage() {
   }
 
   const state = !info.eventActive
-    ? { tone: 'amber' as const, label: event.status === 'Archived' ? 'Archived' : 'Event not live' }
+    ? { tone: 'amber' as const, label: event.status === 'Archived' ? 'Finished' : 'Event not live' }
     : info.acceptingNow
       ? { tone: 'teal' as const, label: 'Live' }
       : { tone: 'gray' as const, label: draft.open ? 'Closed' : 'Not published' }
@@ -385,13 +386,13 @@ export function RegistrationPage() {
           <Step number="03" title="Where sign-ups go" subtitle="Every registration is added to the guest list as Accepted.">
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-1.5 text-sm">
-                <span className="font-medium">Guest type</span>
+                <span className="font-medium">Guest category</span>
                 <select
                   className="h-10 rounded-md border border-border bg-background px-3 text-sm"
                   value={draft.guestTypeId ?? ''}
                   onChange={(change) => set({ guestTypeId: change.target.value || null })}
                 >
-                  <option value="">No guest type</option>
+                  <option value="">No guest category</option>
                   {types.map((type) => (
                     <option key={type.id} value={type.id}>
                       {type.name}
@@ -401,9 +402,9 @@ export function RegistrationPage() {
                 <span className={cn('text-xs', chosenType?.badgeConfigured ? 'text-muted' : 'text-warning')}>
                   {chosenType
                     ? chosenType.badgeConfigured
-                      ? 'Guests can download their E-Badge right after registering.'
-                      : `${chosenType.name} has no E-Badge design yet; guests will see their QR code only.`
-                    : 'Choose a guest type with an E-Badge design so guests can download their badge.'}
+                      ? 'Guests can download their digital pass right after registering.'
+                      : `${chosenType.name} has no digital pass design yet; guests will see their QR code only.`
+                    : 'Choose a guest category with a digital pass design so guests can download their pass.'}
                 </span>
               </label>
               <label className="grid gap-1.5 text-sm">
@@ -435,7 +436,7 @@ export function RegistrationPage() {
               </div>
               <TextArea label="Thank-you message" value={draft.successText} onChange={(successText) => set({ successText })} />
               <div className="grid gap-4 md:grid-cols-2">
-                <TextInput label="Download E-Badge button" value={draft.downloadButton} onChange={(downloadButton) => set({ downloadButton })} />
+                <TextInput label="Download digital pass button" value={draft.downloadButton} onChange={(downloadButton) => set({ downloadButton })} />
                 <TextInput label="Apple Wallet button" value={draft.walletButton} onChange={(walletButton) => set({ walletButton })} />
               </div>
               <TextArea label="Message when registration is closed" value={draft.closedText} onChange={(closedText) => set({ closedText })} />
@@ -695,6 +696,7 @@ function ImagePick({
               }}
             />
           </label>
+          <BrandImageButton disabled={busy} onFile={onFile} />
           {assetId ? (
             <button type="button" className="text-sm font-medium text-danger hover:underline" onClick={onClear}>
               Remove

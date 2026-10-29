@@ -282,7 +282,7 @@ function OrganizationDialog({
       >
         <TextField label="Name" value={form.name} error={errors.name} onChange={(event) => set({ name: event.target.value })} required />
         <SelectField
-          label="Default applicant type"
+          label="Default applicant category"
           value={form.applicantTypeId ?? ''}
           error={errors.applicantTypeId}
           options={[{ value: '', label: 'None (choose per person)' }, ...types]}

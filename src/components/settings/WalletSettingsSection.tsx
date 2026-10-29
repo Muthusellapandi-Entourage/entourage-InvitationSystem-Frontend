@@ -89,7 +89,7 @@ export function WalletSettingsSection() {
     <section id="wallet" className="mt-10 scroll-mt-20 border-t border-border pt-8">
       <h2 className="text-base font-semibold">Apple Wallet</h2>
       <p className="mt-1 max-w-2xl text-sm text-muted">
-        Lets guests who accepted add their E-Badge to Apple Wallet. It needs an Apple Developer account, a Pass Type ID and its certificate. Until this is
+        Lets guests who accepted add their digital pass to Apple Wallet. It needs an Apple Developer account, a Pass Type ID and its certificate. Until this is
         set up, the Wallet button stays hidden.
       </p>
       {current?.configured ? (

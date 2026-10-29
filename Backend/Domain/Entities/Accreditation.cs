@@ -346,6 +346,40 @@ public sealed class AccRevokedCredential
     public DateTime RevokedOn { get; set; }
 }
 
+/// <summary>One scan at a gate (append-only). Guest check-ins at a mixed door are logged here too, without an applicant.</summary>
+public sealed class AccScanLog
+{
+    public Guid Id { get; set; }
+
+    public Guid EventId { get; set; }
+
+    /// <summary>The badge holder, when the code matched one (also for revoked codes).</summary>
+    public Guid? ApplicantId { get; set; }
+
+    /// <summary>What was scanned (trimmed to 64 characters).</summary>
+    public string Code { get; set; } = string.Empty;
+
+    /// <summary>The zone the gate controls; null for a venue entrance (any approved badge).</summary>
+    public Guid? ZoneId { get; set; }
+
+    public string GateName { get; set; } = string.Empty;
+
+    /// <summary>"in" or "out".</summary>
+    public string Direction { get; set; } = "in";
+
+    /// <summary>"green", "yellow" or "red".</summary>
+    public string Result { get; set; } = string.Empty;
+
+    /// <summary>Short reason code: granted, wrong_zone, unknown, revoked, not_approved, guest, guest_not_allowed, closed.</summary>
+    public string Reason { get; set; } = string.Empty;
+
+    public Guid? ScannedBy { get; set; }
+
+    public string ScannedByName { get; set; } = string.Empty;
+
+    public DateTime ScannedOn { get; set; }
+}
+
 /// <summary>Append-only audit trail: who did what to whom, when. Never edited or deleted.</summary>
 public sealed class AccAuditLog
 {

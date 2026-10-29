@@ -25,6 +25,8 @@ import { printBadgeApi, type PrintBadgeDesign, type PrintBadgeElement, type Prin
 import { sampleQrDataUrl } from '@/badges/sampleQr'
 import { LogoMark } from '@/components/brand/Logo'
 import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
+import { BrandImageButton } from '@/components/brand/BrandImageButton'
+import { useBrandFonts, useBrandKit } from '@/brand/useBrandKit'
 import { Button } from '@/components/ui/Button'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useEvent } from '@/hooks/useEvents'
@@ -68,7 +70,7 @@ export function PrintBadgeDesignerPage() {
   const event = useEvent(eventId).data
   const queryClient = useQueryClient()
   const query = useQuery({ queryKey: ['print-badge', eventId, guestTypeId], queryFn: () => printBadgeApi.get(eventId, guestTypeId) })
-  useDocumentTitle(query.data ? `Print badge · ${query.data.guestTypeName}` : 'Print badge')
+  useDocumentTitle(query.data ? `Printed badge · ${query.data.guestTypeName}` : 'Printed badge')
 
   const [design, setDesign] = useState<PrintBadgeDesign | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -78,6 +80,9 @@ export function PrintBadgeDesignerPage() {
   const [printing, setPrinting] = useState(false)
   const stageRef = useRef<HTMLDivElement>(null)
   const [stageSize, setStageSize] = useState({ width: 800, height: 600 })
+  const { kit: brandKit } = useBrandKit()
+  useBrandFonts(brandKit.fonts)
+  const brandFontNames = brandKit.fonts.map((font) => font.name)
 
   useEffect(() => {
     if (query.data && !design) setDesign(query.data.design)
@@ -99,9 +104,9 @@ export function PrintBadgeDesignerPage() {
       queryClient.setQueryData(['print-badge', eventId, guestTypeId], saved)
       void queryClient.invalidateQueries({ queryKey: ['guest-types', eventId] })
       setDesign(saved.design)
-      toast.success('Print badge saved.')
+      toast.success('Printed badge saved.')
     },
-    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'The print badge could not be saved.'),
+    onError: (error) => toast.error(error instanceof ApiError ? error.message : 'The printed badge could not be saved.'),
   })
 
   // Pixels per millimetre so the badge fills the stage with a margin.
@@ -111,7 +116,7 @@ export function PrintBadgeDesignerPage() {
   }, [design, stageSize])
 
   if (query.isLoading || !design || !query.data) {
-    return <div className="flex h-dvh items-center justify-center bg-background text-sm text-muted">Loading the print badge…</div>
+    return <div className="flex h-dvh items-center justify-center bg-background text-sm text-muted">Loading the printed badge…</div>
   }
 
   const saved = query.data.design
@@ -212,15 +217,15 @@ export function PrintBadgeDesignerPage() {
         <Link
           to={`/events/${eventId}/guest-types`}
           className="flex size-9 items-center justify-center rounded-md border border-border text-muted hover:bg-hover hover:text-foreground"
-          aria-label="Back to guest types"
+          aria-label="Back to guest categories"
         >
           <ArrowLeft className="size-4" aria-hidden="true" />
         </Link>
         <LogoMark className="size-6 text-accent" />
         <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold">Print badge · {query.data.guestTypeName}</h1>
+          <h1 className="truncate text-sm font-semibold">Printed badge · {query.data.guestTypeName}</h1>
           <p className="truncate text-xs text-muted">
-            {event?.name} · Paper badge for the printer (not the E-Badge) · {round(design.widthMm)} × {round(design.heightMm)} mm
+            {event?.name} · Paper badge for the printer (not the digital pass) · {round(design.widthMm)} × {round(design.heightMm)} mm
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
@@ -270,6 +275,7 @@ export function PrintBadgeDesignerPage() {
             <AlphaColorInput label="Background colour" value={design.backgroundColor} onChange={(backgroundColor) => setDesign({ ...design, backgroundColor })} />
             <div className="mt-2 flex items-center gap-2">
               <UploadButton label={design.backgroundAssetId ? 'Replace image' : 'Background image'} busy={uploading === 'background'} onFile={(file) => void uploadImage(file, 'background')} />
+              <BrandImageButton compact disabled={uploading !== null} onFile={(file) => uploadImage(file, 'background')} />
               {design.backgroundAssetId ? (
                 <button type="button" className="text-xs font-medium text-danger hover:underline" onClick={() => setDesign({ ...design, backgroundAssetId: null })}>
                   Remove
@@ -283,7 +289,10 @@ export function PrintBadgeDesignerPage() {
             <div className="grid grid-cols-2 gap-2">
               {addable.map((kind) =>
                 kind === 'image' ? (
-                  <UploadButton key={kind} label="Image" busy={uploading === 'image'} onFile={(file) => void uploadImage(file, 'image')} />
+                  <span key={kind} className="contents">
+                    <UploadButton label="Image" busy={uploading === 'image'} onFile={(file) => void uploadImage(file, 'image')} />
+                    <BrandImageButton label="Brand image" disabled={uploading !== null} onFile={(file) => uploadImage(file, 'image')} />
+                  </span>
                 ) : (
                   <button
                     key={kind}
@@ -371,7 +380,7 @@ export function PrintBadgeDesignerPage() {
         {/* Right: properties + sample guest */}
         <aside className="w-80 shrink-0 overflow-y-auto border-l border-border bg-surface p-4">
           {selected ? (
-            <Section title={elementLabels[selected.kind]} hint={selected.kind === 'qr' ? 'The guest’s check-in QR, the same code as the E-Badge.' : undefined}>
+            <Section title={elementLabels[selected.kind]} hint={selected.kind === 'qr' ? 'The guest’s check-in QR, the same code as the digital pass.' : undefined}>
               <div className="grid grid-cols-2 gap-2">
                 <MmInput label="X" value={selected.x} onChange={(x) => setElement(selected.id, { x })} />
                 <MmInput label="Y" value={selected.y} onChange={(y) => setElement(selected.id, { y })} />
@@ -408,7 +417,7 @@ export function PrintBadgeDesignerPage() {
                         value={selected.font ?? 'Inter'}
                         onChange={(change) => setElement(selected.id, { font: change.target.value === 'Inter' ? null : change.target.value })}
                       >
-                        {printFonts.map((font) => (
+                        {[...printFonts, ...brandFontNames.filter((font) => !printFonts.includes(font))].map((font) => (
                           <option key={font}>{font}</option>
                         ))}
                       </select>

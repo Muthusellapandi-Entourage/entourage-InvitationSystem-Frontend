@@ -43,7 +43,7 @@ export function CheckInLinkPage() {
         </Button>
       </div>
       <p className="mt-3 text-xs text-muted">
-        Printing badges at a desk? Use the front-desk link (Guests tab): it has a scan box and a Print badge button for each guest.
+        Printing badges at a desk? Use the front desk screen (Guests tab): it has a scan box and a Print badge button for each guest.
       </p>
     </section>
     <KioskSettingsSection eventId={eventId} eventName={event?.name ?? ''} />

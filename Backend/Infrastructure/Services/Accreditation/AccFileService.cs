@@ -32,7 +32,17 @@ public sealed class AccFileService(AppDbContext db, IWebHostEnvironment environm
 
         using var buffer = new MemoryStream();
         await file.CopyToAsync(buffer, cancellationToken);
-        var bytes = buffer.ToArray();
+        return await SaveBytesAsync(eventId, buffer.ToArray(), file.FileName, cancellationToken);
+    }
+
+    /// <summary>Stores bytes (e.g. an image copied from the event's brand kit) as an accreditation file.</summary>
+    public async Task<AccFileDto> SaveBytesAsync(Guid eventId, byte[] bytes, string? fileName, CancellationToken cancellationToken)
+    {
+        if (bytes.LongLength > MaxBytes)
+        {
+            throw AccErrors.One("file", "Files must be 10 MB or smaller.");
+        }
+
         var kind = Detect(bytes);
         if (kind is null)
         {
@@ -49,7 +59,7 @@ public sealed class AccFileService(AppDbContext db, IWebHostEnvironment environm
         {
             Id = id,
             EventId = eventId,
-            FileName = SafeName(file.FileName, kind.Value.Extension),
+            FileName = SafeName(fileName, kind.Value.Extension),
             ContentType = kind.Value.ContentType,
             Size = bytes.LongLength,
             RelativePath = relative,

@@ -54,7 +54,7 @@ public sealed class KioskController(PrintBadgeService printBadges) : ControllerB
 
     [HttpPut]
     public async Task<ActionResult<ApiResponse<KioskSettingsDto>>> Save(Guid eventId, KioskSettingsDto settings, CancellationToken cancellationToken) =>
-        Ok(new ApiResponse<KioskSettingsDto>(true, await printBadges.SaveKioskSettingsAsync(eventId, settings, cancellationToken), "Kiosk saved."));
+        Ok(new ApiResponse<KioskSettingsDto>(true, await printBadges.SaveKioskSettingsAsync(eventId, settings, cancellationToken), "Self check-in screen saved."));
 
     [HttpGet("share")]
     [Entourage.Api.Filters.AllowOnArchivedEvent]
@@ -63,11 +63,11 @@ public sealed class KioskController(PrintBadgeService printBadges) : ControllerB
 
     [HttpPost("share")]
     public async Task<ActionResult<ApiResponse<KioskShareDto>>> Renew(Guid eventId, CancellationToken cancellationToken) =>
-        Ok(new ApiResponse<KioskShareDto>(true, await printBadges.RenewKioskShareAsync(eventId, cancellationToken), "Kiosk link ready."));
+        Ok(new ApiResponse<KioskShareDto>(true, await printBadges.RenewKioskShareAsync(eventId, cancellationToken), "Self check-in screen link ready."));
 
     [HttpDelete("share")]
     public async Task<ActionResult<ApiResponse<KioskShareDto>>> Disable(Guid eventId, CancellationToken cancellationToken) =>
-        Ok(new ApiResponse<KioskShareDto>(true, await printBadges.DisableKioskShareAsync(eventId, cancellationToken), "Kiosk link turned off."));
+        Ok(new ApiResponse<KioskShareDto>(true, await printBadges.DisableKioskShareAsync(eventId, cancellationToken), "Self check-in screen link turned off."));
 }
 
 public sealed record KioskCodeRequest(string? Code);

@@ -16,6 +16,8 @@ import {
   UserRound,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
+import { BrandImageButton } from '@/components/brand/BrandImageButton'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
 import {
@@ -53,7 +55,7 @@ const pagePresets: Record<PageKey, { preset: Preset; label: string }[]> = {
   home: [
     { preset: 'accept', label: 'Accept button' },
     { preset: 'decline', label: 'Decline button' },
-    { preset: 'badge', label: 'E-Badge button' },
+    { preset: 'badge', label: 'Digital pass button' },
   ],
   accept: [
     { preset: 'confirmAccept', label: 'Confirm button' },
@@ -66,9 +68,9 @@ const pagePresets: Record<PageKey, { preset: Preset; label: string }[]> = {
   ],
   thanks: [
     { preset: 'qr', label: 'Check-in QR' },
-    { preset: 'download', label: 'Download E-Badge' },
+    { preset: 'download', label: 'Download digital pass' },
     { preset: 'wallet', label: 'Apple Wallet' },
-    { preset: 'badge', label: 'E-Badge page' },
+    { preset: 'badge', label: 'Digital pass page' },
   ],
   declined: [{ preset: 'home', label: 'Back button' }],
 }
@@ -154,6 +156,7 @@ export function InsertPanel({
               }}
             />
           </label>
+          <BrandImageButton label="Brand" className="h-14 flex-col gap-1 rounded-lg" disabled={uploading} onFile={onImage} />
         </div>
       </section>
       <section className="flex min-h-0 flex-1 flex-col p-3">
@@ -391,6 +394,7 @@ export function ElementPanel({
               }}
             />
           </label>
+          <BrandImageButton label="Replace from brand kit" className="w-fit" onFile={onReplaceImage} />
           <Field label="Fit">
             <select value={element.fit ?? 'cover'} onChange={(event) => set({ fit: event.target.value as MicrositeElement['fit'] })} className={inputClass}>
               <option value="cover">Fill the box (crop)</option>
@@ -443,7 +447,7 @@ export function ElementPanel({
             </option>
           ))}
         </select>
-        <p className="text-xs text-muted">Guest names and RSVP buttons never show on the public page. The E-Badge button shows once the guest has accepted.</p>
+        <p className="text-xs text-muted">Guest names and RSVP buttons never show on the public page. The digital pass button shows once the guest has accepted.</p>
       </PanelSection>
     </div>
   )
@@ -543,6 +547,7 @@ export function PagePanel({
               }}
             />
           </label>
+          <BrandImageButton compact onFile={(file) => onBackgroundImage(file)} />
           {design.backgroundAssetId ? (
             <Button variant="ghost" className="h-8 text-xs text-danger" onClick={() => onBackgroundImage(null)}>
               Remove
@@ -643,21 +648,7 @@ function NumberField({
 function ColorField({ label, value, onChange }: { label: string; value: string | null; onChange: (value: string | null) => void }) {
   return (
     <Field label={label}>
-      <span className="flex h-9 items-center gap-2 rounded-md border border-border bg-background px-2">
-        <input
-          type="color"
-          value={value ?? '#FFFFFF'}
-          onChange={(event) => onChange(event.target.value.toUpperCase())}
-          className="size-6 cursor-pointer border-0 bg-transparent p-0"
-          aria-label={label}
-        />
-        <span className="flex-1 font-mono text-xs">{value ?? 'None'}</span>
-        {value ? (
-          <button type="button" className="text-xs text-muted hover:text-foreground" onClick={() => onChange(null)} aria-label={`Clear ${label}`}>
-            ×
-          </button>
-        ) : null}
-      </span>
+      <AlphaColorInput label={label} value={value} onChange={onChange} onClear={() => onChange(null)} />
     </Field>
   )
 }

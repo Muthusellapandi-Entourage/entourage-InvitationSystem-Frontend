@@ -25,7 +25,7 @@ public sealed class EventGuestTypesController(IGuestDirectoryService guests) : C
         CancellationToken cancellationToken)
     {
         var type = await guests.CreateTypeAsync(eventId, request, cancellationToken);
-        return Ok(new ApiResponse<GuestTypeDto>(true, type, "Guest type created."));
+        return Ok(new ApiResponse<GuestTypeDto>(true, type, "Guest category created."));
     }
 
     [HttpPut("{guestTypeId:guid}")]
@@ -36,7 +36,7 @@ public sealed class EventGuestTypesController(IGuestDirectoryService guests) : C
         CancellationToken cancellationToken)
     {
         var type = await guests.UpdateTypeAsync(eventId, guestTypeId, request, cancellationToken);
-        return Ok(new ApiResponse<GuestTypeDto>(true, type, "Guest type saved."));
+        return Ok(new ApiResponse<GuestTypeDto>(true, type, "Guest category saved."));
     }
 
     [HttpPut("order")]
@@ -46,7 +46,7 @@ public sealed class EventGuestTypesController(IGuestDirectoryService guests) : C
         CancellationToken cancellationToken)
     {
         var types = await guests.ReorderTypesAsync(eventId, request, cancellationToken);
-        return Ok(new ApiResponse<IReadOnlyList<GuestTypeDto>>(true, types, "Guest type order saved."));
+        return Ok(new ApiResponse<IReadOnlyList<GuestTypeDto>>(true, types, "Guest category order saved."));
     }
 
     [HttpDelete("{guestTypeId:guid}")]
@@ -57,7 +57,7 @@ public sealed class EventGuestTypesController(IGuestDirectoryService guests) : C
         CancellationToken cancellationToken)
     {
         await guests.DeleteTypeAsync(eventId, guestTypeId, discardDesigns, cancellationToken);
-        return Ok(new ApiResponse<object>(true, null, "Guest type deleted."));
+        return Ok(new ApiResponse<object>(true, null, "Guest category deleted."));
     }
 
     [HttpPost("{guestTypeId:guid}/duplicate")]

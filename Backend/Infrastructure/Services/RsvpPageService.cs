@@ -344,14 +344,14 @@ public sealed class RsvpPageService(
         var eventName = await db.Events.AsNoTracking().Where(item => item.Id == eventId).Select(item => item.Name).FirstOrDefaultAsync(cancellationToken) ?? "event";
         if (guest.GuestTypeId is not Guid typeId)
         {
-            throw new AppException("Assign a guest type to download the e-badge.", StatusCodes.Status409Conflict);
+            throw new AppException("Assign a guest category to download the digital pass.", StatusCodes.Status409Conflict);
         }
 
         var type = await db.GuestTypes.AsNoTracking()
             .Where(item => item.Id == typeId && item.EventId == eventId)
             .Select(item => new { item.Name, item.BadgeDesignJson })
             .FirstOrDefaultAsync(cancellationToken)
-            ?? throw new AppException("This guest's type no longer exists. Assign a guest type.", StatusCodes.Status409Conflict);
+            ?? throw new AppException("This guest's category no longer exists. Assign a guest category.", StatusCodes.Status409Conflict);
         BadgeDesignDto? design = null;
         if (!string.IsNullOrWhiteSpace(type.BadgeDesignJson))
         {
@@ -367,7 +367,7 @@ public sealed class RsvpPageService(
 
         if (design is null || design.Width <= 0 || design.Height <= 0)
         {
-            throw new AppException($"The {type.Name} badge design is missing. Configure the {type.Name} e-badge first.", StatusCodes.Status409Conflict);
+            throw new AppException($"The {type.Name} badge design is missing. Set up the {type.Name} digital pass first.", StatusCodes.Status409Conflict);
         }
 
         byte[]? background = null;
@@ -680,7 +680,7 @@ public sealed class RsvpPageService(
                     </div>
                     <div class="qr-wrap">
                         <div class="qr-frame">
-                            <img id="qrImage" alt="QR code to open your E-Badge" width="240" height="240" />
+                            <img id="qrImage" alt="QR code to open your digital pass" width="240" height="240" />
                         </div>
                         <p>__QR_TEXT__</p>
                         <button type="button" class="btn-download hidden" id="btnViewEbadge">__DOWNLOAD__</button>
@@ -810,14 +810,14 @@ public sealed class RsvpPageService(
                                 var shared = new File([file.blob], file.name, { type: file.blob.type || "image/png" });
                                 var phone = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
                                 if (phone && navigator.canShare && navigator.canShare({ files: [shared] })) {
-                                    return navigator.share({ files: [shared], title: "E-Badge" }).catch(function (err) {
+                                    return navigator.share({ files: [shared], title: "Digital pass" }).catch(function (err) {
                                         if (err && err.name === "AbortError") return;
                                         saveBlob(file.blob, file.name);
                                     });
                                 }
                                 saveBlob(file.blob, file.name);
                             })
-                            .catch(function () { acceptError.textContent = "Could not download the E-Badge. Please try again."; })
+                            .catch(function () { acceptError.textContent = "Could not download the digital pass. Please try again."; })
                             .then(function () {
                                 btnViewEbadge.disabled = false;
                                 btnViewEbadge.textContent = previous;

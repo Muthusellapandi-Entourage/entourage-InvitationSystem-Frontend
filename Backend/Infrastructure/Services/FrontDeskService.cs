@@ -124,7 +124,7 @@ public sealed class FrontDeskService(AppDbContext db, CheckInService checkIn, Pr
         var item = await FindAsync(token, cancellationToken);
         if (item.Status != EventStatus.Active)
         {
-            return new FrontDeskActionResult(CheckInService.Closed, "The event is not Active.", null);
+            return new FrontDeskActionResult(CheckInService.Closed, "The event is not Live.", null);
         }
 
         await checkIn.MarkSeatedAsync(item.Id, guestId, cancellationToken, Source);

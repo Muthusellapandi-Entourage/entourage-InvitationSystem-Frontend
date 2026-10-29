@@ -129,15 +129,15 @@ export function GroupCardHeader({
           <FileDown className="size-4" aria-hidden="true" />
           PDFs
         </CardButton>
-        <CardButton disabled={busy || empty} title="E-badges as images (PNG) in a ZIP" onClick={() => onDownload('badges-png')}>
+        <CardButton disabled={busy || empty} title="Digital passes as images in a ZIP" onClick={() => onDownload('badges-png')}>
           <FileDown className="size-4" aria-hidden="true" />
-          E-Badges
+          Digital passes
         </CardButton>
-        <CardButton disabled={busy || empty} title="E-badges as one PDF, a page per guest" onClick={() => onDownload('badges-pdf')}>
+        <CardButton disabled={busy || empty} title="Digital passes as one PDF, a page per guest" onClick={() => onDownload('badges-pdf')}>
           <ImageDown className="size-4" aria-hidden="true" />
-          E-Badge PDFs
+          Digital pass PDFs
         </CardButton>
-        <CardButton disabled={empty} title="Spreadsheet of invitation, RSVP and badge status" onClick={onReport}>
+        <CardButton disabled={empty} title="Spreadsheet of invitation, RSVP and digital pass status" onClick={onReport}>
           <ChartColumn className="size-4" aria-hidden="true" />
           RSVP report
         </CardButton>

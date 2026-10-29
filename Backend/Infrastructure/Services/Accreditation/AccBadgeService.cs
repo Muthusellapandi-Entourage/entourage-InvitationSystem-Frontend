@@ -385,7 +385,7 @@ public sealed class AccBadgeService(AppDbContext db, AccFileService files)
             applicant.LastPrintedOn = null;
             applicant.CollectedOn = null;
             applicant.UpdatedOn = now;
-            AccAudit.Add(db, eventId, applicant.Id, actor, revoke ? "Badge revoked for reprint" : "Reprint requested", cleanReason);
+            AccAudit.Add(db, eventId, applicant.Id, actor, revoke ? "Badge cancelled for reprint" : "Reprint requested", cleanReason);
         }
 
         await db.SaveChangesAsync(cancellationToken);

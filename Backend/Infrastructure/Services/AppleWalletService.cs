@@ -247,7 +247,7 @@ public sealed partial class AppleWalletService(
             serialNumber = data.SerialNumber.ToString("N"),
             teamIdentifier = teamId,
             organizationName,
-            description = $"E-Badge · {data.EventName}",
+            description = $"Digital pass · {data.EventName}",
             logoText = data.EventName,
             foregroundColor = "rgb(255, 255, 255)",
             labelColor = "rgb(203, 168, 134)",

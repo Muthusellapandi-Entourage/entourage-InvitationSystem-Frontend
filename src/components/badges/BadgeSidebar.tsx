@@ -73,7 +73,7 @@ export function BadgeSidebar({
       <div className="px-5 pt-5 pb-4">
         {selected ? (
           <button type="button" className="text-xs font-medium text-accent hover:underline" onClick={() => onSelect(null)}>
-            Badge
+            Digital pass
           </button>
         ) : null}
         <h1 className="text-lg font-semibold">{titleFor(selected)}</h1>
@@ -106,8 +106,8 @@ export function BadgeSidebar({
             </div>
             <UploadCard
               title="Background"
-              caption="Drag it on the badge to place it."
-              hint="Use Fill the badge when this image is the whole artwork."
+              caption="Drag it on the pass to place it."
+              hint="Use Fill the pass when this image is the whole artwork."
               assetId={design.backgroundAssetId}
               uploading={uploading}
               onUpload={onUpload}
@@ -139,7 +139,7 @@ export function BadgeSidebar({
               </Button>
             </div>
             <p className="text-xs text-muted">
-              Guest Name and the QR code are placeholders. Each guest badge uses that guest's name and their own QR code.
+              Guest Name and the QR code are placeholders. Each guest's digital pass uses their name and their own QR code.
             </p>
           </div>
         ) : null}
@@ -153,8 +153,8 @@ export function BadgeSidebar({
               canvasHeight={design.height}
               metrics={metrics}
               showFit
-              noun="badge"
-              alignNote="Aligns the image to the badge edges."
+              noun="pass"
+              alignNote="Aligns the image to the pass edges."
               xLabel="X position"
               yLabel="Y position"
               yHint="From the top edge"
@@ -169,7 +169,7 @@ export function BadgeSidebar({
                 })
               }
             >
-              Fill the badge
+              Fill the pass
             </Button>
           </div>
         ) : null}
@@ -182,7 +182,7 @@ export function BadgeSidebar({
               canvasWidth={design.width}
               canvasHeight={design.height}
               metrics={metrics}
-              noun="badge"
+              noun="pass"
               alignNote="The QR code stays square while its shape is locked."
               xLabel="X position"
               yLabel="Y position"
@@ -331,12 +331,12 @@ function titleFor(slot: string | null) {
   if (slot === 'background') return 'Background'
   if (slot === 'qr') return 'QR code'
   if (slot === 'name') return 'Guest name'
-  return 'Badge'
+  return 'Digital pass'
 }
 
 function subtitleFor(slot: string | null) {
-  if (slot === 'background') return 'Move, scale, or fill the badge with this image.'
-  if (slot === 'qr') return 'This box is where each guest’s QR code will be printed.'
+  if (slot === 'background') return 'Move, scale, or fill the pass with this image.'
+  if (slot === 'qr') return 'This box is where each guest’s QR code will appear.'
   if (slot === 'name') return 'Style the sample. The real name uses these settings.'
   return 'Set the size, then add the background, QR code, and guest name.'
 }

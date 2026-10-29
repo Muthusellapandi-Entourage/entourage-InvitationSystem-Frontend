@@ -83,7 +83,7 @@ export function useQrCamera(onCode: (code: string) => void) {
       if (!video) throw new Error('no video')
       video.srcObject = stream
       await video.play()
-      setStatus('Point the camera at the guest E-Badge.')
+      setStatus('Point the camera at the guest’s digital pass.')
       void findCameras()
 
       const detector = nativeDetector()

@@ -33,7 +33,7 @@ public sealed class ArchivedEventFilter(AppDbContext db) : IAsyncActionFilter
                 context.Result = new ObjectResult(new ApiResponse<object>(
                     false,
                     null,
-                    "This event is archived and read-only. Set it to Active to make changes."))
+                    "This event is finished and read-only. Make the event Live to make changes."))
                 {
                     StatusCode = StatusCodes.Status409Conflict,
                 };

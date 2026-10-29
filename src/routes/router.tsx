@@ -8,6 +8,7 @@ import { EventOverviewPage } from '@/pages/Events/EventOverviewPage'
 import { EventSettingsPage } from '@/pages/Events/EventSettingsPage'
 import { EventsPage } from '@/pages/Events/EventsPage'
 import { BadgePage } from '@/pages/Events/BadgePage'
+import { BrandKitPage } from '@/pages/Events/BrandKitPage'
 import { CheckInLinkPage } from '@/pages/Events/CheckInLinkPage'
 import { LiveAttendancePage } from '@/pages/Events/LiveAttendancePage'
 import { RsvpPage } from '@/pages/Events/RsvpPage'
@@ -35,6 +36,8 @@ import { AccAuditPage } from '@/pages/Accreditation/AccAuditPage'
 import { AccBadgeDesignerPage } from '@/pages/Accreditation/AccBadgeDesignerPage'
 import { AccBadgesPage } from '@/pages/Accreditation/AccBadgesPage'
 import { AccPrintQueuePage } from '@/pages/Accreditation/AccPrintQueuePage'
+import { AccGateScannerPage } from '@/pages/Accreditation/AccGateScannerPage'
+import { AccLivePage } from '@/pages/Accreditation/AccLivePage'
 import { AccEventLayout } from '@/pages/Accreditation/AccEventLayout'
 import { AccEventsPage } from '@/pages/Accreditation/AccEventsPage'
 import { AccOrganizationsPage } from '@/pages/Accreditation/AccOrganizationsPage'
@@ -72,6 +75,7 @@ export function AppRoutes() {
           <Route path="events/:eventId/guest-types/:guestTypeId/print-badge" element={<PrintBadgeDesignerPage />} />
         </Route>
         <Route path="accreditation/:accEventId/badges/:templateId" element={<AccBadgeDesignerPage />} />
+        <Route path="accreditation/:accEventId/scan" element={<AccGateScannerPage />} />
         <Route element={<DashboardLayout />}>
           <Route element={<InvitationOnlyRoute />}>
             <Route index element={<OverviewPage />} />
@@ -80,6 +84,7 @@ export function AppRoutes() {
             <Route path="events/:eventId" element={<EventLayout />}>
               <Route index element={<EventOverviewPage />} />
               <Route path="settings" element={<EventSettingsPage />} />
+              <Route path="brand" element={<BrandKitPage />} />
               <Route path="guest-types" element={<GuestTypesPage />} />
               <Route path="guests" element={<GuestsPage />} />
               <Route path="check-in" element={<CheckInLinkPage />} />
@@ -99,6 +104,7 @@ export function AppRoutes() {
             <Route path="setup" element={<AccSetupPage />} />
             <Route path="badges" element={<AccBadgesPage />} />
             <Route path="print" element={<AccPrintQueuePage />} />
+            <Route path="live" element={<AccLivePage />} />
             <Route path="audit" element={<AccAuditPage />} />
           </Route>
           <Route path="profile" element={<ProfilePage />} />

@@ -121,6 +121,26 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.ToTable("AccBadgeTemplates", (string)null);
                 });
 
+            modelBuilder.Entity("Entourage.Domain.Entities.AccScanLog", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<Guid?>("ApplicantId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Code").IsRequired().HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<string>("Direction").IsRequired().HasMaxLength(8).HasColumnType("nvarchar(8)");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("GateName").IsRequired().HasMaxLength(80).HasColumnType("nvarchar(80)");
+                    b.Property<string>("Reason").IsRequired().HasMaxLength(32).HasColumnType("nvarchar(32)");
+                    b.Property<string>("Result").IsRequired().HasMaxLength(8).HasColumnType("nvarchar(8)");
+                    b.Property<Guid?>("ScannedBy").HasColumnType("uniqueidentifier");
+                    b.Property<string>("ScannedByName").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<DateTime>("ScannedOn").HasColumnType("datetime2");
+                    b.Property<Guid?>("ZoneId").HasColumnType("uniqueidentifier");
+                    b.HasKey("Id");
+                    b.HasIndex("ApplicantId");
+                    b.HasIndex("EventId", "ScannedOn");
+                    b.ToTable("AccScanLogs", (string)null);
+                });
+
             modelBuilder.Entity("Entourage.Domain.Entities.AccRevokedCredential", b =>
                 {
                     b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
@@ -260,6 +280,9 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
 
                     b.Property<bool>("AskDeclineReason")
                         .HasColumnType("bit");
+
+                    b.Property<string>("BrandKitJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");

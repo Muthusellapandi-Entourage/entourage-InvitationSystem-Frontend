@@ -33,7 +33,7 @@ public sealed record RegistrationSettingsDto(
     string SuccessTitle = "Thank you for registering",
     string SuccessText = "Your place is confirmed. Keep the QR code below; it is your entry pass.",
     string ClosedText = "Registration for this event is closed.",
-    string DownloadButton = "Download E-Badge",
+    string DownloadButton = "Download digital pass",
     string WalletButton = "Add to Apple Wallet",
     Guid? BackgroundAssetId = null,
     Guid? LogoAssetId = null,
@@ -97,7 +97,7 @@ public sealed class RegistrationService(AppDbContext db, AppleWalletService? wal
 
         if (settings.GuestTypeId is Guid typeId && !await db.GuestTypes.AnyAsync(type => type.Id == typeId && type.EventId == eventId, cancellationToken))
         {
-            errors["guestTypeId"] = ["That guest type is not on this event."];
+            errors["guestTypeId"] = ["That guest category is not on this event."];
         }
 
         if (settings.GuestGroupId is Guid groupId && !await db.GuestGroups.AnyAsync(group => group.Id == groupId && group.EventId == eventId, cancellationToken))
@@ -165,8 +165,8 @@ public sealed class RegistrationService(AppDbContext db, AppleWalletService? wal
     /// <summary>Why the form is not taking sign-ups right now, or null when it is.</summary>
     private static string? ClosedReason(Event item, RegistrationSettingsDto settings, int count)
     {
-        if (item.Status == EventStatus.Draft) return "Not live: the event is still a draft. Make it Active to open registration.";
-        if (item.Status == EventStatus.Archived) return "Closed: the event is archived.";
+        if (item.Status == EventStatus.Draft) return "Not live: the event is still being set up (not Live yet). Make the event Live to open registration.";
+        if (item.Status == EventStatus.Archived) return "Closed: the event is finished.";
         if (!settings.Open) return "Not published: turn on 'Accept registrations' to open the page.";
         if (settings.ClosesOn is DateTime closes && DateTime.UtcNow > closes) return "Closed: the closing date has passed.";
         if (settings.Capacity is int capacity && count >= capacity) return $"Full: {count} of {capacity} places taken.";

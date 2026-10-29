@@ -27,7 +27,7 @@ export function BadgePage() {
     enabled: Boolean(eventId),
   })
   const guestType = typeQuery.data?.find((type) => type.id === guestTypeId)
-  useDocumentTitle(event ? `${event.name} badge` : 'Badge designer')
+  useDocumentTitle(event ? `${event.name} digital pass` : 'Digital pass designer')
 
   const templateQuery = useQuery({
     queryKey: guestTypeId ? ['guest-type-badge', eventId, guestTypeId] : ['badge-template', eventId],
@@ -57,19 +57,19 @@ export function BadgePage() {
         : badgeApi.saveTemplate(eventId, normalizeBadgeDesign(design)),
     onSuccess: async (saved) => {
       setDraft(normalizeBadgeDesign(saved.design))
-      toast.success(guestTypeId ? 'Badge design saved for this guest type.' : 'Badge template saved.')
+      toast.success(guestTypeId ? 'Digital pass design saved for this guest category.' : 'Digital pass design saved.')
       await queryClient.invalidateQueries({ queryKey: guestTypeId ? ['guest-type-badge', eventId, guestTypeId] : ['badge-template', eventId] })
       await queryClient.invalidateQueries({ queryKey: ['guest-types', eventId] })
     },
     onError: (error) => {
-      toast.error(messageFrom(error, 'The badge template could not be saved.'))
+      toast.error(messageFrom(error, 'The digital pass design could not be saved.'))
     },
   })
 
   if (eventQuery.isLoading || templateQuery.isLoading || (guestTypeId && typeQuery.isLoading)) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted" aria-live="polite">
-        Loading badge
+        Loading digital pass
       </div>
     )
   }
@@ -79,7 +79,7 @@ export function BadgePage() {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background px-6">
         <EmptyState
-          title={missing ? 'Event not found' : 'Badge could not be loaded'}
+          title={missing ? 'Event not found' : 'Digital pass could not be loaded'}
           description={missing ? 'It may have been deleted.' : 'Try again in a moment.'}
           action={
             <Link to="/events" className={buttonClassName('secondary')}>
@@ -119,13 +119,13 @@ export function BadgePage() {
       saving={saveMutation.isPending}
       onSave={() => saveMutation.mutate(design)}
       backTo={guestTypeId ? `/events/${event.id}/guest-types` : undefined}
-      backLabel={guestTypeId ? 'Guest types' : undefined}
-      context="Design: E-badge"
+      backLabel={guestTypeId ? 'Guest categories' : undefined}
+      context="Design: Digital pass"
       guestTypes={typeQuery.data?.map((type) => ({ id: type.id, name: type.name }))}
       guestTypeId={guestTypeId}
       onGuestTypeChange={(nextId) => {
         if (nextId === (guestTypeId ?? '')) return
-        if (dirty && !window.confirm('This design has unsaved changes. Load another guest type without saving?')) return
+        if (dirty && !window.confirm('This design has unsaved changes. Load another guest category without saving?')) return
         navigate(nextId ? `/events/${event.id}/guest-types/${nextId}/badge` : `/events/${event.id}/badges`)
       }}
     />

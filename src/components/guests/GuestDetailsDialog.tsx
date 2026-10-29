@@ -125,7 +125,7 @@ export function GuestDetailsDialog({
   /** Opens this guest's own invitation (their type's design with their name) in a new tab. */
   async function viewInvitation() {
     if (!guest?.guestTypeId) {
-      toast.error('Assign a guest type first; the invitation design comes from the type.')
+      toast.error('Assign a guest category first; the invitation design comes from the category.')
       return
     }
     if (guest.invitationUrl && eventLive) {
@@ -136,7 +136,7 @@ export function GuestDetailsDialog({
     const preview = window.open('', '_blank')
     try {
       const invitation = await guestTypeApi.getInvitation(eventId, guest.guestTypeId)
-      if (!invitation.configured || !invitation.html) throw new Error(`The ${guest.guestTypeName ?? 'guest type'} invitation design has not been configured.`)
+      if (!invitation.configured || !invitation.html) throw new Error(`The ${guest.guestTypeName ?? 'guest category'} invitation design has not been configured.`)
       const rsvp = `${window.location.origin}/invite/${encodeURIComponent(eventSlug)}/rsvp`
       const nameImage = usesGuestNameImage(invitation.html)
         ? await blobToDataUrl(await nameImageApi.forGuest(eventId, guest.id))
@@ -198,7 +198,7 @@ export function GuestDetailsDialog({
                   {guest.guestTypeName}
                 </span>
               ) : (
-                <span className="rounded-md border border-border px-2 py-0.5 text-sm text-muted">No guest type</span>
+                <span className="rounded-md border border-border px-2 py-0.5 text-sm text-muted">No guest category</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -385,18 +385,18 @@ export function GuestDetailsDialog({
             </PanelButton>
             <PanelButton tone="accent" disabled={busy || !!downloading || !guest.guestTypeId} onClick={() => void download('badges-png')}>
               <ImageDown className="size-4" aria-hidden="true" />
-              {downloading === 'badges-png' ? 'Preparing…' : 'E-Badge image'}
+              {downloading === 'badges-png' ? 'Preparing…' : 'Digital pass image'}
             </PanelButton>
             <PanelButton tone="accent" disabled={busy || !!downloading || !guest.guestTypeId} onClick={() => void download('badges-pdf')}>
               <FileDown className="size-4" aria-hidden="true" />
-              {downloading === 'badges-pdf' ? 'Preparing…' : 'E-Badge PDF'}
+              {downloading === 'badges-pdf' ? 'Preparing…' : 'Digital pass PDF'}
             </PanelButton>
             {downloadError ? (
               <p role="alert" className="rounded-md border border-danger/40 bg-danger-soft px-3 py-2 text-xs text-danger">
                 {downloadError}
               </p>
             ) : null}
-            {!guest.guestTypeId ? <p className="text-xs text-muted">Assign a guest type to download the invite-card and e-badge.</p> : null}
+            {!guest.guestTypeId ? <p className="text-xs text-muted">Assign a guest category to download the invite-card and digital pass.</p> : null}
           </div>
         </aside>
       </div>

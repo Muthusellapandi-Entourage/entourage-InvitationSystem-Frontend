@@ -342,6 +342,62 @@ export type AccPrintQueue = {
 
 export type AccPrintFilters = { status?: AccPrintStatus | 'All'; organizationId?: string; typeId?: string; search?: string }
 
+/* ---------------- Gate scanning (phase 3, online) ---------------- */
+
+export type AccScanColor = 'green' | 'yellow' | 'red'
+
+export type AccScanRequest = { code: string; zoneId: string | null; gateName: string; direction: 'in' | 'out'; allowGuests: boolean }
+
+export type AccScanPerson = {
+  id: string
+  name: string
+  organization: string | null
+  jobTitle: string | null
+  applicantType: string | null
+  badgeNumber: number | null
+  photoFileId: string | null
+  accessProfile: string | null
+  profileColor: string | null
+  zones: AccBadgeZone[]
+}
+
+export type AccScanGuest = { id: string; name: string; company: string | null; position: string | null; guestTypeName: string | null; checkInCount: number }
+
+export type AccScanResult = {
+  result: AccScanColor
+  reason: string
+  title: string
+  message: string
+  person: AccScanPerson | null
+  guest: AccScanGuest | null
+  gateLabel: string
+  scannedOn: string
+}
+
+export type AccScanRow = {
+  id: string
+  result: AccScanColor
+  reason: string
+  name: string | null
+  organization: string | null
+  gateName: string
+  zoneCode: string | null
+  direction: 'in' | 'out'
+  scannedByName: string
+  scannedOn: string
+}
+
+export type AccLive = {
+  onSite: number
+  zones: { id: string | null; code: string; name: string; color: string; capacity: number | null; inside: number }[]
+  scansToday: number
+  grantedToday: number
+  wrongZoneToday: number
+  deniedToday: number
+  hours: { hour: string; granted: number; denied: number }[]
+  recent: AccScanRow[]
+}
+
 const base = '/api/accreditation/events'
 const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) })
 
@@ -438,6 +494,9 @@ export const accApi = {
     apiClient<number>(`${base}/${id}/badges/collected`, json('POST', { ids, collected })),
   reprint: (id: string, ids: string[], reason: string, revoke: boolean) =>
     apiClient<number>(`${base}/${id}/badges/reprint`, json('POST', { ids, reason, revoke })),
+
+  scan: (id: string, body: AccScanRequest) => apiClient<AccScanResult>(`${base}/${id}/scan`, json('POST', body)),
+  live: (id: string) => apiClient<AccLive>(`${base}/${id}/live`),
 
   team: () => apiClient<AccTeamMember[]>('/api/accreditation/team'),
   createTeamMember: (body: AccTeamWrite) => apiClient<AccTeamMember[]>('/api/accreditation/team', json('POST', body)),

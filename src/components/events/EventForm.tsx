@@ -11,6 +11,7 @@ import { TextAreaField } from '@/components/ui/TextAreaField'
 import { TextField } from '@/components/ui/TextField'
 import type { EventInput, EventItem, EventStatus } from '@/types/event'
 import { toSlug } from '@/utils/slug'
+import { statusLabel } from '@/utils/status'
 import { timezoneOptions } from '@/utils/timezones'
 
 const schema = z
@@ -37,9 +38,9 @@ type FormValues = z.infer<typeof schema>
 
 const zones = timezoneOptions()
 const statusOptions = [
-  { value: 'Draft', label: 'Draft' },
-  { value: 'Active', label: 'Active' },
-  { value: 'Archived', label: 'Archived' },
+  { value: 'Draft', label: statusLabel.Draft },
+  { value: 'Active', label: statusLabel.Active },
+  { value: 'Archived', label: statusLabel.Archived },
 ]
 
 function toValues(event?: EventItem): FormValues {

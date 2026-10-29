@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/Skeleton'
 import { Badge } from '@/components/ui/StatusBadge'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { useBrandFonts, useBrandKit } from '@/brand/useBrandKit'
 import { cn } from '@/lib/cn'
 
 const NO_ORG = '00000000-0000-0000-0000-000000000000'
@@ -38,6 +39,8 @@ export function AccPrintQueuePage() {
   const [previewRows, setPreviewRows] = useState<AccPrintRow[] | null>(null)
   const [reprintRows, setReprintRows] = useState<AccPrintRow[] | null>(null)
   useDocumentTitle('Print queue')
+  // Badges may use the event's brand fonts.
+  useBrandFonts(useBrandKit().kit.fonts)
 
   const filters = { status, organizationId, typeId, search }
   const query = useQuery({ queryKey: ['acc', 'print-queue', accEventId, filters], queryFn: () => accApi.printQueue(accEventId, filters) })
@@ -137,8 +140,8 @@ export function AccPrintQueuePage() {
               </option>
             ))}
           </select>
-          <select aria-label="Applicant type" value={typeId} onChange={(event) => setTypeId(event.target.value)} className="h-9 max-w-44 rounded-md border border-border bg-surface px-2 text-sm">
-            <option value="">All types</option>
+          <select aria-label="Applicant category" value={typeId} onChange={(event) => setTypeId(event.target.value)} className="h-9 max-w-44 rounded-md border border-border bg-surface px-2 text-sm">
+            <option value="">All categories</option>
             {options.types.map(([id, name]) => (
               <option key={id} value={id}>
                 {name}
@@ -409,7 +412,7 @@ function PrintDialog({
           </div>
           {count > preview.length ? <p className="text-center text-xs text-muted">Showing the first {preview.length} of {count}.</p> : null}
           <p className="text-xs text-muted">
-            In the print dialog choose the badge printer and set margins to None. For no dialog at all, run Chrome with --kiosk-printing.
+            In the print window choose the badge printer and set margins to None. To skip the print window, start Chrome with --kiosk-printing.
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={onClose}>
@@ -450,14 +453,14 @@ function ReprintDialog({
   const mutation = useMutation({
     mutationFn: () => accApi.reprint(eventId, (rows ?? []).map((row) => row.id), reason, revoke),
     onSuccess: (count) => {
-      toast.success(revoke ? `${count} badge(s) revoked and queued for reprint.` : `${count} badge(s) queued for reprint.`)
+      toast.success(revoke ? `${count} badge(s) cancelled and queued for reprint.` : `${count} badge(s) queued for reprint.`)
       onDone()
       onClose()
     },
   })
   const count = rows?.length ?? 0
   return (
-    <Modal open={Boolean(rows)} onClose={onClose} width="sm" title={`Reprint ${count} badge${count === 1 ? '' : 's'}`} description="They go back to To print. The reason is kept in the audit log.">
+    <Modal open={Boolean(rows)} onClose={onClose} width="sm" title={`Reprint ${count} badge${count === 1 ? '' : 's'}`} description="They go back to To print. The reason is kept in the history.">
       <form
         className="grid gap-4"
         onSubmit={(event) => {
@@ -488,12 +491,12 @@ function ReprintDialog({
           <label className="flex items-start gap-3 text-sm">
             <input type="checkbox" className="mt-0.5 size-4" checked={revoke} onChange={(event) => setRevoke(event.target.checked)} />
             <span>
-              <span className="font-medium">Revoke the old badge</span>
+              <span className="font-medium">Cancel the old badge</span>
               <span className="block text-xs text-muted">The old QR stops working at the gates and a new code is printed. Use for lost or stolen badges.</span>
             </span>
           </label>
         ) : (
-          <p className="text-xs text-muted">To cancel a lost badge's QR, ask a security manager to revoke it.</p>
+          <p className="text-xs text-muted">To cancel a lost badge's QR, ask a security manager to cancel it.</p>
         )}
         {mutation.error ? (
           <p role="alert" className="text-sm text-danger">
@@ -506,7 +509,7 @@ function ReprintDialog({
           </Button>
           <Button type="submit" variant={revoke ? 'danger' : 'primary'} disabled={!reason.trim() || mutation.isPending}>
             {mutation.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-            {revoke ? 'Revoke and reprint' : 'Queue reprint'}
+            {revoke ? 'Cancel old badge and reprint' : 'Queue reprint'}
           </Button>
         </div>
       </form>

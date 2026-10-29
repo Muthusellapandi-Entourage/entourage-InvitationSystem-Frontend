@@ -72,7 +72,7 @@ export function AccApplicantsPage() {
       accApi.move(accEventId, ids, stageKey, reason),
     onSuccess: (result, variables) => {
       const target = setup?.stages.find((item) => item.key === variables.stageKey)
-      reportDecision(result, `moved to ${target?.name ?? 'the stage'}`)
+      reportDecision(result, `moved to ${target?.name ?? 'the step'}`)
       setSelected(new Set())
       setPendingMove(null)
       refresh()
@@ -113,7 +113,7 @@ export function AccApplicantsPage() {
             />
           </div>
           {view === 'list' ? (
-            <FilterSelect label="Stage" value={stage} onChange={(value) => setFilter('stage', value)} options={setup.stages.map((item) => ({ value: item.key, label: item.name }))} />
+            <FilterSelect label="Step" value={stage} onChange={(value) => setFilter('stage', value)} options={setup.stages.map((item) => ({ value: item.key, label: item.name }))} />
           ) : null}
           <FilterSelect
             label="Organisation"
@@ -122,7 +122,7 @@ export function AccApplicantsPage() {
             options={[{ value: NO_ORG, label: 'Individual / direct' }, ...organizations.map((item) => ({ value: item.id, label: item.name }))]}
           />
           <FilterSelect
-            label="Type"
+            label="Category"
             value={typeId}
             onChange={(value) => setFilter('typeId', value)}
             options={setup.types.map((item) => ({ value: item.id ?? '', label: item.name }))}
@@ -163,7 +163,7 @@ export function AccApplicantsPage() {
             <>
               <Button variant="secondary" onClick={() => setBulkOpen(true)}>
                 <Upload className="size-4" aria-hidden="true" />
-                Bulk upload
+                Upload a list
               </Button>
               <Button onClick={() => setAdding(true)}>
                 <Plus className="size-4" aria-hidden="true" />
@@ -224,7 +224,7 @@ export function AccApplicantsPage() {
       <BulkUploadDialog
         open={bulkOpen}
         onClose={() => setBulkOpen(false)}
-        title="Bulk upload applicants"
+        title="Upload a list of applicants"
         typeNames={setup.types.map((item) => item.name)}
         upload={(file) => accApi.upload(accEventId, file)}
         submit={(bulkRows) => accApi.bulk(accEventId, bulkOrg || null, bulkRows)}
@@ -250,7 +250,7 @@ function FilterSelect({ label, value, onChange, options }: { label: string; valu
       onChange={(event) => onChange(event.target.value)}
       className={cn('h-9 max-w-48 rounded-md border border-border bg-surface px-2 text-sm', value ? 'text-foreground' : 'text-muted')}
     >
-      <option value="">All {label.toLowerCase()}s</option>
+      <option value="">All {label.toLowerCase().endsWith('y') ? `${label.toLowerCase().slice(0, -1)}ies` : `${label.toLowerCase()}s`}</option>
       {options.map((option) => (
         <option key={option.value} value={option.value}>
           {option.label}
@@ -441,8 +441,8 @@ function ListView({
               ) : null}
               <th className="px-3 py-3 font-medium">Name</th>
               <th className="px-3 py-3 font-medium">Organisation</th>
-              <th className="px-3 py-3 font-medium">Type</th>
-              <th className="px-3 py-3 font-medium">Stage</th>
+              <th className="px-3 py-3 font-medium">Category</th>
+              <th className="px-3 py-3 font-medium">Step</th>
               <th className="px-3 py-3 font-medium">Access</th>
               <th className="px-3 py-3 font-medium">Badge</th>
               <th className="px-3 py-3 font-medium">Flags</th>

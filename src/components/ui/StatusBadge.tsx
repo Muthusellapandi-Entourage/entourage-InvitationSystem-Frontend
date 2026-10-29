@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 import type { EventStatus } from '@/types/event'
+import { statusLabel } from '@/utils/status'
 
 /** Compact, flat status chips: teal = active/done, amber = pending, gray = not started, rose = problem. */
 export type BadgeTone = 'teal' | 'amber' | 'gray' | 'rose'
@@ -27,5 +28,5 @@ const statusTone: Record<EventStatus, BadgeTone> = {
 }
 
 export function StatusBadge({ status }: { status: EventStatus }) {
-  return <Badge tone={statusTone[status]}>{status}</Badge>
+  return <Badge tone={statusTone[status]}>{statusLabel[status] ?? status}</Badge>
 }

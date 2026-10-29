@@ -36,7 +36,7 @@ export function RejectDialog({
       onClose={onClose}
       width="sm"
       title={`Move ${target?.ids.length ?? 0} to ${target?.stage.name ?? ''}`}
-      description="The reason is saved in the audit log and sent in the rejection email."
+      description="The reason is saved in the history and sent in the rejection email."
     >
       <form
         className="grid gap-4"

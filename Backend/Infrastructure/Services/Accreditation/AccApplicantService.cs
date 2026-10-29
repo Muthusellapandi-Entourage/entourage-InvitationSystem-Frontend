@@ -230,7 +230,7 @@ public sealed class AccApplicantService(AppDbContext db, AccIdProtector ids, Acc
         var typeId = request.ApplicantTypeId ?? organization?.ApplicantTypeId;
         var type = typeId is { } id
             ? await db.AccApplicantTypes.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id && item.EventId == eventId, cancellationToken)
-                ?? throw AccErrors.One("applicantTypeId", "Choose an applicant type from this event.")
+                ?? throw AccErrors.One("applicantTypeId", "Choose an applicant category from this event.")
             : null;
 
         if (context.EnforceQuota && organization?.Quota is { } quota)
@@ -302,7 +302,7 @@ public sealed class AccApplicantService(AppDbContext db, AccIdProtector ids, Acc
         var typeId = request.ApplicantTypeId ?? entity.ApplicantTypeId;
         var type = typeId is { } id
             ? await db.AccApplicantTypes.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id && item.EventId == eventId, cancellationToken)
-                ?? throw AccErrors.One("applicantTypeId", "Choose an applicant type from this event.")
+                ?? throw AccErrors.One("applicantTypeId", "Choose an applicant category from this event.")
             : null;
         var before = $"{entity.FirstName} {entity.LastName}";
         await ApplyAsync(entity, request, type, context, isNew: false, cancellationToken);
@@ -479,7 +479,7 @@ public sealed class AccApplicantService(AppDbContext db, AccIdProtector ids, Acc
                 var match = types.FirstOrDefault(item => item.Name.Equals(row.ApplicantType.Trim(), StringComparison.OrdinalIgnoreCase));
                 if (match is null)
                 {
-                    errors.Add(new AccBulkRowError(index + 2, $"Unknown applicant type \"{row.ApplicantType}\"."));
+                    errors.Add(new AccBulkRowError(index + 2, $"Unknown applicant category \"{row.ApplicantType}\"."));
                     continue;
                 }
 
@@ -541,7 +541,7 @@ public sealed class AccApplicantService(AppDbContext db, AccIdProtector ids, Acc
         var accEvent = await db.AccEvents.AsNoTracking().FirstOrDefaultAsync(item => item.Id == eventId, cancellationToken)
             ?? throw AppException.NotFound("Accreditation event not found.");
         var stages = AccSetupService.Stages(accEvent);
-        var target = stages.FirstOrDefault(item => item.Key == stageKey) ?? throw AccErrors.One("stageKey", "Choose a stage.");
+        var target = stages.FirstOrDefault(item => item.Key == stageKey) ?? throw AccErrors.One("stageKey", "Choose a step.");
         var cleanReason = AccText.Clean(reason, 1000);
         if (target.Kind == "rejected" && cleanReason is null)
         {
@@ -607,7 +607,7 @@ public sealed class AccApplicantService(AppDbContext db, AccIdProtector ids, Acc
             {
                 "approved" => "Approved",
                 "rejected" => "Rejected",
-                _ => "Stage changed",
+                _ => "Step changed",
             }, $"{from} → {target.Name}{(cleanReason is null ? string.Empty : $" · {cleanReason}")}{(target.Kind == "approved" ? $" · Badge #{applicant.BadgeNumber}" : string.Empty)}");
             changed.Add(applicant);
         }

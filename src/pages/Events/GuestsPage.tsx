@@ -151,7 +151,7 @@ export function GuestsPage() {
   const enabledTypes = types.filter((type) => type.isEnabled)
   const guests = guestsQuery.data ?? []
   const typeOptions = [
-    { value: '', label: 'No guest type' },
+    { value: '', label: 'No guest category' },
     ...types.map((type) => ({
       value: type.id,
       label: type.isEnabled ? type.name : `${type.name} (Disabled)`,
@@ -412,7 +412,7 @@ export function GuestsPage() {
         name: guess(['name', 'guest', 'guest name']),
         email: guess(['email', 'e-mail']),
         position: guess(['position', 'title']),
-        guestType: guess(['guest type', 'type', 'category']),
+        guestType: guess(['guest type', 'guest category', 'type', 'category']),
         group: guess(['group', 'guest group', 'company', 'organisation', 'organization']),
       })
     } catch {
@@ -435,21 +435,21 @@ export function GuestsPage() {
         const item = prepared.ready[0]
         if (regenerate) {
           const confirmed = window.confirm(
-            `Regenerate the badge using the ${item.guestTypeName} design? The check-in code stays ${item.qrPayload}.`,
+            `Make the digital pass again using the ${item.guestTypeName} design? The check-in code stays ${item.qrPayload}.`,
           )
           if (!confirmed) return
         }
         const canvas = await renderGuestBadge(item.design, { name: item.name, qrPayload: item.qrPayload }, apiBaseUrl)
         if (canvas.width !== item.design.width || canvas.height !== item.design.height) {
-          throw new Error('The badge could not be rendered at its design size.')
+          throw new Error('The digital pass could not be drawn at its design size.')
         }
         await downloadBadgePng(canvas, `${guestFileBase(eventQuery.data?.name ?? 'event', item.name)}.png`)
         const recorded = await guestApi.commitBadges(eventId, [item.guestId])
         if (!recorded.complete) toast.error(recorded.message)
-        else toast.success(`Badge generated for ${item.name} with their own check-in code.`)
+        else toast.success(`Digital pass made for ${item.name} with their own check-in code.`)
       } else {
         const proceed = window.confirm(
-          `${prepared.message} Generate badges for the ready guests only? This records them; use Download for the files. Blocked guests are listed below.`,
+          `${prepared.message} Make digital passes for the ready guests only? This records them; use Download for the files. Blocked guests are listed below.`,
         )
         if (!proceed) return
         const recorded = await guestApi.commitBadges(eventId, prepared.ready.map((item) => item.guestId))
@@ -458,7 +458,7 @@ export function GuestsPage() {
       }
       await refresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The badge could not be generated.')
+      toast.error(error instanceof Error ? error.message : 'The digital pass could not be made.')
     }
   }
 
@@ -470,8 +470,8 @@ export function GuestsPage() {
     abortRef.current = controller
     const titles: Record<GroupDownload, string> = {
       invitations: `Preparing invitations for ${label}`,
-      'badges-pdf': `Preparing e-badges (PDF) for ${label}`,
-      'badges-png': `Preparing e-badges (images) for ${label}`,
+      'badges-pdf': `Preparing digital passes (PDF) for ${label}`,
+      'badges-png': `Preparing digital passes (images) for ${label}`,
     }
     setProgress({ title: titles[kind], done: 0, total: 0 })
     const onProgress = (done: number, total: number) => setProgress((current) => (current ? { ...current, done, total } : current))
@@ -484,10 +484,11 @@ export function GuestsPage() {
         outcome = await exportBadges(eventId, event.name, targets, kind === 'badges-png' ? 'png' : 'pdf', base, onProgress, controller.signal)
         await refresh()
       }
-      const noun = kind === 'invitations' ? 'invitation' : 'e-badge'
+      const noun = kind === 'invitations' ? 'invitation' : 'digital pass'
+      const nouns = kind === 'invitations' ? 'invitations' : 'digital passes'
       if (outcome.count === 1) toast.success(`Downloaded 1 ${noun}.`)
-      else if (outcome.count > 1) toast.success(`Downloaded ${outcome.count} ${noun}s as separate files in one ZIP.`)
-      else toast.error(`No ${noun}s could be produced for ${label}.`)
+      else if (outcome.count > 1) toast.success(`Downloaded ${outcome.count} ${nouns} as separate files in one ZIP.`)
+      else toast.error(`No ${nouns} could be produced for ${label}.`)
       setNotice(
         outcome.skipped.length
           ? `Skipped ${outcome.skipped.length}:\n${outcome.skipped.map((item) => `${item.name}: ${item.reason}`).join('\n')}`
@@ -527,13 +528,13 @@ export function GuestsPage() {
       try {
         await exportGuestBadge(eventId, eventQuery.data?.name ?? 'event', guest, kind === 'badges-png' ? 'png' : 'pdf')
         await refresh()
-        toast.success('Downloaded 1 e-badge.')
+        toast.success('Downloaded 1 digital pass.')
       } catch (error) {
-        return messageFrom(error, error instanceof Error ? error.message : 'The e-badge could not be downloaded.')
+        return messageFrom(error, error instanceof Error ? error.message : 'The digital pass could not be downloaded.')
       }
     }
-    const label = kind === 'invitations' ? 'Invite-card PDF' : kind === 'badges-pdf' ? 'E-badge PDF' : 'E-badge image'
-    await guestApi.logDownload(eventId, guest.id, `${label} (${guest.guestTypeName ?? 'no type'})`).catch(() => undefined)
+    const label = kind === 'invitations' ? 'Invite-card PDF' : kind === 'badges-pdf' ? 'Digital pass PDF' : 'Digital pass image'
+    await guestApi.logDownload(eventId, guest.id, `${label} (${guest.guestTypeName ?? 'no category'})`).catch(() => undefined)
     return null
   }
 
@@ -541,7 +542,7 @@ export function GuestsPage() {
     const again = guest.invitationCount > 0
     const ok =
       !again ||
-      window.confirm(`Record the invitation again using ${guest.guestTypeName ?? 'the current type'}? This does not change the RSVP link or check-in code.`)
+      window.confirm(`Record the invitation again using ${guest.guestTypeName ?? 'the current category'}? This does not change the RSVP link or check-in code.`)
     if (ok) sendMutation.mutate([guest.id])
   }
 
@@ -589,7 +590,7 @@ export function GuestsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" className="h-11 px-4" onClick={() => setFrontDeskOpen(true)}>
             <MonitorCheck className="size-4" aria-hidden="true" />
-            Front-desk link
+            Front desk screen
           </Button>
           <Button
             variant="secondary"
@@ -624,13 +625,13 @@ export function GuestsPage() {
           <FileDown className="size-4" aria-hidden="true" />
           Invitations PDF
         </CardButton>
-        <CardButton disabled={busy || guests.length === 0} title="Every guest's e-badge as one PDF" onClick={() => void download('badges-pdf', guests, 'all guests')}>
+        <CardButton disabled={busy || guests.length === 0} title="Every guest's digital pass as one PDF" onClick={() => void download('badges-pdf', guests, 'all guests')}>
           <FileDown className="size-4" aria-hidden="true" />
-          E-badges PDF
+          Digital passes PDF
         </CardButton>
-        <CardButton disabled={busy || guests.length === 0} title="Every guest's e-badge as a PNG, in one ZIP" onClick={() => void download('badges-png', guests, 'all guests')}>
+        <CardButton disabled={busy || guests.length === 0} title="Every guest's digital pass as an image, in one ZIP" onClick={() => void download('badges-png', guests, 'all guests')}>
           <ImageDown className="size-4" aria-hidden="true" />
-          E-badges ZIP
+          Digital passes ZIP
         </CardButton>
         <CardButton disabled={guests.length === 0} onClick={() => void rsvpReport(guests, 'all guests')}>
           <ChartColumn className="size-4" aria-hidden="true" />
@@ -653,15 +654,15 @@ export function GuestsPage() {
       {/* Filter row */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-5">
         <label className="flex items-center gap-4 text-base">
-          <span className="text-muted">Guest type</span>
+          <span className="text-muted">Guest category</span>
           <select
-            aria-label="Filter by guest type"
+            aria-label="Filter by guest category"
             className="h-11 min-w-56 rounded-md border border-border bg-surface px-3 text-base"
             value={filter}
             onChange={(event) => setFilter(event.target.value)}
           >
-            <option value="">All guest types</option>
-            <option value="unassigned">No guest type</option>
+            <option value="">All guest categories</option>
+            <option value="unassigned">No guest category</option>
             {types.map((type) => (
               <option key={type.id} value={type.id}>
                 {type.name}
@@ -710,8 +711,8 @@ export function GuestsPage() {
           <EmptyState title="Guests could not be loaded" description="Try again in a moment." />
         ) : sections.length === 0 ? (
           <EmptyState
-            title={filter ? 'No guests of this type' : 'No guests yet'}
-            description={filter ? 'Choose another guest type, or All guest types.' : 'Create a group, then add guests or import a spreadsheet.'}
+            title={filter ? 'No guests in this category' : 'No guests yet'}
+            description={filter ? 'Choose another guest category, or All guest categories.' : 'Create a group, then add guests or import a spreadsheet.'}
             action={
               filter ? undefined : (
                 <div className="flex gap-2">
@@ -806,7 +807,7 @@ export function GuestsPage() {
                               />
                             </th>
                             <SortHeader label="Guest" column="guest" sort={sort} onSort={onSort} />
-                            <SortHeader label="Guest type" column="type" sort={sort} onSort={onSort} />
+                            <SortHeader label="Guest category" column="type" sort={sort} onSort={onSort} />
                             <SortHeader label="Status" column="status" sort={sort} onSort={onSort} />
                             <SortHeader label="Invitation" column="invitation" sort={sort} onSort={onSort} />
                             <th className="py-3 pr-5 text-right">Actions</th>
@@ -845,12 +846,12 @@ export function GuestsPage() {
           <div className="mx-auto flex max-w-full items-center gap-2 overflow-x-auto px-6 py-3">
             <span className="whitespace-nowrap pr-2 text-sm font-medium tabular-nums">{selected.length} selected</span>
             <select
-              aria-label="Assign guest type"
+              aria-label="Assign guest category"
               className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
               value={assignTypeId}
               onChange={(event) => setAssignTypeId(event.target.value)}
             >
-              <option value="">Guest type…</option>
+              <option value="">Guest category…</option>
               {enabledTypes.map((type) => (
                 <option key={type.id} value={type.id}>
                   {type.name}
@@ -885,16 +886,16 @@ export function GuestsPage() {
               Invitations PDF
             </Button>
             <Button variant="secondary" disabled={busy} onClick={() => void download('badges-pdf', selectedGuests, 'selected guests')}>
-              E-badges PDF
+              Digital passes PDF
             </Button>
             <Button variant="secondary" disabled={busy} onClick={() => void download('badges-png', selectedGuests, 'selected guests')}>
-              E-badges images
+              Digital passes images
             </Button>
             <Button variant="secondary" disabled={busy} onClick={() => void rsvpReport(selectedGuests, 'selected guests')}>
               RSVP report
             </Button>
             <Button variant="secondary" onClick={() => void generate(selected, false)}>
-              Generate badges
+              Make digital passes
             </Button>
             <Button variant="danger" onClick={() => setPendingDelete(selectedGuests)}>
               Delete
@@ -924,9 +925,9 @@ export function GuestsPage() {
           <TextField label="Email" inputMode="email" autoComplete="off" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} />
           <TextField label="Position" value={draft.position} onChange={(event) => setDraft({ ...draft, position: event.target.value })} />
           <SelectField
-            label="Guest type"
+            label="Guest category"
             value={draft.guestTypeId}
-            options={editing ? typeOptions : [{ value: '', label: 'No guest type' }, ...enabledTypes.map((type) => ({ value: type.id, label: type.name }))]}
+            options={editing ? typeOptions : [{ value: '', label: 'No guest category' }, ...enabledTypes.map((type) => ({ value: type.id, label: type.name }))]}
             onChange={(event) => setDraft({ ...draft, guestTypeId: event.target.value })}
           />
           <div className="sm:col-span-2">
@@ -1044,7 +1045,7 @@ export function GuestsPage() {
                     ['name', 'Name column'],
                     ['email', 'Email column'],
                     ['position', 'Position column'],
-                    ['guestType', 'Guest type column'],
+                    ['guestType', 'Guest category column'],
                   ] as const
                 ).map(([key, label]) => (
                   <SelectField
@@ -1086,7 +1087,7 @@ export function GuestsPage() {
             </div>
             {importResult.unmatchedTypes.length > 0 ? (
               <div className="mt-3 grid gap-3">
-                <p>Match unmatched values to a type on this event, or create a new type.</p>
+                <p>Match unmatched values to a guest category on this event, or create a new category.</p>
                 {importResult.unmatchedTypes.map((value) => (
                   <SelectField
                     key={value}
@@ -1138,9 +1139,9 @@ export function GuestsPage() {
 
       <ConfirmDialog
         open={pendingTypeChange !== null}
-        title="Change guest type?"
-        description="This updates the guest's current type only. It does not resend the invitation or regenerate the badge. The existing invitation, RSVP, and check-in code stay as they are. Send or generate again when you want the new design."
-        confirmLabel="Change type"
+        title="Change guest category?"
+        description="This updates the guest's current category only. It does not resend the invitation or remake the digital pass. The existing invitation, RSVP, and check-in code stay as they are. Send or make the pass again when you want the new design."
+        confirmLabel="Change category"
         pendingLabel="Saving…"
         pending={saveMutation.isPending}
         onConfirm={() => {
@@ -1150,9 +1151,9 @@ export function GuestsPage() {
       />
       <ConfirmDialog
         open={pendingBulk}
-        title="Change guest types?"
-        description={`This assigns ${selectedGuests.length} guests to a new type. It does not resend invitations or regenerate badges, and it does not change check-in codes.`}
-        confirmLabel="Assign type"
+        title="Change guest categories?"
+        description={`This assigns ${selectedGuests.length} guests to a new category. It does not resend invitations or remake digital passes, and it does not change check-in codes.`}
+        confirmLabel="Assign category"
         pendingLabel="Assigning…"
         pending={reassignMutation.isPending}
         onConfirm={() => reassignMutation.mutate(true)}
@@ -1163,7 +1164,7 @@ export function GuestsPage() {
         title={pendingDelete?.length === 1 ? `Delete ${pendingDelete[0].name}?` : `Delete ${pendingDelete?.length ?? 0} guests?`}
         description={`${
           pendingDelete?.length === 1 ? 'This guest is' : 'These guests are'
-        } removed from the event with their invitation and badge history, and any seat they have is freed. Their check-in ${
+        } removed from the event with their invitation and digital pass history, and any seat they have is freed. Their check-in ${
           pendingDelete?.length === 1 ? 'code stops' : 'codes stop'
         } working. This cannot be undone.`}
         confirmLabel={pendingDelete?.length === 1 ? 'Delete guest' : `Delete ${pendingDelete?.length ?? 0} guests`}
@@ -1280,7 +1281,7 @@ function GuestRow({
         <div className="text-base font-semibold">{guest.name}</div>
         <div className="text-muted">{[guest.position, guest.email].filter(Boolean).join(' · ') || 'No position or email'}</div>
       </td>
-      <td className="py-4 pr-3 align-middle">{guest.guestTypeName ?? <span className="text-muted">No guest type</span>}</td>
+      <td className="py-4 pr-3 align-middle">{guest.guestTypeName ?? <span className="text-muted">No guest category</span>}</td>
       <td className="py-4 pr-3 align-middle">
         <Badge tone={rsvp === 'Accepted' ? 'teal' : rsvp === 'Declined' ? 'rose' : 'amber'}>{rsvp}</Badge>
       </td>
@@ -1310,7 +1311,7 @@ function GuestRow({
               </MenuItem>
               <MenuItem disabled={!guest.guestTypeId} onSelect={onGenerate}>
                 <BadgeCheck className="mr-2 size-4" aria-hidden="true" />
-                {guest.badgeCount > 0 ? 'Regenerate badge' : 'Generate badge'}
+                {guest.badgeCount > 0 ? 'Remake digital pass' : 'Make digital pass'}
               </MenuItem>
               <MenuSeparator />
               <MenuItem className="text-danger data-[highlighted]:bg-danger-soft data-[highlighted]:text-danger" onSelect={onDelete}>
