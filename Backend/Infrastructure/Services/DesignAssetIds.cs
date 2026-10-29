@@ -19,19 +19,24 @@ internal static class DesignAssetIds
 
         var types = await db.GuestTypes.AsNoTracking()
             .Where(item => item.EventId == eventId)
-            .Select(item => new { item.InvitationDesignJson, item.BadgeDesignJson })
+            .Select(item => new { item.InvitationDesignJson, item.BadgeDesignJson, item.PrintBadgeDesignJson })
             .ToListAsync(cancellationToken);
         foreach (var type in types)
         {
             Collect(type.InvitationDesignJson, ids, "headerAssetId", "detailsAssetId", "acceptAssetId", "declineAssetId");
             CollectSlices(type.InvitationDesignJson, ids);
             Collect(type.BadgeDesignJson, ids, "backgroundAssetId");
+            // Printed badge background and pictures.
+            foreach (var id in PrintBadgeService.AssetIds(type.PrintBadgeDesignJson))
+            {
+                ids.Add(id);
+            }
         }
 
         // The thank-you artwork and the RSVP page's background and logo too.
         var rsvp = await db.Events.AsNoTracking()
             .Where(item => item.Id == eventId)
-            .Select(item => new { item.ThankYouAssetId, item.RsvpPageJson })
+            .Select(item => new { item.ThankYouAssetId, item.RsvpPageJson, item.RegistrationJson, item.KioskJson })
             .FirstOrDefaultAsync(cancellationToken);
         if (rsvp?.ThankYouAssetId is Guid thankYouId)
         {
@@ -40,6 +45,20 @@ internal static class DesignAssetIds
 
         var page = RsvpPageService.Read(rsvp?.RsvpPageJson);
         foreach (var id in new[] { page.BackgroundAssetId, page.LogoAssetId }.OfType<Guid>())
+        {
+            ids.Add(id);
+        }
+
+        // The self-registration page's background and logo.
+        var registration = RegistrationService.Read(rsvp?.RegistrationJson);
+        foreach (var id in new[] { registration.BackgroundAssetId, registration.LogoAssetId }.OfType<Guid>())
+        {
+            ids.Add(id);
+        }
+
+        // The self check-in kiosk's background and logo.
+        var kiosk = PrintBadgeService.ReadKiosk(rsvp?.KioskJson);
+        foreach (var id in new[] { kiosk.BackgroundAssetId, kiosk.LogoAssetId }.OfType<Guid>())
         {
             ids.Add(id);
         }

@@ -18,6 +18,9 @@ public sealed class GuestType
 
     public string? BadgeDesignJson { get; set; }
 
+    /// <summary>The printed badge (paper, e.g. 4×3 in) for this type, as JSON. Separate from the E-Badge. Null = not designed.</summary>
+    public string? PrintBadgeDesignJson { get; set; }
+
     public DateTime CreatedOn { get; set; }
 
     public DateTime UpdatedOn { get; set; }

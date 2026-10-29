@@ -1,55 +1,68 @@
 @import "tailwindcss";
 
+/*
+ * "Clean Charcoal & Mint Teal" — flat, no gradients, no shadows, solid hairlines.
+ * Dark is the primary theme; light keeps the same structure and accent family.
+ */
 :root {
-  --background: #f3f3f1;
-  --surface: #fcfcfb;
-  --sidebar: #e9e9e6;
-  --foreground: #1c1c1a;
-  --muted: #5c5c56;
-  --border: #dddcd7;
-  --hover: #e6e6e2;
-  --selected: #deded8;
-  --disabled: #ecebe7;
-  --accent: #0f5c4c;
-  --accent-hover: #0c4a3d;
-  --accent-foreground: #f4fbf8;
-  --accent-soft: #e3f2ed;
-  --danger: #8d2f2f;
-  --danger-hover: #742626;
-  --danger-foreground: #fff7f7;
-  --danger-soft: #f7e8e8;
-  --ring: #0f5c4c;
-  --overlay: rgb(22 22 20 / 48%);
-  --shadow: 0 1px 2px rgb(22 22 20 / 6%), 0 12px 28px rgb(22 22 20 / 8%);
+  --background: #f4f4f2;
+  --surface: #ffffff;
+  --sidebar: #ffffff;
+  --foreground: #111210;
+  --muted: #5f6368;
+  --placeholder: #8a8f98;
+  --border: #dcded8;
+  --hover: #eeefeb;
+  --selected: #e6e8e3;
+  --disabled: #eeefeb;
+  --accent: #2a9c88;
+  --accent-hover: #238876;
+  --accent-foreground: #ffffff;
+  --accent-soft: #e2f3ef;
+  --danger: #c4505a;
+  --danger-hover: #a8414a;
+  --danger-foreground: #ffffff;
+  --danger-soft: #f8e6e8;
+  --warning: #a8692f;
+  --warning-soft: #f6ebdf;
+  --ring: #2a9c88;
+  --overlay: rgb(17 18 16 / 55%);
+  --shadow: none;
   color-scheme: light;
 }
 
 .dark {
-  --background: #121310;
-  --surface: #1c1d1a;
-  --sidebar: #181914;
-  --foreground: #f4f4f1;
-  --muted: #b7b7ae;
-  --border: #31322d;
-  --hover: #262722;
-  --selected: #2d2e29;
-  --disabled: #242520;
-  --accent: #3dbea2;
-  --accent-hover: #62d0b8;
-  --accent-foreground: #04241c;
-  --accent-soft: #17352e;
-  --danger: #f0b4b4;
-  --danger-hover: #f7cdcd;
-  --danger-foreground: #2a1010;
-  --danger-soft: #3c2222;
-  --ring: #3dbea2;
-  --overlay: rgb(0 0 0 / 62%);
-  --shadow: 0 1px 2px rgb(0 0 0 / 35%), 0 16px 36px rgb(0 0 0 / 40%);
+  --background: #111210;
+  --surface: #1d1f1b;
+  --sidebar: #1d1f1b;
+  --foreground: #f4f4f5;
+  --muted: #9ca3af;
+  --placeholder: #6b7280;
+  --border: #353831;
+  --hover: #262923;
+  --selected: #262923;
+  --disabled: #262923;
+  --accent: #38b8a2;
+  --accent-hover: #2fa38f;
+  --accent-foreground: #111210;
+  --accent-soft: #1a332e;
+  --danger: #e06c75;
+  --danger-hover: #d9534f;
+  --danger-foreground: #111210;
+  --danger-soft: #36201f;
+  --warning: #d19a66;
+  --warning-soft: #352a1f;
+  --ring: #38b8a2;
+  --overlay: rgb(0 0 0 / 70%);
+  --shadow: none;
   color-scheme: dark;
 }
 
 @theme inline {
-  --font-sans: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-placeholder: var(--placeholder);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-sidebar: var(--sidebar);
@@ -68,7 +81,21 @@
   --color-danger-foreground: var(--danger-foreground);
   --color-danger-soft: var(--danger-soft);
   --color-ring: var(--ring);
+  --radius-sm: 4px;
   --radius-md: 6px;
+  /* Never pills: anything that asked for large/full rounding stays at 6px (avatars/dots excepted via rounded-full). */
+  --radius-lg: 6px;
+  --radius-xl: 6px;
+  --radius-2xl: 6px;
+  --radius-3xl: 6px;
+  /* Flat surfaces: utility shadows render as nothing. */
+  --shadow-2xs: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+  --shadow-2xl: none;
 }
 
 @layer base {
@@ -88,8 +115,51 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
     font-synthesis: none;
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
+  }
+
+  /* Data reads in columns: tables, times and counts use tabular numerals. */
+  table,
+  time,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Table headers: small, uppercase, letter-spaced. */
+  thead th {
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Hairlines are always solid. */
+  .border-dashed,
+  .border-dotted {
+    border-style: solid !important;
+  }
+
+  ::placeholder {
+    color: var(--placeholder);
+    opacity: 1;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+  textarea:focus,
+  select:focus {
+    border-color: var(--accent);
+    outline: 1px solid var(--accent);
+    outline-offset: 0;
   }
 
   ::selection {
@@ -98,7 +168,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--ring);
+    outline: 1px solid var(--ring);
     outline-offset: 2px;
   }
 

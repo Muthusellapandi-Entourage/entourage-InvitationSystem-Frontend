@@ -11,6 +11,10 @@ import { BadgePage } from '@/pages/Events/BadgePage'
 import { CheckInLinkPage } from '@/pages/Events/CheckInLinkPage'
 import { LiveAttendancePage } from '@/pages/Events/LiveAttendancePage'
 import { RsvpPage } from '@/pages/Events/RsvpPage'
+import { AnalyticsPage } from '@/pages/Events/AnalyticsPage'
+import { RegistrationPage } from '@/pages/Events/RegistrationPage'
+import { PrintBadgeDesignerPage } from '@/pages/Events/PrintBadgeDesignerPage'
+import { KioskPage } from '@/pages/Live/KioskPage'
 import { GuestTypesPage } from '@/pages/Events/GuestTypesPage'
 import { GuestsPage } from '@/pages/Events/GuestsPage'
 import { InvitationPage } from '@/pages/Events/InvitationPage'
@@ -34,6 +38,7 @@ export function AppRoutes() {
       <Route path="/invite/:slug" element={<InvitePage />} />
       <Route path="/live/:token" element={<PublicLivePage />} />
       <Route path="/live-dashboard/:token" element={<FrontDeskPage />} />
+      <Route path="/kiosk/:token" element={<KioskPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route element={<ProtectedRoute />}>
@@ -43,6 +48,7 @@ export function AppRoutes() {
         <Route path="events/:eventId/seating" element={<SeatingPage />} />
         <Route path="scan/:eventId" element={<CheckInPage />} />
         <Route path="events/:eventId/guest-types/:guestTypeId/badge" element={<BadgePage />} />
+        <Route path="events/:eventId/guest-types/:guestTypeId/print-badge" element={<PrintBadgeDesignerPage />} />
         <Route element={<DashboardLayout />}>
           <Route index element={<OverviewPage />} />
           <Route path="events" element={<EventsPage />} />
@@ -55,6 +61,8 @@ export function AppRoutes() {
             <Route path="check-in" element={<CheckInLinkPage />} />
             <Route path="live" element={<LiveAttendancePage />} />
             <Route path="rsvp" element={<RsvpPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="registration" element={<RegistrationPage />} />
           </Route>
           <Route path="settings" element={<SettingsPage />} />
           <Route path="profile" element={<ProfilePage />} />

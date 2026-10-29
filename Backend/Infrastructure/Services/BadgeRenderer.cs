@@ -10,6 +10,12 @@ namespace Entourage.Infrastructure.Services;
 /// </summary>
 public static class BadgeRenderer
 {
+    /// <summary>"#RRGGBB" or "#RRGGBBAA" (CSS order) as a Skia colour. Skia's own parser reads 8 digits as AARRGGBB.</summary>
+    public static SKColor SkiaColor(string? hex, SKColor fallback) =>
+        Entourage.Application.HexColor.TryParse(hex, out var red, out var green, out var blue, out var alpha)
+            ? new SKColor((byte)red, (byte)green, (byte)blue, (byte)alpha)
+            : fallback;
+
     private const float LineHeightRatio = 1.35f;
 
     /// <summary>A crisp QR code PNG for a value (the check-in code), with a white quiet zone.</summary>
@@ -80,7 +86,7 @@ public static class BadgeRenderer
             SKFontStyleWidth.Normal,
             italic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright) ?? SKTypeface.Default;
         using var font = new SKFont(typeface, Math.Clamp(text.FontSize, 8, 160)) { Subpixel = true };
-        using var paint = new SKPaint { IsAntialias = true, Color = SKColor.TryParse(text.Color, out var color) ? color : SKColors.Black };
+        using var paint = new SKPaint { IsAntialias = true, Color = SkiaColor(text.Color, SKColors.Black) };
 
         var lines = Wrap(name, text.Width, line => font.MeasureText(line));
         var lineHeight = font.Size * LineHeightRatio;

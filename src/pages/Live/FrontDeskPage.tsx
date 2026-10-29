@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Armchair, Check, Loader2, Search, UserCheck } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Armchair, Check, CircleAlert, Loader2, Printer, ScanLine, Search, UserCheck, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { printBadge } from '@/printing/printBadge'
+import { PrintBadgeView } from '@/printing/PrintBadgeView'
+import type { PrintPayload } from '@/api/printBadgeApi'
 import { guestQrDataUrl } from '@/badges/sampleQr'
 import { Modal } from '@/components/ui/Modal'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ApiError } from '@/api/client'
+import { ApiError, apiBaseUrl } from '@/api/client'
 import { frontDeskApi, type FrontDesk, type FrontDeskGuest } from '@/api/frontDeskApi'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { cn } from '@/lib/cn'
@@ -25,6 +28,36 @@ export function FrontDeskPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [qrGuest, setQrGuest] = useState<FrontDeskGuest | null>(null)
+  const [printingId, setPrintingId] = useState<string | null>(null)
+  const [preview, setPreview] = useState<PrintPayload | null>(null)
+
+  /** Prints a guest's badge (their guest type's print design) and notes it in their history. */
+  /**
+   * Loads the guest's badge and shows a preview to confirm (or prints straight away when `direct`,
+   * e.g. "Print automatically after a first check-in").
+   */
+  async function printFor(guest: { id: string; name: string }, direct = false) {
+    setPrintingId(guest.id)
+    try {
+      const payload = await frontDeskApi.print(token, guest.id)
+      if (!payload.design) {
+        toast.error(`No print badge design for ${payload.guest.guestType ?? 'this guest'}. Ask the organiser to design it (Guest types → Print badge).`)
+        return
+      }
+      if (direct) await sendToPrinter(payload)
+      else setPreview(payload)
+    } catch (error) {
+      toast.error(error instanceof ApiError || error instanceof Error ? error.message : 'The badge could not be printed.')
+    } finally {
+      setPrintingId(null)
+    }
+  }
+
+  async function sendToPrinter(payload: PrintPayload) {
+    if (!payload.design) return
+    await printBadge(payload.design, payload.guest)
+    void frontDeskApi.printed(token, payload.guest.id).catch(() => undefined)
+  }
 
   const query = useQuery({
     queryKey: ['front-desk', token],
@@ -118,7 +151,7 @@ export function FrontDeskPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Front desk</p>
             <h1 className="mt-1 truncate text-[1.75rem] font-semibold tracking-[-0.02em]">{data.eventName}</h1>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent" aria-live="polite">
+          <span className="inline-flex items-center gap-2 rounded-sm bg-accent-soft px-3 py-1 text-sm font-medium text-accent" aria-live="polite">
             <span className="size-2 animate-pulse rounded-full bg-accent" aria-hidden="true" />
             Live
             {query.dataUpdatedAt ? <span className="text-xs tabular-nums text-muted">· {new Date(query.dataUpdatedAt).toLocaleTimeString()}</span> : null}
@@ -126,11 +159,21 @@ export function FrontDeskPage() {
         </header>
 
         {!live ? (
-          <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          <p className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm">
             The event is not live yet. You can look up guests, but checking in opens once the organiser sets the event to Active.
           </p>
         ) : null}
         {query.isError ? <p className="text-sm text-danger">Connection lost — retrying…</p> : null}
+
+        {live ? (
+          <DeskScanner
+            token={token}
+            timezone={data.timezone}
+            printingId={printingId}
+            onGuest={applyGuest}
+            onPrint={(guest, direct) => void printFor(guest, direct)}
+          />
+        ) : null}
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Stat label="Checked in" value={`${totals.checkedIn} / ${totals.accepted}`} detail={`${percent}% of accepted guests`}>
@@ -162,7 +205,7 @@ export function FrontDeskPage() {
                 aria-pressed={filter === value}
                 onClick={() => setFilter(value)}
                 className={cn(
-                  'h-9 rounded-full border px-3 text-xs font-medium tabular-nums',
+                  'h-9 rounded-md border px-3 text-xs font-medium tabular-nums',
                   filter === value ? 'border-accent bg-accent-soft text-accent' : 'border-border text-muted hover:text-foreground',
                 )}
               >
@@ -178,7 +221,7 @@ export function FrontDeskPage() {
           <>
             {/* Desktop table */}
             <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
-              <table className="w-full min-w-[1060px] text-left text-sm">
+              <table className="w-full min-w-[1160px] text-left text-sm">
                 <thead className="bg-surface text-xs uppercase tracking-wide text-muted">
                   <tr>
                     <th scope="col" className="px-4 py-3 font-medium">Guest</th>
@@ -187,12 +230,12 @@ export function FrontDeskPage() {
                     <th scope="col" className="px-4 py-3 font-medium">Seat</th>
                     <th scope="col" className="px-4 py-3 font-medium">RSVP</th>
                     <th scope="col" className="px-4 py-3 font-medium">Check-in</th>
-                    <th scope="col" className="px-4 py-3 text-right font-medium">Actions</th>
+                    <th scope="col" className="w-[19.5rem] px-4 py-3 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {guests.map((guest) => (
-                    <tr key={guest.id} className="border-t border-border align-top">
+                    <tr key={guest.id} className="border-t border-border align-middle">
                       <td className="px-4 py-3">
                         <span className="block font-medium">{guest.name}</span>
                         {guest.position ? <span className="block text-xs text-muted">{guest.position}</span> : null}
@@ -214,7 +257,14 @@ export function FrontDeskPage() {
                         <CheckInInfo guest={guest} timezone={data.timezone} />
                       </td>
                       <td className="px-4 py-3">
-                        <Actions guest={guest} live={live} busy={busyId === guest.id} onAction={(kind) => run(guest, kind)} />
+                        <Actions
+                          guest={guest}
+                          live={live}
+                          busy={busyId === guest.id}
+                          printing={printingId === guest.id}
+                          onAction={(kind) => run(guest, kind)}
+                          onPrint={() => void printFor(guest)}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -253,7 +303,15 @@ export function FrontDeskPage() {
                   </dl>
                   {guest.declineReason ? <p className="mt-2 text-xs italic text-muted">“{guest.declineReason}”</p> : null}
                   <div className="mt-3">
-                    <Actions guest={guest} live={live} busy={busyId === guest.id} onAction={(kind) => run(guest, kind)} wide />
+                    <Actions
+                      guest={guest}
+                      live={live}
+                      busy={busyId === guest.id}
+                      printing={printingId === guest.id}
+                      onAction={(kind) => run(guest, kind)}
+                      onPrint={() => void printFor(guest)}
+                      wide
+                    />
                   </div>
                 </li>
               ))}
@@ -263,6 +321,7 @@ export function FrontDeskPage() {
         <p className="text-xs text-muted">Showing {guests.length} of {totals.guests} guests. Updates every {POLL_MS / 1000} seconds.</p>
       </div>
       <QrDialog guest={qrGuest} onClose={() => setQrGuest(null)} />
+      <PrintPreviewDialog payload={preview} onClose={() => setPreview(null)} onPrint={sendToPrinter} />
     </main>
   )
 
@@ -279,27 +338,30 @@ function Actions({
   guest,
   live,
   busy,
+  printing,
   wide,
   onAction,
+  onPrint,
 }: {
   guest: FrontDeskGuest
   live: boolean
   busy: boolean
+  printing: boolean
   wide?: boolean
   onAction: (kind: 'check-in' | 'seated') => void
+  onPrint: () => void
 }) {
   const checkedIn = Boolean(guest.firstCheckedInOn)
+  // Two fixed-width slots (status action · print) so every row lines up, whatever the state.
+  const slot = cn('inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium', wide ? 'flex-1' : 'w-[8.5rem]')
   return (
-    <div className={cn('flex gap-2', wide ? 'w-full' : 'justify-end')}>
+    <div className={cn('flex items-center gap-2', wide ? 'w-full' : 'justify-end')}>
       {!checkedIn ? (
         <button
           type="button"
           disabled={!live || busy}
           onClick={() => onAction('check-in')}
-          className={cn(
-            'inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50',
-            wide && 'flex-1',
-          )}
+          className={cn(slot, 'bg-accent text-accent-foreground hover:bg-accent-hover disabled:opacity-50')}
         >
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <UserCheck className="size-4" aria-hidden="true" />}
           Check in
@@ -309,21 +371,252 @@ function Actions({
           type="button"
           disabled={!live || busy}
           onClick={() => onAction('seated')}
-          className={cn(
-            'inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-border px-3 text-sm font-medium hover:bg-hover disabled:opacity-50',
-            wide && 'flex-1',
-          )}
+          className={cn(slot, 'border border-border hover:bg-hover disabled:opacity-50')}
         >
           {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Armchair className="size-4" aria-hidden="true" />}
           Mark seated
         </button>
       ) : (
-        <span className="inline-flex h-9 items-center gap-1.5 text-sm text-accent">
+        <span className={cn(slot, 'bg-accent-soft text-accent')}>
           <Check className="size-4" aria-hidden="true" />
           Seated
         </span>
       )}
+      <button
+        type="button"
+        disabled={printing}
+        onClick={onPrint}
+        title="Print this guest's badge"
+        className={cn(slot, 'border border-border hover:bg-hover disabled:opacity-50')}
+      >
+        {printing ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Printer className="size-4" aria-hidden="true" />}
+        Print badge
+      </button>
     </div>
+  )
+}
+
+const AUTO_PRINT_KEY = 'entourage.frontDesk.autoPrint'
+
+function readAutoPrint() {
+  try {
+    return localStorage.getItem(AUTO_PRINT_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Desk scanner for a USB / Bluetooth barcode reader on the laptop: the reader types the E-Badge code
+ * into this field and presses Enter. The guest is checked in and their badge can be printed
+ * (automatically on a first check-in when "Print automatically" is on).
+ */
+function DeskScanner({
+  token,
+  timezone,
+  printingId,
+  onGuest,
+  onPrint,
+}: {
+  token: string
+  timezone: string
+  printingId: string | null
+  onGuest: (guest: FrontDeskGuest | null) => void
+  /** `direct` skips the preview (automatic printing after a scan). */
+  onPrint: (guest: FrontDeskGuest, direct?: boolean) => void
+}) {
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [autoPrint, setAutoPrint] = useState(readAutoPrint)
+  const [result, setResult] = useState<{ status: string; message: string; guest: FrontDeskGuest | null } | null>(null)
+  const input = useRef<HTMLInputElement>(null)
+  const last = useRef<{ code: string; at: number } | null>(null)
+
+  useEffect(() => {
+    input.current?.focus({ preventScroll: true })
+  }, [])
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    const code = value.trim()
+    setValue('')
+    if (!code) return
+    // Readers often send the same code twice; ignore repeats within 3 seconds.
+    const now = Date.now()
+    if (last.current && last.current.code === code && now - last.current.at < 3000) return
+    last.current = { code, at: now }
+    setBusy(true)
+    try {
+      const outcome = await frontDeskApi.scan(token, code)
+      setResult(outcome)
+      onGuest(outcome.guest)
+      if (outcome.guest && outcome.status === 'CheckedIn' && autoPrint) onPrint(outcome.guest, true)
+    } catch (error) {
+      setResult({ status: 'Error', message: error instanceof ApiError ? error.message : 'Could not reach the server. Scan again.', guest: null })
+    } finally {
+      setBusy(false)
+      input.current?.focus({ preventScroll: true })
+    }
+  }
+
+  const tone = !result ? null : result.status === 'CheckedIn' ? 'success' : result.status === 'AlreadyCheckedIn' ? 'warning' : 'error'
+
+  return (
+    <section className="grid gap-4 rounded-md border border-border bg-surface p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+      <form onSubmit={(event) => void submit(event)}>
+        <label htmlFor="desk-scan" className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted">
+          <ScanLine className="size-4 text-accent" aria-hidden="true" />
+          Scan E-Badge
+        </label>
+        <div className="mt-2 flex gap-2">
+          <input
+            ref={input}
+            id="desk-scan"
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Scan with the USB scanner, or type the code and press Enter"
+            className="h-12 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-sm"
+          />
+          <button
+            type="submit"
+            disabled={busy}
+            className="inline-flex h-12 items-center gap-2 rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <UserCheck className="size-4" aria-hidden="true" />}
+            Check in
+          </button>
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4 accent-[var(--accent)]"
+            checked={autoPrint}
+            onChange={(event) => {
+              setAutoPrint(event.target.checked)
+              try {
+                localStorage.setItem(AUTO_PRINT_KEY, event.target.checked ? '1' : '0')
+              } catch {
+                // Not remembered on this device.
+              }
+            }}
+          />
+          Print the badge automatically after a first check-in
+        </label>
+      </form>
+
+      <div
+        role="status"
+        aria-live="polite"
+        className={cn(
+          'flex min-h-28 items-center gap-4 rounded-md border p-4',
+          tone === 'success' ? 'border-accent bg-accent-soft' : tone === 'warning' ? 'border-warning bg-warning-soft' : tone === 'error' ? 'border-danger bg-danger-soft' : 'border-border bg-background',
+        )}
+      >
+        {!result ? (
+          <p className="text-sm text-muted">Scan a guest’s E-Badge. The result and a Print button appear here.</p>
+        ) : (
+          <>
+            <span
+              className={cn(
+                'flex size-10 shrink-0 items-center justify-center rounded-md',
+                tone === 'success' ? 'bg-accent text-accent-foreground' : tone === 'warning' ? 'bg-warning text-background' : 'bg-danger text-background',
+              )}
+            >
+              {tone === 'success' ? <Check className="size-5" aria-hidden="true" /> : tone === 'warning' ? <CircleAlert className="size-5" aria-hidden="true" /> : <X className="size-5" aria-hidden="true" />}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-semibold">{result.guest?.name ?? (tone === 'error' ? 'Not checked in' : result.message)}</p>
+              <p className="truncate text-sm text-muted">
+                {result.guest
+                  ? [
+                      result.status === 'AlreadyCheckedIn' ? `Already checked in · first ${result.guest.firstCheckedInOn ? time(result.guest.firstCheckedInOn, timezone) : ''}` : 'Checked in',
+                      result.guest.seat,
+                      result.guest.company,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  : result.message}
+              </p>
+            </div>
+            {result.guest ? (
+              <button
+                type="button"
+                disabled={printingId === result.guest.id}
+                onClick={() => result.guest && onPrint(result.guest)}
+                className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+              >
+                {printingId === result.guest.id ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Printer className="size-4" aria-hidden="true" />}
+                {result.status === 'AlreadyCheckedIn' ? 'Print again' : 'Print badge'}
+              </button>
+            ) : null}
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** Shows the guest's printed badge at true proportions before it goes to the printer. */
+function PrintPreviewDialog({ payload, onClose, onPrint }: { payload: PrintPayload | null; onClose: () => void; onPrint: (payload: PrintPayload) => Promise<void> }) {
+  const [qr, setQr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    let active = true
+    setQr(null)
+    if (payload?.guest.checkInCode) void qrFor(payload.guest.checkInCode).then((url) => active && setQr(url))
+    return () => {
+      active = false
+    }
+  }, [payload?.guest.checkInCode])
+
+  const design = payload?.design ?? null
+  // Fit the badge into about 440 × 360 px on screen.
+  const scale = design ? Math.min(440 / design.widthMm, 360 / design.heightMm) : 1
+
+  return (
+    <Modal
+      open={payload !== null && design !== null}
+      title={payload ? `Print badge · ${payload.guest.name}` : 'Print badge'}
+      description={design ? `${Math.round(design.widthMm * 10) / 10} × ${Math.round(design.heightMm * 10) / 10} mm · check the details, then print.` : undefined}
+      onClose={() => !busy && onClose()}
+    >
+      {payload && design ? (
+        <div className="flex flex-col items-center gap-5">
+          <div className="rounded-md border border-border bg-[repeating-conic-gradient(var(--hover)_0%_25%,var(--background)_0%_50%)] bg-[length:16px_16px] p-4">
+            <div className="outline outline-1 outline-border">
+              <PrintBadgeView design={design} guest={payload.guest} qrDataUrl={qr} assetOrigin={apiBaseUrl || window.location.origin} scale={scale} />
+            </div>
+          </div>
+          <div className="flex w-full justify-end gap-2 border-t border-border pt-4">
+            <button type="button" disabled={busy} onClick={onClose} className="inline-flex h-10 items-center rounded-md border border-border px-4 text-sm font-medium hover:bg-hover disabled:opacity-50">
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              autoFocus
+              onClick={async () => {
+                setBusy(true)
+                try {
+                  await onPrint(payload)
+                  onClose()
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : 'The badge could not be printed.')
+                } finally {
+                  setBusy(false)
+                }
+              }}
+              className="inline-flex h-10 items-center gap-2 rounded-md bg-accent px-5 text-sm font-medium text-accent-foreground hover:bg-accent-hover disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Printer className="size-4" aria-hidden="true" />}
+              Print
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </Modal>
   )
 }
 
@@ -406,8 +699,8 @@ function RsvpBadge({ status }: { status: FrontDeskGuest['rsvpStatus'] }) {
   return (
     <span
       className={cn(
-        'inline-block rounded-full px-2 py-0.5 text-xs font-medium',
-        status === 'Accepted' ? 'bg-accent-soft text-accent' : status === 'Declined' ? 'bg-danger-soft text-danger' : 'bg-hover text-muted',
+        'inline-flex h-6 items-center whitespace-nowrap rounded-sm px-2 text-xs font-medium',
+        status === 'Accepted' ? 'bg-accent-soft text-accent' : status === 'Declined' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning',
       )}
     >
       {status}

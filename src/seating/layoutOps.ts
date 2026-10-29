@@ -574,7 +574,8 @@ export function tableLabelPoint(item: Arrangement) {
 /** Dark or light ink that stays readable on a chosen fill. */
 export function readableOn(fill: string) {
   const hex = fill.replace('#', '')
-  if (!/^[0-9A-Fa-f]{6}$/.test(hex)) return '#F7F7F4'
+  // #RRGGBB or #RRGGBBAA: the alpha does not change which ink reads best.
+  if (!/^([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(hex)) return '#F7F7F4'
   const red = Number.parseInt(hex.slice(0, 2), 16)
   const green = Number.parseInt(hex.slice(2, 4), 16)
   const blue = Number.parseInt(hex.slice(4, 6), 16)

@@ -6,7 +6,7 @@ export function IconButton({ className, type = 'button', ...props }: ButtonHTMLA
     <button
       type={type}
       className={cn(
-        'inline-flex size-9 items-center justify-center rounded-md text-muted transition-colors duration-150 hover:bg-hover hover:text-foreground',
+        'inline-flex size-10 shrink-0 items-center justify-center rounded-md text-muted transition-colors duration-150 hover:bg-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
       {...props}

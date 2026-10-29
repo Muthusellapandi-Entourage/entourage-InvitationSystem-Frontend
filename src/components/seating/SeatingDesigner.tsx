@@ -13,6 +13,8 @@ import {
   Copy,
   Group,
   Hand,
+  ImageDown,
+  Loader2,
   Maximize2,
   Minus,
   MousePointer2,
@@ -28,9 +30,16 @@ import {
   Ungroup,
   UnfoldHorizontal,
   UnfoldVertical,
+  Check,
+  ChevronDown,
+  Info,
+  ListOrdered,
+  Palette,
+  UserMinus,
   Users,
+  X,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { LogoMark } from '@/components/brand/Logo'
 import { ColorSwatchField } from '@/components/invitations/designerControls'
@@ -45,7 +54,7 @@ import {
   type StageDraft,
   type TableDraft,
 } from '@/components/seating/ArrangementDialogs'
-import { FloorStage, readFloorColors, type FloorColors, type SeatGuest } from '@/components/seating/FloorStage'
+import { FloorStage, readFloorColors, type FloorColors, type FloorExporter, type SeatGuest } from '@/components/seating/FloorStage'
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
@@ -107,7 +116,8 @@ import {
   type TableKind,
 } from '@/seating/model'
 import { toast } from 'sonner'
-import type { Guest } from '@/api/guestApi'
+import { useQueryClient } from '@tanstack/react-query'
+import { guestApi, type Guest } from '@/api/guestApi'
 import { cn } from '@/lib/cn'
 
 type Tool = 'select' | 'pan' | TableKind
@@ -197,6 +207,12 @@ export function SeatingDesigner({
   >(null)
   const gesture = useRef<{ x: number; y: number; base: SeatingDesign } | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
+  const tableDetailsRef = useRef<HTMLDivElement>(null)
+  const exporterRef = useRef<FloorExporter | null>(null)
+  const [exportingImage, setExportingImage] = useState(false)
+  /** Table whose chairs are about to be cleared (waiting for confirmation). */
+  const [clearTableId, setClearTableId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
   const layout = activeLayout(design)
   const selected = layout?.arrangements.find((item) => item.id === primaryId) ?? null
   const groupedSelection = selectedIds.length > 1 && selectedIds.every((id) => {
@@ -206,6 +222,10 @@ export function SeatingDesigner({
   })
   const canUngroup = selectedIds.some((id) => layout?.arrangements.find((entry) => entry.id === id)?.groupId)
   const selectedSeat = selected?.seats.find((seat) => seat.id === selectedSeatId) ?? null
+  // The seat & table panel replaces the plain header when one table (not the stage) is selected.
+  const showSeatPanel = Boolean(selected && selected.kind !== 'stage' && selectedIds.length === 1 && tool === 'select')
+  // Tables (not seat blocks) get the full configuration panel under the seat list.
+  const configMode = showSeatPanel && selected?.kind !== 'row'
   const seated = useMemo(() => seatedGuestIds(design), [design])
   const guestDetails = useMemo(
     () =>
@@ -1064,6 +1084,69 @@ export function SeatingDesigner({
     setGuestsOpen(false)
   }
 
+  /** Fixes a guest's name (spelling) everywhere: saves it on the guest record and refreshes the list. */
+  async function renameGuest(guestId: string, name: string) {
+    const guest = guests.find((item) => item.id === guestId)
+    const next = name.trim()
+    if (!guest || !next || next === guest.name) return
+    try {
+      await guestApi.update(eventId, guest.id, {
+        name: next,
+        email: guest.email,
+        position: guest.position,
+        guestTypeId: guest.guestTypeId,
+        guestGroupId: guest.guestGroupId ?? null,
+        acknowledgeTypeChange: false,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['guests', eventId] })
+      toast.success(`Name updated to ${next}.`)
+    } catch (error) {
+      toast.error(error instanceof ApiError ? error.message : 'The name could not be saved.')
+    }
+  }
+
+  /** Downloads the whole active floor, with every seat number and guest name tag, as a high-resolution PNG. */
+  async function saveImage() {
+    const exporter = exporterRef.current
+    if (!exporter || !layout) return
+    setExportingImage(true)
+    // Nothing selected, so no handles or highlights end up in the picture.
+    setSelectedIds([])
+    setPrimaryId(null)
+    setSelectedSeatId(null)
+    setSelectedSeatKeys([])
+    try {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)))
+      const seatedCount = layout.arrangements.reduce((sum, item) => sum + item.seats.filter((seat) => seat.guestId).length, 0)
+      const chairs = layout.arrangements.reduce((sum, item) => sum + item.seats.length, 0)
+      const blob = await exporter.toPng({
+        pixelRatio: 3,
+        title: `${eventName} · ${layout.name}`,
+        subtitle: `${seatedCount} of ${chairs} seats assigned · ${new Date().toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}`,
+      })
+      const safe = (value: string) => value.trim().replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'seating'
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${safe(eventName)}-${safe(layout.name)}-seating.png`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000)
+      toast.success('Seating plan saved as an image.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'The image could not be created.')
+    } finally {
+      setExportingImage(false)
+    }
+  }
+
+  function clearTable(arrangementId: string) {
+    patchLayout((items) =>
+      items.map((item) => (item.id === arrangementId ? { ...item, seats: item.seats.map((seat) => ({ ...seat, guestId: null })) } : item)),
+    )
+  }
+
   function clearSeat(seatId: string, arrangementId: string) {
     patchLayout((items) =>
       items.map((item) =>
@@ -1185,6 +1268,57 @@ export function SeatingDesigner({
     const box = unionBounds(layout.arrangements.filter((item) => selectedIds.includes(item.id)).map(arrangementBox))
     return box ? { x: box.cx, y: box.top } : null
   })()
+  // Table names and chair numbers for the selection or the whole floor (shown in every panel state).
+  const numberingSection = (
+    <ConfigSection
+      icon={<ListOrdered className="size-5" aria-hidden="true" />}
+      title="Numbering"
+      hint={`${selectedIds.length > 0 ? `${selectedIds.length} selected` : 'The whole floor'}. Uses what you see now, so it puts things back in order after you turn a group.`}
+    >
+      <div>
+        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-muted">Tables</p>
+        <div className="grid grid-cols-2 gap-3">
+          <TextField label="Name" value={tablePrefix} onChange={(event) => setTablePrefix(event.target.value.slice(0, 24))} />
+          <NumberField label="First" value={tableStart} min={0} max={9999} onChange={(value) => value !== null && setTableStart(value)} />
+        </div>
+        <label className="mt-3 block text-sm">
+          <span className="mb-1.5 block font-medium">Order</span>
+          <select
+            aria-label="Table order"
+            className="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm"
+            value={tableOrder}
+            onChange={(event) => setTableOrder(event.target.value as TableOrder)}
+          >
+            <option value="rows">Left → right, then down</option>
+            <option value="rows-rtl">Right → left, then down</option>
+            <option value="snake">Snake (→ then ←)</option>
+            <option value="snake-rtl">Snake (← then →)</option>
+            <option value="columns">Top → bottom, then right</option>
+            <option value="columns-btt">Bottom → top, then right</option>
+          </select>
+        </label>
+        <Button className="mt-3 w-full border-accent text-accent hover:bg-accent-soft" variant="secondary" onClick={renameTables}>
+          <RotateCw className="size-4" aria-hidden="true" />
+          {selectedIds.length > 0 ? 'Renumber selected tables' : 'Renumber all tables'}
+        </Button>
+      </div>
+      <div className="border-t border-border pt-5">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted">Chairs</p>
+        <p className="mb-3 flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2.5 text-xs text-muted">
+          <Info className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
+          Each table starts again at the first number, clockwise from the top-left. Seat rows restart in every row.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <NumberField label="Start" value={numberStart} min={0} max={9999} onChange={(value) => value !== null && setNumberStart(value)} />
+          <NumberField label="Step" value={numberStep} min={1} max={100} onChange={(value) => value !== null && setNumberStep(value)} />
+        </div>
+        <Button className="mt-3 w-full border-accent text-accent hover:bg-accent-soft" variant="secondary" onClick={renumber}>
+          <RotateCw className="size-4" aria-hidden="true" />
+          {selectedIds.length > 0 ? 'Renumber chairs in selection' : 'Renumber all chairs'}
+        </Button>
+      </div>
+    </ConfigSection>
+  )
   const visibleGuests = guests.filter((guest) => {
     const matches = guest.name.toLowerCase().includes(query.trim().toLowerCase())
     if (!matches) return false
@@ -1263,6 +1397,16 @@ export function SeatingDesigner({
           <Button variant="ghost" aria-label="Redo" disabled={!canRedo} onClick={onRedo}>
             <Redo2 className="size-4" aria-hidden="true" />
           </Button>
+          <Button
+            variant="secondary"
+            className="whitespace-nowrap"
+            disabled={!layout || layout.arrangements.length === 0 || exportingImage}
+            title="Download the whole floor with every guest name as a high-resolution PNG"
+            onClick={() => void saveImage()}
+          >
+            {exportingImage ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ImageDown className="size-4" aria-hidden="true" />}
+            {exportingImage ? 'Creating image…' : 'Save as image'}
+          </Button>
           <Button className="whitespace-nowrap" onClick={onSave} disabled={saving || !dirty}>
             {saving ? 'Saving…' : 'Save layout'}
           </Button>
@@ -1271,25 +1415,83 @@ export function SeatingDesigner({
       <div className="flex min-h-0 flex-1">
         <aside
           className={cn(
-            'z-20 order-3 w-80 shrink-0 flex-col border-l border-border bg-surface',
+            'z-20 order-3 w-[26rem] max-w-full shrink-0 flex-col border-l border-border bg-surface',
             toolsOpen ? 'absolute inset-y-14 right-0 flex shadow-[var(--shadow)]' : 'hidden',
             'lg:static lg:flex lg:shadow-none',
           )}
         >
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-2">
+            {selected && showSeatPanel ? (
+              <SeatPanel
+                arrangement={selected}
+                layoutName={layout?.name ?? ''}
+                seat={selectedSeat}
+                guests={guests}
+                seatedIds={seated}
+                onClose={() => {
+                  setSelectedIds([])
+                  setPrimaryId(null)
+                  setSelectedSeatId(null)
+                  setSelectedSeatKeys([])
+                }}
+                onSelectSeat={(seatId) => {
+                  setSelectedSeatId(seatId)
+                  setSelectedSeatKeys([`${selected.id}:${seatId}`])
+                }}
+                onAssign={(seatId, guestId) => assign(selected.id, seatId, guestId)}
+                onRemove={(seatId) => clearSeat(seatId, selected.id)}
+                onRename={renameGuest}
+                onClearAll={() => setClearTableId(selected.id)}
+                onEditTable={() => tableDetailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              />
+            ) : null}
+            {selected && configMode ? (
+              <div ref={tableDetailsRef} className="mt-8 scroll-mt-4 border-t border-border pt-6">
+                <TableConfig
+                  arrangement={selected}
+                  spec={spec}
+                  onSpec={setSpec}
+                  seat={selectedSeat}
+                  snap={design.snap}
+                  onSnap={(snap) => onChange({ ...design, snap })}
+                  firstNumber={numberStart}
+                  onFirstNumber={setNumberStart}
+                  step={numberStep}
+                  onStep={setNumberStep}
+                  onRename={rename}
+                  onTableColors={(patch) => patchLayout((items) => items.map((item) => (item.id === selected.id ? { ...item, ...patch } : item)))}
+                  pickedSeats={selected.seats.filter((seat) => selectedSeatKeys.includes(`${selected.id}:${seat.id}`))}
+                  onSeatColors={(patch) => {
+                    const keys = new Set(selectedSeatKeys)
+                    patchLayout((items) =>
+                      items.map((item) => ({
+                        ...item,
+                        seats: item.seats.map((seat) => (keys.has(`${item.id}:${seat.id}`) ? { ...seat, ...patch } : seat)),
+                      })),
+                    )
+                  }}
+                  onRotate={commitRotation}
+                  onRenumber={renumber}
+                  onDuplicate={duplicateSelected}
+                  onDelete={requestRemoval}
+                  onSave={updateSelected}
+                />
+              </div>
+            ) : (
+            <>
+            <div className={cn('flex items-center justify-between gap-3', showSeatPanel && 'mt-8 border-t border-border pt-6')}>
+              <div className="flex min-w-0 items-center gap-3">
                 {(() => {
                   const kind = selected?.kind ?? (tool !== 'select' && tool !== 'pan' ? tool : null)
                   const Icon = kind ? kindIcon[kind] : SlidersHorizontal
                   return (
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
-                      <Icon className="size-4" aria-hidden="true" />
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
+                      <Icon className="size-5" aria-hidden="true" />
                     </span>
                   )
                 })()}
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-semibold">
+                  <h2 className="truncate text-lg font-semibold tracking-tight">
                     {selectedIds.length > 1
                       ? `${selectedIds.length} objects`
                       : selected
@@ -1298,7 +1500,7 @@ export function SeatingDesigner({
                           ? `New ${kindLabel[tool].toLowerCase()}`
                           : 'Floor settings'}
                   </h2>
-                  <p className="truncate text-xs text-muted">
+                  <p className="truncate text-sm text-muted tabular-nums">
                     {selected
                       ? `${kindLabel[selected.kind]}${selected.seats.length ? ` · ${selected.seats.filter((seat) => seat.guestId).length} of ${selected.seats.length} seated` : ''}`
                       : tool !== 'select' && tool !== 'pan'
@@ -1308,128 +1510,70 @@ export function SeatingDesigner({
                 </div>
               </div>
               {tool !== 'select' && tool !== 'pan' ? (
-                <Button variant="ghost" className="h-8 px-2 text-xs" onClick={() => setTool('select')}>
+                <Button variant="secondary" className="h-9 px-3" onClick={() => setTool('select')}>
                   Cancel
                 </Button>
               ) : null}
             </div>
-            {(selected ? selected.kind !== 'row' && selected.kind !== 'stage' : tool !== 'select' && tool !== 'pan' && tool !== 'row' && tool !== 'stage') ? (
-              <SpecFields
-                spec={spec}
-                onChange={setSpec}
-                showDistribution={(selected?.kind ?? spec.kind) === 'rect'}
-                showOpening={(selected?.kind ?? spec.kind) === 'round' || (selected?.kind ?? spec.kind) === 'oval'}
-                showGrid={!selected}
-              />
-            ) : null}
-            {tool === 'row' ? (
-              <p className="mt-3 text-sm text-muted">Click the floor to set rows, chairs, segments, and gaps before the chairs are placed.</p>
-            ) : tool === 'stage' ? (
-              <p className="mt-3 text-sm text-muted">Click the floor to set the stage size, colors, and label before it is placed.</p>
-            ) : tool !== 'select' && tool !== 'pan' ? (
-              <p className="mt-3 text-sm text-muted">
-                {spec.rows * spec.columns > 1
-                  ? `Click the floor to place ${spec.rows} × ${spec.columns} tables.`
-                  : `Click the floor to place this ${kindLabel[tool].toLowerCase()}.`}
-              </p>
-            ) : null}
-            <div className="mt-6 border-t border-border pt-4">
-              <h2 className="text-sm font-medium">Numbering</h2>
-              <p className="mt-1 text-sm text-muted">
-                {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'The whole floor'}. Uses what you see now, so it puts things back in order after you turn a group.
-              </p>
-              <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Tables</h3>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <TextField label="Name" value={tablePrefix} onChange={(event) => setTablePrefix(event.target.value.slice(0, 24))} />
-                <NumberField label="First" value={tableStart} min={0} max={9999} onChange={(value) => value !== null && setTableStart(value)} />
-              </div>
-              <label className="mt-2 block text-sm">
-                <span className="mb-1.5 block font-medium">Order</span>
-                <select
-                  aria-label="Table order"
-                  className="h-10 w-full rounded-md border border-border bg-surface px-3 text-sm"
-                  value={tableOrder}
-                  onChange={(event) => setTableOrder(event.target.value as TableOrder)}
+
+            <div className="mt-6 grid gap-6">
+              {(selected ? selected.kind !== 'row' && selected.kind !== 'stage' : tool !== 'select' && tool !== 'pan') ? (
+                <ConfigSection
+                  defaultOpen
+                  icon={<Armchair className="size-5" aria-hidden="true" />}
+                  title="Seats & dimensions"
+                  hint={selected ? 'Applies to every selected table of this kind when you update seats.' : 'Set it up, then click the floor to place it.'}
                 >
-                  <option value="rows">Left → right, then down</option>
-                  <option value="rows-rtl">Right → left, then down</option>
-                  <option value="snake">Snake (→ then ←)</option>
-                  <option value="snake-rtl">Snake (← then →)</option>
-                  <option value="columns">Top → bottom, then right</option>
-                  <option value="columns-btt">Bottom → top, then right</option>
-                </select>
-              </label>
-              <Button className="mt-2 w-full" variant="secondary" onClick={renameTables}>
-                {selectedIds.length > 0 ? 'Renumber selected tables' : 'Renumber all tables'}
-              </Button>
-              <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Chairs</h3>
-              <p className="mt-1 text-xs text-muted">Each table starts again at the first number, clockwise from the top-left. Seat rows restart in every row.</p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <NumberField label="Start" value={numberStart} min={0} max={9999} onChange={(value) => value !== null && setNumberStart(value)} />
-                <NumberField label="Step" value={numberStep} min={1} max={100} onChange={(value) => value !== null && setNumberStep(value)} />
-              </div>
-              <Button className="mt-2 w-full" variant="secondary" onClick={renumber}>
-                {selectedIds.length > 0 ? 'Renumber chairs in selection' : 'Renumber all chairs'}
-              </Button>
-            </div>
-            {selected ? (
-              <div className="mt-6 border-t border-border pt-4">
-                <NameField value={selected.name} onCommit={rename} />
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selected.kind === 'row' || selected.kind === 'stage' ? (
-                    <Button variant="secondary" onClick={openEditor}>
-                      {selected.kind === 'stage' ? 'Edit stage' : 'Edit arrangement'}
-                    </Button>
-                  ) : (
-                    <Button variant="secondary" onClick={updateSelected}>
+                  {(selected ? selected.kind !== 'row' && selected.kind !== 'stage' : tool !== 'row' && tool !== 'stage') ? (
+                    <div className="-mt-4">
+                      <SpecFields
+                        spec={spec}
+                        onChange={setSpec}
+                        showDistribution={(selected?.kind ?? spec.kind) === 'rect'}
+                        showOpening={(selected?.kind ?? spec.kind) === 'round' || (selected?.kind ?? spec.kind) === 'oval'}
+                        showGrid={!selected}
+                      />
+                    </div>
+                  ) : null}
+                  {tool === 'row' ? (
+                    <PanelNote>Click the floor to set rows, chairs, segments, and gaps before the chairs are placed.</PanelNote>
+                  ) : tool === 'stage' ? (
+                    <PanelNote>Click the floor to set the stage size, colors, and label before it is placed.</PanelNote>
+                  ) : tool !== 'select' && tool !== 'pan' ? (
+                    <PanelNote>
+                      {spec.rows * spec.columns > 1
+                        ? `Click the floor to place ${spec.rows} × ${spec.columns} tables.`
+                        : `Click the floor to place this ${kindLabel[tool].toLowerCase()}.`}
+                    </PanelNote>
+                  ) : null}
+                  {selected && selected.kind !== 'row' && selected.kind !== 'stage' ? (
+                    <Button className="w-full" onClick={updateSelected}>
+                      <Check className="size-4" aria-hidden="true" />
                       Update seats
                     </Button>
-                  )}
-                  <Button variant="ghost" aria-label="Duplicate" onClick={duplicateSelected}>
-                    <Copy className="size-4" aria-hidden="true" />
-                  </Button>
-                  <Button variant="ghost" aria-label="Delete" onClick={requestRemoval}>
-                    <Trash2 className="size-4" aria-hidden="true" />
-                  </Button>
-                </div>
-                <ColorSettings
-                  tables={(layout?.arrangements ?? []).filter((item) => selectedIds.includes(item.id) && item.kind !== 'row')}
-                  seats={selectedSeatKeys.flatMap((key) => {
-                    const split = key.indexOf(':')
-                    const arrangementId = key.slice(0, split)
-                    const seatId = key.slice(split + 1)
-                    const arrangement = layout?.arrangements.find((item) => item.id === arrangementId)
-                    const seat = arrangement?.seats.find((item) => item.id === seatId)
-                    return seat ? [{ seat }] : []
-                  })}
-                  onTables={(patch) => {
-                    const ids = new Set(selectedIds)
-                    patchLayout((items) => items.map((item) => (ids.has(item.id) && item.kind !== 'row' ? { ...item, ...patch } : item)))
-                  }}
-                  onSeats={(patch) => {
-                    const keys = new Set(selectedSeatKeys)
-                    patchLayout((items) =>
-                      items.map((item) => ({
-                        ...item,
-                        seats: item.seats.map((seat) => (keys.has(`${item.id}:${seat.id}`) ? { ...seat, ...patch } : seat)),
-                      })),
-                    )
-                  }}
-                />
-                {selected && !selectedSeat ? (
-                  <div className="mt-4">
+                  ) : null}
+                </ConfigSection>
+              ) : null}
+
+              {selected ? (
+                <ConfigSection
+                  defaultOpen
+                  icon={<SlidersHorizontal className="size-5" aria-hidden="true" />}
+                  title="Details & actions"
+                  hint={selectedIds.length > 1 ? `Name, rotation and actions · ${selectedIds.length} objects selected.` : 'Name, rotation and actions for this object.'}
+                >
+                  <NameField value={selected.name} onCommit={rename} />
+                  {selected && !selectedSeat ? (
                     <RotationField
                       label="Rotation"
                       hint="Turns this table around its center. The name stays upright."
                       value={normalizeAngle(selected.rotation)}
                       onCommit={commitRotation}
                     />
-                  </div>
-                ) : null}
-                {selectedSeat && selected ? (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium">{seatPlace(selectedSeat)}</p>
-                    <div className="mt-3">
+                  ) : null}
+                  {selectedSeat && selected ? (
+                    <div>
+                      <p className="mb-2 text-sm font-medium">{seatPlace(selectedSeat)}</p>
                       <RotationField
                         label="Chair rotation"
                         hint="Turns this chair. The number stays upright."
@@ -1437,47 +1581,83 @@ export function SeatingDesigner({
                         onCommit={commitRotation}
                       />
                     </div>
-                    <p className="mt-1 text-sm text-muted">
-                      {selectedSeat.guestId ? guestName.get(selectedSeat.guestId) ?? 'Guest' : 'Empty'}
-                    </p>
-                    {selectedSeat.guestId ? (
-                      <Button className="mt-2" variant="secondary" onClick={() => clearSeat(selectedSeat.id, selected.id)}>
-                        Clear seat
+                  ) : null}
+                  <div className="grid gap-2">
+                    {selected.kind === 'row' || selected.kind === 'stage' ? (
+                      <Button onClick={openEditor}>
+                        <SlidersHorizontal className="size-4" aria-hidden="true" />
+                        {selected.kind === 'stage' ? 'Edit stage' : 'Edit arrangement'}
                       </Button>
-                    ) : (
-                      <p className="mt-2 text-sm text-muted">Choose a guest, or drag one onto this chair.</p>
-                    )}
+                    ) : null}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="secondary" onClick={duplicateSelected}>
+                        <Copy className="size-4" aria-hidden="true" />
+                        Duplicate
+                      </Button>
+                      <Button variant="danger" onClick={requestRemoval}>
+                        <Trash2 className="size-4" aria-hidden="true" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-          <div className="border-t border-border px-4 py-3">
-            <NumberField
-              label="Label size"
-              hint="Chair numbers and table names on this event."
-              value={design.labelFontSize || DEFAULT_LABEL_FONT}
-              min={MIN_LABEL_FONT}
-              max={MAX_LABEL_FONT}
-              onChange={(value) => {
-                if (value === null) return
-                onChange({ ...design, labelFontSize: value })
-              }}
-            />
-          </div>
-          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm">
-            <span className="text-muted">Snap</span>
-            <button
-              type="button"
-              aria-pressed={design.snap}
-              className={cn(
-                'h-8 rounded-md px-2',
-                design.snap ? 'bg-accent-soft font-medium text-accent' : 'text-muted hover:bg-hover',
-              )}
-              onClick={() => onChange({ ...design, snap: !design.snap })}
-            >
-              {design.snap ? 'On' : 'Off'}
-            </button>
+                </ConfigSection>
+              ) : null}
+
+              {selected &&
+              ((layout?.arrangements ?? []).some((item) => selectedIds.includes(item.id) && item.kind !== 'row') || selectedSeatKeys.length > 0) ? (
+                <ConfigSection icon={<Palette className="size-5" aria-hidden="true" />} title="Colors & appearance" hint="Choose how the selection looks on your plan.">
+                  <div className="-mt-4">
+                    <ColorSettings
+                      tables={(layout?.arrangements ?? []).filter((item) => selectedIds.includes(item.id) && item.kind !== 'row')}
+                      seats={selectedSeatKeys.flatMap((key) => {
+                        const split = key.indexOf(':')
+                        const arrangementId = key.slice(0, split)
+                        const seatId = key.slice(split + 1)
+                        const arrangement = layout?.arrangements.find((item) => item.id === arrangementId)
+                        const seat = arrangement?.seats.find((item) => item.id === seatId)
+                        return seat ? [{ seat }] : []
+                      })}
+                      onTables={(patch) => {
+                        const ids = new Set(selectedIds)
+                        patchLayout((items) => items.map((item) => (ids.has(item.id) && item.kind !== 'row' ? { ...item, ...patch } : item)))
+                      }}
+                      onSeats={(patch) => {
+                        const keys = new Set(selectedSeatKeys)
+                        patchLayout((items) =>
+                          items.map((item) => ({
+                            ...item,
+                            seats: item.seats.map((seat) => (keys.has(`${item.id}:${seat.id}`) ? { ...seat, ...patch } : seat)),
+                          })),
+                        )
+                      }}
+                    />
+                  </div>
+                </ConfigSection>
+              ) : null}
+
+              {numberingSection}
+            </div>
+            </>
+            )}
+
+            {configMode ? <div className="mt-6 border-t border-border pt-6">{numberingSection}</div> : null}
+
+            <div className="mt-6 border-t border-border pt-6">
+              <ConfigSection icon={<Maximize2 className="size-5" aria-hidden="true" />} title="Floor display" hint="Settings for the whole floor plan.">
+                <NumberField
+                  label="Label size"
+                  hint="Chair numbers and table names on this event."
+                  value={design.labelFontSize || DEFAULT_LABEL_FONT}
+                  min={MIN_LABEL_FONT}
+                  max={MAX_LABEL_FONT}
+                  onChange={(value) => {
+                    if (value === null) return
+                    onChange({ ...design, labelFontSize: value })
+                  }}
+                />
+                {!configMode ? <SnapSwitch value={design.snap} onChange={(snap) => onChange({ ...design, snap })} /> : null}
+              </ConfigSection>
+            </div>
           </div>
         </aside>
         <div ref={canvasRef} className="relative order-2 flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -1520,6 +1700,7 @@ export function SeatingDesigner({
               onPlace={place}
               onAssign={assign}
               guests={guestDetails}
+              exportRef={exporterRef}
             />
             {toolbarPoint ? (
               <ObjectToolbar
@@ -1544,6 +1725,10 @@ export function SeatingDesigner({
                   setSelectedSeatKeys([])
                 }}
                 onSplit={splitSelected}
+                seatGuestName={selectedSeat?.guestId ? guestName.get(selectedSeat.guestId) ?? 'Guest' : null}
+                onRemoveGuest={() => {
+                  if (selectedSeat && selected) clearSeat(selectedSeat.id, selected.id)
+                }}
                 canResizeChairs={!selectedSeat && roundTargets.length > 0}
                 chairCount={new Set(roundTargets.map((item) => item.seats.length)).size === 1 ? roundTargets[0].seats.length : null}
                 tableCount={roundTargets.length}
@@ -1708,6 +1893,18 @@ export function SeatingDesigner({
         </aside>
       </div>
       <ConfirmDialog
+        open={clearTableId !== null}
+        title={`Clear all seats at ${layout?.arrangements.find((item) => item.id === clearTableId)?.name ?? 'this table'}?`}
+        description="Every guest at this table leaves their chair. The chairs, guest records, invitations and check-in codes stay. You can undo this."
+        confirmLabel="Clear all seats"
+        pendingLabel="Clearing…"
+        onConfirm={() => {
+          if (clearTableId) clearTable(clearTableId)
+          setClearTableId(null)
+        }}
+        onClose={() => setClearTableId(null)}
+      />
+      <ConfirmDialog
         open={layoutAction === 'delete'}
         title={layout ? `Delete ${layout.name}?` : 'Delete layout?'}
         description={layout ? layoutActionCopy(layout, 'delete', dirty, persistedLayoutIds.includes(layout.id)) : ''}
@@ -1772,6 +1969,329 @@ export function SeatingDesigner({
   )
 }
 
+/** Navy numbered seat disc, matching the floor. */
+function SeatBadge({ label, active, size = 'md' }: { label: string; active?: boolean; size?: 'md' | 'lg' }) {
+  return (
+    <span
+      className={cn(
+        'flex shrink-0 items-center justify-center rounded-full border-2 bg-[#2C3A52] font-bold text-white tabular-nums',
+        size === 'lg' ? 'size-9 text-sm' : 'size-7 text-xs',
+        active ? 'border-accent' : 'border-[#E6EBF2]',
+      )}
+    >
+      {label}
+    </span>
+  )
+}
+
+/**
+ * Right-panel view for one table: the selected chair's guest (fix the name in place, remove,
+ * or reassign to another guest), every chair at the table with Edit / Remove, and table actions.
+ */
+function SeatPanel({
+  arrangement,
+  layoutName,
+  seat,
+  guests,
+  seatedIds,
+  onClose,
+  onSelectSeat,
+  onAssign,
+  onRemove,
+  onRename,
+  onClearAll,
+  onEditTable,
+}: {
+  arrangement: Arrangement
+  layoutName: string
+  seat: Arrangement['seats'][number] | null
+  guests: Guest[]
+  /** Guests seated anywhere on this event. */
+  seatedIds: Set<string>
+  onClose: () => void
+  onSelectSeat: (seatId: string) => void
+  onAssign: (seatId: string, guestId: string) => void
+  onRemove: (seatId: string) => void
+  onRename: (guestId: string, name: string) => Promise<void>
+  onClearAll: () => void
+  onEditTable: () => void
+}) {
+  const byId = useMemo(() => new Map(guests.map((guest) => [guest.id, guest])), [guests])
+  const seats = [...arrangement.seats].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+  const assigned = seats.filter((item) => item.guestId).length
+  const seatGuest = seat?.guestId ? byId.get(seat.guestId) ?? null : null
+  const title = seat ? `${arrangement.name} — ${arrangement.kind === 'row' ? seatPlace(seat) : `Seat ${seat.label}`}` : arrangement.name
+  const nameInput = useRef<HTMLInputElement>(null)
+
+  // Name editing: starts from the guest's saved name; saved on Enter or when leaving the field.
+  const [draftName, setDraftName] = useState(seatGuest?.name ?? '')
+  const [savingName, setSavingName] = useState(false)
+  useEffect(() => setDraftName(seatGuest?.name ?? ''), [seatGuest?.id, seatGuest?.name])
+
+  // Reassign picker: open by default on an empty chair.
+  const [picking, setPicking] = useState(false)
+  const [search, setSearch] = useState('')
+  useEffect(() => {
+    setPicking(Boolean(seat && !seat.guestId))
+    setSearch('')
+  }, [seat?.id, seat?.guestId])
+
+  async function commitName() {
+    if (!seatGuest || savingName) return
+    const next = draftName.trim()
+    if (!next) {
+      setDraftName(seatGuest.name)
+      return
+    }
+    if (next === seatGuest.name) return
+    setSavingName(true)
+    try {
+      await onRename(seatGuest.id, next)
+    } finally {
+      setSavingName(false)
+    }
+  }
+
+  const matches = guests
+    .filter((guest) => guest.id !== seat?.guestId && guest.name.toLowerCase().includes(search.trim().toLowerCase()))
+    .sort((a, b) => Number(seatedIds.has(a.id)) - Number(seatedIds.has(b.id)) || a.name.localeCompare(b.name))
+    .slice(0, 8)
+
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+        <button
+          type="button"
+          aria-label="Close"
+          className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-foreground"
+          onClick={onClose}
+        >
+          <X className="size-5" aria-hidden="true" />
+        </button>
+      </div>
+
+      {seat ? (
+        <>
+          <div className="mt-5 flex items-center gap-4">
+            <span className="relative flex size-16 shrink-0 items-center justify-center rounded-md border border-border bg-background">
+              <Armchair className="size-7 text-foreground/80" aria-hidden="true" />
+              <span className="absolute -bottom-1 -right-1">
+                <SeatBadge label={seat.label} active={Boolean(seat.guestId)} size="lg" />
+              </span>
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold">{title}</p>
+              <p className="truncate text-sm text-muted">{layoutName}</p>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <p className="mb-2 text-sm font-medium">{seatGuest ? 'Assigned guest' : 'Assign a guest'}</p>
+            {seat.guestId ? (
+              <div className="flex items-stretch gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <input
+                    ref={nameInput}
+                    aria-label="Guest name"
+                    className="h-11 w-full rounded-md border border-border bg-surface pl-3 pr-10 text-sm text-foreground focus:border-accent"
+                    value={draftName}
+                    disabled={!seatGuest || savingName}
+                    onChange={(event) => setDraftName(event.target.value)}
+                    onBlur={() => void commitName()}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') event.currentTarget.blur()
+                      if (event.key === 'Escape') setDraftName(seatGuest?.name ?? '')
+                    }}
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove guest from this chair"
+                    title="Remove guest from this chair"
+                    className="absolute inset-y-0 right-1 my-auto flex size-8 items-center justify-center rounded-md text-muted hover:bg-danger-soft hover:text-danger"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => onRemove(seat.id)}
+                  >
+                    <X className="size-4" aria-hidden="true" />
+                  </button>
+                </div>
+                <Button className="h-11 shrink-0" onClick={() => setPicking((open) => !open)}>
+                  {picking ? 'Cancel' : 'Edit / Reassign'}
+                </Button>
+              </div>
+            ) : null}
+            {seat.guestId ? (
+              <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted">
+                <Info className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
+                {seatGuest
+                  ? 'Wrong name or spelling? Edit it here (saved on the guest everywhere), or click Reassign to choose another guest.'
+                  : 'This guest is no longer on the guest list. Remove them or reassign the chair.'}
+              </p>
+            ) : null}
+
+            {picking ? (
+              <div className="mt-3 rounded-md border border-border">
+                <input
+                  autoFocus
+                  aria-label="Search guests"
+                  placeholder="Search guests by name…"
+                  className="h-10 w-full rounded-t-md border-b border-border bg-surface px-3 text-sm focus:border-accent"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+                {matches.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-muted">No guests match.</p>
+                ) : (
+                  <ul className="max-h-64 divide-y divide-border overflow-y-auto">
+                    {matches.map((guest) => {
+                      const elsewhere = seatedIds.has(guest.id)
+                      return (
+                        <li key={guest.id}>
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-hover"
+                            onClick={() => {
+                              onAssign(seat.id, guest.id)
+                              setPicking(false)
+                            }}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-medium">{guest.name}</span>
+                              <span className="block truncate text-xs text-muted">
+                                {[guest.guestTypeName, guest.position].filter(Boolean).join(' · ') || 'Guest'}
+                              </span>
+                            </span>
+                            {elsewhere ? (
+                              <span className="shrink-0 rounded-sm bg-warning-soft px-1.5 py-0.5 text-[11px] font-medium text-warning" title="Choosing this guest moves them here">
+                                Seated · move here
+                              </span>
+                            ) : (
+                              <span className="shrink-0 rounded-sm bg-accent-soft px-1.5 py-0.5 text-[11px] font-medium text-accent">Unseated</span>
+                            )}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <p className="mt-1 text-sm text-muted tabular-nums">
+          {layoutName ? `${layoutName} · ` : ''}
+          {assigned} of {arrangement.seats.length} seats assigned
+        </p>
+      )}
+
+      <div className="mt-6 border-t border-border pt-5">
+        <ConfigSection
+          defaultOpen
+          icon={<Users className="size-5" aria-hidden="true" />}
+          title={`${arrangement.name} — All seats`}
+          hint={`${assigned} of ${arrangement.seats.length} seats assigned.`}
+        >
+        {seats.length === 0 ? (
+          <p className="text-sm text-muted">This table has no chairs.</p>
+        ) : (
+          <div className="mt-3 overflow-hidden rounded-md border border-border">
+            <table className="w-full table-fixed text-left text-sm">
+              <thead className="bg-background">
+                <tr className="border-b border-border">
+                  <th className="w-12 px-3 py-2.5">Seat</th>
+                  <th className="px-3 py-2.5">Guest full name</th>
+                  <th className="w-[5.5rem] px-2 py-2.5">Status</th>
+                  <th className="w-[6.75rem] px-2 py-2.5">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {seats.map((item) => {
+                  const guest = item.guestId ? byId.get(item.guestId) : undefined
+                  const active = item.id === seat?.id
+                  return (
+                    <tr key={item.id} className={cn('transition-colors', active ? 'bg-accent-soft/50' : 'hover:bg-hover/60')}>
+                      <td className="px-3 py-2.5 tabular-nums">
+                        <button type="button" className="font-medium hover:text-accent" onClick={() => onSelectSeat(item.id)}>
+                          {item.label}
+                        </button>
+                      </td>
+                      <td className="truncate px-3 py-2.5">
+                        {item.guestId ? (
+                          <button type="button" className="max-w-full truncate text-left hover:text-accent" onClick={() => onSelectSeat(item.id)}>
+                            {guest?.name ?? 'Guest no longer on the list'}
+                          </button>
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <span className={cn('inline-flex items-center gap-1.5 text-xs font-medium', item.guestId ? 'text-accent' : 'text-muted')}>
+                          <span className={cn('size-2 rounded-full', item.guestId ? 'bg-accent' : 'bg-placeholder')} aria-hidden="true" />
+                          {item.guestId ? 'Assigned' : 'Empty'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2.5">
+                        <div className="flex items-center justify-end gap-1 text-xs font-medium">
+                          {item.guestId ? (
+                            <>
+                              <button
+                                type="button"
+                                className="rounded-sm px-1.5 py-1 text-accent hover:bg-accent-soft"
+                                onClick={() => {
+                                  onSelectSeat(item.id)
+                                  window.setTimeout(() => nameInput.current?.focus(), 0)
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <span className="h-3.5 w-px bg-border" aria-hidden="true" />
+                              <button type="button" className="rounded-sm px-1.5 py-1 text-danger hover:bg-danger-soft" onClick={() => onRemove(item.id)}>
+                                Remove
+                              </button>
+                            </>
+                          ) : (
+                            <button type="button" className="rounded-sm px-1.5 py-1 text-accent hover:bg-accent-soft" onClick={() => onSelectSeat(item.id)}>
+                              Assign
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        </ConfigSection>
+      </div>
+
+      <div className="mt-6 border-t border-border pt-5">
+        <ConfigSection
+          defaultOpen
+          icon={<SlidersHorizontal className="size-5" aria-hidden="true" />}
+          title="Table actions"
+          hint="Edit this table's setup or clear its seats."
+        >
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={onEditTable}>
+            <SlidersHorizontal className="size-4" aria-hidden="true" />
+            Edit table details
+          </Button>
+          <Button variant="danger" disabled={assigned === 0} onClick={onClearAll}>
+            <Trash2 className="size-4" aria-hidden="true" />
+            Clear all seats
+          </Button>
+        </div>
+        </ConfigSection>
+      </div>
+    </div>
+  )
+}
+
 function ObjectToolbar({
   left,
   top,
@@ -1791,11 +2311,16 @@ function ObjectToolbar({
   onDelete,
   onArrangement,
   onSplit,
+  seatGuestName,
+  onRemoveGuest,
   canResizeChairs,
   chairCount,
   tableCount,
   onChairs,
 }: {
+  /** Name of the guest on the selected chair; null when no chair or an empty chair is selected. */
+  seatGuestName: string | null
+  onRemoveGuest: () => void
   canResizeChairs: boolean
   /** Null when the selected tables have different chair counts. */
   chairCount: number | null
@@ -1830,6 +2355,20 @@ function ObjectToolbar({
       style={{ left: clampedLeft, top: clampedTop, transform: 'translate(-50%, -100%)' }}
       onPointerDown={(event) => event.stopPropagation()}
     >
+      {seatSelected && seatGuestName ? (
+        <>
+          <button
+            type="button"
+            title={`Remove ${seatGuestName} from this chair`}
+            className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-medium text-danger hover:bg-danger-soft"
+            onClick={onRemoveGuest}
+          >
+            <UserMinus className="size-4" aria-hidden="true" />
+            Remove guest
+          </button>
+          <span className="mx-0.5 h-5 w-px bg-border" aria-hidden="true" />
+        </>
+      ) : null}
       {canResizeChairs ? (
         <>
           <ToolbarButton label={tableCount > 1 ? `Remove a chair from each of ${tableCount} tables` : 'Remove a chair'} onClick={() => onChairs(-1)}>
@@ -2269,12 +2808,12 @@ function ColorChoice({
   )
 }
 
-function NameField({ value, onCommit }: { value: string; onCommit: (name: string) => void }) {
+function NameField({ value, onCommit, label = 'Name' }: { value: string; onCommit: (name: string) => void; label?: string }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
   return (
     <TextField
-      label="Name"
+      label={label}
       value={draft}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => {
@@ -2311,6 +2850,440 @@ function CanvasToggle({
     >
       {children}
     </button>
+  )
+}
+
+/** Preset table-top colors offered as one-click swatches. */
+const tablePresets = [
+  { label: 'Deep charcoal', color: '#1D1F1B' },
+  { label: 'Warm sand', color: '#EDE4D6' },
+  { label: 'Sage mint', color: '#B9D3C2' },
+  { label: 'Slate', color: '#9AA3B2' },
+] as const
+
+/** Which panel sections are open, by title. Kept for the session so choosing another table keeps the same sections open. */
+const openSections = new Map<string, boolean>()
+
+/**
+ * Collapsible block of the right panel: a dropdown header (icon, title, one-line help, chevron)
+ * that opens and closes its fields. Nothing inside is removed when closed; it is only hidden.
+ */
+function ConfigSection({
+  icon,
+  title,
+  hint,
+  children,
+  defaultOpen = false,
+}: {
+  icon: ReactNode
+  title: string
+  hint: string
+  children: ReactNode
+  /** Open the first time this section is shown. */
+  defaultOpen?: boolean
+}) {
+  const [open, setOpen] = useState(() => openSections.get(title) ?? defaultOpen)
+  const bodyId = useId()
+  function toggle() {
+    setOpen((current) => {
+      openSections.set(title, !current)
+      return !current
+    })
+  }
+  return (
+    <section className="border-t border-border pt-5 first:border-t-0 first:pt-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={bodyId}
+        className="group flex w-full items-start gap-3 rounded-md text-left"
+        onClick={toggle}
+      >
+        <span className="mt-0.5 text-accent">{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-semibold group-hover:text-accent">{title}</span>
+          <span className="block text-xs text-muted">{hint}</span>
+        </span>
+        <ChevronDown
+          className={cn('mt-1 size-5 shrink-0 text-muted transition-transform duration-150 group-hover:text-foreground', open && 'rotate-180')}
+          aria-hidden="true"
+        />
+      </button>
+      <div id={bodyId} hidden={!open} className="mt-5 grid gap-5">
+        {children}
+      </div>
+    </section>
+  )
+}
+
+/** Short guidance line inside a panel section. */
+function PanelNote({ children }: { children: ReactNode }) {
+  return (
+    <p className="flex items-start gap-3 rounded-md border border-border bg-background px-3 py-2.5 text-sm text-muted">
+      <Info className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  )
+}
+
+/** "Snap to grid" On/Off switch, shared by every panel. */
+function SnapSwitch({ value, onChange }: { value: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p className="text-sm font-medium">Snap to grid</p>
+        <p className="text-xs text-muted">Keep tables aligned to the layout grid.</p>
+      </div>
+      <button type="button" role="switch" aria-checked={value} aria-label="Snap to grid" className="flex items-center gap-2 text-sm" onClick={() => onChange(!value)}>
+        <span className={cn('relative h-6 w-11 rounded-full transition-colors', value ? 'bg-accent' : 'bg-border')}>
+          <span className={cn('absolute top-0.5 size-5 rounded-full bg-white transition-all', value ? 'left-[1.375rem]' : 'left-0.5')} />
+        </span>
+        <span className="w-6 text-left">{value ? 'On' : 'Off'}</span>
+      </button>
+    </div>
+  )
+}
+
+/** Label + helper text above a field, as in the configuration mockup. */
+function ConfigLabel({ title, hint, value }: { title: string; hint?: string; value?: ReactNode }) {
+  return (
+    <div className="mb-2 flex items-end justify-between gap-3">
+      <div>
+        <p className="text-sm font-medium">{title}</p>
+        {hint ? <p className="text-xs text-muted">{hint}</p> : null}
+      </div>
+      {value ? <span className="shrink-0 text-sm font-medium tabular-nums">{value}</span> : null}
+    </div>
+  )
+}
+
+/** Slider with min / max captions; commits whole numbers. */
+function ConfigSlider({ value, min, max, onChange, label }: { value: number; min: number; max: number; onChange: (value: number) => void; label: string }) {
+  return (
+    <div>
+      <input
+        type="range"
+        aria-label={label}
+        min={min}
+        max={max}
+        step={2}
+        value={Math.min(max, Math.max(min, value))}
+        className="h-2 w-full cursor-pointer accent-[var(--accent)]"
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+      <div className="mt-1 flex justify-between text-xs text-muted tabular-nums">
+        <span>{min}</span>
+        <span>{max}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Vertical "Table configuration" for one table in the right panel:
+ * Seats & dimensions · Colors & appearance · Auto numbering & actions, then Duplicate / Delete /
+ * Save & update seats. Name and colors apply at once; chair count and size apply on Save.
+ */
+function TableConfig({
+  arrangement,
+  spec,
+  onSpec,
+  seat,
+  pickedSeats,
+  snap,
+  onSnap,
+  firstNumber,
+  onFirstNumber,
+  step,
+  onStep,
+  onRename,
+  onTableColors,
+  onSeatColors,
+  onRotate,
+  onRenumber,
+  onDuplicate,
+  onDelete,
+  onSave,
+}: {
+  arrangement: Arrangement
+  spec: SeatSpec
+  onSpec: (spec: SeatSpec) => void
+  /** Selected chair, if any: its rotation and colors are shown too. */
+  seat: Arrangement['seats'][number] | null
+  /** Every chair picked on this table (Ctrl/Shift-click can pick several); colors apply to all. */
+  pickedSeats: Arrangement['seats']
+  snap: boolean
+  onSnap: (snap: boolean) => void
+  firstNumber: number
+  onFirstNumber: (value: number) => void
+  step: number
+  onStep: (value: number) => void
+  onRename: (name: string) => void
+  onTableColors: (patch: { fill?: string | null; stroke?: string | null; labelColor?: string | null }) => void
+  onSeatColors: (patch: { fill?: string | null; stroke?: string | null }) => void
+  onRotate: (degrees: number) => void
+  onRenumber: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+  onSave: () => void
+}) {
+  const sided = hasSides(arrangement.kind)
+  const round = arrangement.kind === 'round' || arrangement.kind === 'crescent'
+  const tall = arrangement.kind === 'rect' || arrangement.kind === 'oval' || arrangement.kind === 'ushape'
+  const fill = (arrangement.fill ?? defaultTableFill).toUpperCase()
+  // Unsaved chair-count or size changes, so Save stands out.
+  const pending =
+    spec.chairs !== arrangement.seats.length ||
+    Math.round(spec.tableWidth) !== Math.round(arrangement.tableWidth) ||
+    (tall && Math.round(spec.tableHeight) !== Math.round(arrangement.tableHeight)) ||
+    spec.chairGap !== arrangement.chairGap ||
+    spec.opening !== arrangement.opening ||
+    spec.distribution !== arrangement.distribution ||
+    (sided && JSON.stringify(sidesOf(spec)) !== JSON.stringify(sidesOf(specOf(arrangement))))
+
+  return (
+    <div>
+      <div className="flex items-center gap-3">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
+          <SlidersHorizontal className="size-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-semibold tracking-tight">{arrangement.name} configuration</h2>
+          <p className="text-sm text-muted tabular-nums">
+            {kindLabel[arrangement.kind]} · {arrangement.seats.length} {arrangement.seats.length === 1 ? 'seat' : 'seats'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6">
+        <ConfigSection defaultOpen icon={<Armchair className="size-5" aria-hidden="true" />} title="Seats & dimensions" hint="Set the basic details for this table.">
+          <NameField value={arrangement.name} onCommit={onRename} label="Table name" />
+
+          {sided ? (
+            <div>
+              <ConfigLabel title="Chairs per side" hint="How many seats on each side of the table?" />
+              <div className="grid grid-cols-2 gap-2">
+                {tableSides
+                  .filter((side) => !(arrangement.kind === 'ushape' && side === 'top'))
+                  .map((side) => {
+                    const counts = sidesOf(spec) ?? { top: 0, right: 0, bottom: 0, left: 0 }
+                    return (
+                      <NumberField
+                        key={side}
+                        label={side[0].toUpperCase() + side.slice(1)}
+                        value={counts[side]}
+                        min={0}
+                        max={40}
+                        onChange={(value) => {
+                          if (value === null) return
+                          const sides = { ...counts, [side]: value }
+                          const chairs = sides.top + sides.right + sides.bottom + sides.left
+                          if (chairs >= 1) onSpec({ ...spec, sides, chairs })
+                        }}
+                      />
+                    )
+                  })}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <ConfigLabel title="Number of chairs" hint="How many seats around this table?" />
+              <div className="flex h-11 items-stretch overflow-hidden rounded-md border border-border">
+                <button
+                  type="button"
+                  aria-label="One chair fewer"
+                  className="flex w-14 items-center justify-center border-r border-border hover:bg-hover disabled:opacity-50"
+                  disabled={spec.chairs <= 1}
+                  onClick={() => onSpec({ ...spec, chairs: Math.max(1, spec.chairs - 1), sides: null })}
+                >
+                  <Minus className="size-4" aria-hidden="true" />
+                </button>
+                <span className="flex flex-1 items-center justify-center text-sm font-medium tabular-nums">
+                  {spec.chairs} {spec.chairs === 1 ? 'chair' : 'chairs'}
+                </span>
+                <button
+                  type="button"
+                  aria-label="One chair more"
+                  className="flex w-14 items-center justify-center border-l border-border hover:bg-hover disabled:opacity-50"
+                  disabled={spec.chairs >= 80}
+                  onClick={() => onSpec({ ...spec, chairs: Math.min(80, spec.chairs + 1), sides: null })}
+                >
+                  <Plus className="size-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <ConfigLabel
+              title="Table size"
+              hint={round ? 'Diameter of the round table.' : 'Width of the table.'}
+              value={`${Math.round(spec.tableWidth)} px`}
+            />
+            <ConfigSlider
+              label={round ? 'Diameter' : 'Width'}
+              value={spec.tableWidth}
+              min={72}
+              max={800}
+              onChange={(value) => onSpec({ ...spec, tableWidth: value, tableHeight: arrangement.kind === 'square' ? value : spec.tableHeight })}
+            />
+          </div>
+          {tall ? (
+            <div>
+              <ConfigLabel title="Table depth" hint="Height of the table on the plan." value={`${Math.round(spec.tableHeight)} px`} />
+              <ConfigSlider label="Height" value={spec.tableHeight} min={72} max={800} onChange={(value) => onSpec({ ...spec, tableHeight: value })} />
+            </div>
+          ) : null}
+
+          {arrangement.kind === 'round' || arrangement.kind === 'oval' ? (
+            <label className="block">
+              <ConfigLabel title="Chair spacing" hint="How the chairs are spread around the table." />
+              <select
+                aria-label="Chair spacing"
+                className="h-11 w-full rounded-md border border-border bg-surface px-3 text-sm"
+                value={spec.opening}
+                onChange={(event) => onSpec({ ...spec, opening: event.target.value as ChairOpening })}
+              >
+                <option value="even">Even (comfortable)</option>
+                <option value="mid">Open in the middle</option>
+                <option value="uneven">Uneven</option>
+              </select>
+            </label>
+          ) : null}
+          {arrangement.kind === 'rect' ? (
+            <label className="block">
+              <ConfigLabel title="Chair placement" hint="Which sides of the table get chairs." />
+              <select
+                aria-label="Chair placement"
+                className="h-11 w-full rounded-md border border-border bg-surface px-3 text-sm"
+                value={spec.distribution}
+                onChange={(event) => onSpec({ ...spec, distribution: event.target.value as Distribution })}
+              >
+                <option value="long">Long sides</option>
+                <option value="all">All sides</option>
+              </select>
+            </label>
+          ) : null}
+          <div>
+            <ConfigLabel title="Gap between chairs" hint="Extra room between neighbouring chairs." value={`${spec.chairGap} px`} />
+            <ConfigSlider label="Gap between chairs" value={spec.chairGap} min={0} max={80} onChange={(value) => onSpec({ ...spec, chairGap: value })} />
+          </div>
+          {seat ? null : (
+            <RotationField label="Rotation" hint="Turns the table around its centre. The name stays upright." value={normalizeAngle(arrangement.rotation)} onCommit={onRotate} />
+          )}
+        </ConfigSection>
+
+        <ConfigSection icon={<Palette className="size-5" aria-hidden="true" />} title="Colors & appearance" hint="Choose how this table looks on your plan.">
+          <div>
+            <ConfigLabel title="Table color" hint="Pick a color or choose a custom one." />
+            <div className="grid grid-cols-4 gap-2">
+              {tablePresets.map((preset) => {
+                const active = fill === preset.color.toUpperCase()
+                return (
+                  <button key={preset.color} type="button" className="flex flex-col items-center gap-1.5" onClick={() => onTableColors({ fill: preset.color })}>
+                    <span
+                      className={cn('size-12 rounded-full border-2', active ? 'border-accent' : 'border-border')}
+                      style={{ background: preset.color }}
+                      aria-hidden="true"
+                    />
+                    <span className={cn('text-center text-xs leading-tight', active ? 'font-medium text-foreground' : 'text-muted')}>{preset.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <ColorChoice
+            label="Custom color"
+            stored={[arrangement.fill]}
+            effective={[arrangement.fill ?? defaultTableFill]}
+            onPick={(color) => onTableColors({ fill: color })}
+            onReset={() => onTableColors({ fill: null })}
+          />
+          <ColorChoice
+            label="Border color"
+            stored={[arrangement.stroke]}
+            effective={[arrangement.stroke ?? defaultTableStroke]}
+            onPick={(color) => onTableColors({ stroke: color })}
+            onReset={() => onTableColors({ stroke: null })}
+          />
+          <ColorChoice
+            label="Name color"
+            resetLabel="Auto"
+            stored={[arrangement.labelColor]}
+            effective={[arrangement.labelColor ?? readableOn(arrangement.fill ?? defaultTableFill)]}
+            onPick={(color) => onTableColors({ labelColor: color })}
+            onReset={() => onTableColors({ labelColor: null })}
+          />
+          <SnapSwitch value={snap} onChange={onSnap} />
+          {pickedSeats.length > 0 ? (
+            <div className="rounded-md border border-border p-4">
+              <p className="text-sm font-medium">
+                {pickedSeats.length > 1 ? `${pickedSeats.length} chairs` : `Chair ${pickedSeats[0].label}`}
+              </p>
+              <div className="mt-3 grid gap-3">
+                <ColorChoice
+                  label="Chair color"
+                  stored={pickedSeats.map((item) => item.fill)}
+                  effective={pickedSeats.map((item) => item.fill ?? defaultChairFill)}
+                  onPick={(color) => onSeatColors({ fill: color })}
+                  onReset={() => onSeatColors({ fill: null })}
+                />
+                <ColorChoice
+                  label="Chair ring"
+                  stored={pickedSeats.map((item) => item.stroke)}
+                  effective={pickedSeats.map((item) => item.stroke ?? defaultChairStroke)}
+                  onPick={(color) => onSeatColors({ stroke: color })}
+                  onReset={() => onSeatColors({ stroke: null })}
+                />
+                {seat ? (
+                  <RotationField
+                    label="Chair rotation"
+                    hint="Turns this chair. The number stays upright."
+                    value={normalizeAngle(seat.rotation)}
+                    onCommit={onRotate}
+                  />
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </ConfigSection>
+
+        <ConfigSection icon={<ListOrdered className="size-5" aria-hidden="true" />} title="Auto numbering & actions" hint="Configure seat numbers and manage this table.">
+          <p className="flex items-start gap-3 rounded-md border border-border bg-background px-4 py-3 text-sm">
+            <Info className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
+            Numbers seats clockwise, starting from the top-left.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <NumberField label="First chair number" value={firstNumber} min={0} max={9999} onChange={(value) => value !== null && onFirstNumber(value)} />
+            <NumberField label="Step" value={step} min={1} max={100} onChange={(value) => value !== null && onStep(value)} />
+          </div>
+          <div>
+            <Button variant="secondary" className="w-full border-accent text-accent hover:bg-accent-soft" onClick={onRenumber}>
+              <RotateCw className="size-4" aria-hidden="true" />
+              Renumber chairs now
+            </Button>
+            <p className="mt-2 text-xs text-muted">Updates every chair number around this table in clockwise order.</p>
+          </div>
+        </ConfigSection>
+      </div>
+
+      <div className="mt-8 grid gap-2 border-t border-border pt-5">
+        <Button disabled={!pending} onClick={onSave} title={pending ? undefined : 'Change chairs or size above, then save'}>
+          <Check className="size-4" aria-hidden="true" />
+          Save & update seats
+        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" onClick={onDuplicate}>
+            <Copy className="size-4" aria-hidden="true" />
+            Duplicate table
+          </Button>
+          <Button variant="danger" onClick={onDelete}>
+            <Trash2 className="size-4" aria-hidden="true" />
+            Delete table
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 

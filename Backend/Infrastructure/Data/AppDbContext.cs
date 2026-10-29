@@ -76,6 +76,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasIndex(item => item.LiveShareToken).IsUnique().HasFilter("[LiveShareToken] IS NOT NULL");
             entity.Property(item => item.FrontDeskToken).HasMaxLength(32);
             entity.HasIndex(item => item.FrontDeskToken).IsUnique().HasFilter("[FrontDeskToken] IS NOT NULL");
+            entity.Property(item => item.KioskToken).HasMaxLength(32);
+            entity.HasIndex(item => item.KioskToken).IsUnique().HasFilter("[KioskToken] IS NOT NULL");
             entity.HasOne(item => item.Creator)
                 .WithMany()
                 .HasForeignKey(item => item.CreatedBy)
@@ -183,6 +185,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(item => item.LastCheckedInOn).HasConversion(UtcNullableDateTimeConverter.Instance);
             entity.Property(item => item.SeatedOn).HasConversion(UtcNullableDateTimeConverter.Instance);
             entity.Property(item => item.DeclineReason).HasMaxLength(500);
+            entity.Property(item => item.Phone).HasMaxLength(40);
+            entity.Property(item => item.RegisteredOn).HasConversion(UtcNullableDateTimeConverter.Instance);
             entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
             entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
             entity.HasOne(item => item.Event)

@@ -11,6 +11,8 @@ export type GuestType = {
   invitationConfigured: boolean
   badgeConfigured: boolean
   updatedOn: string
+  /** A printed badge (paper) design exists for this type. */
+  printBadgeConfigured?: boolean
 }
 
 export type GuestTypeInvitation = {

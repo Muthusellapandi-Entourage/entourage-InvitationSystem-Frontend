@@ -13,7 +13,7 @@ import { personalInvitationUrl, rsvpUrl } from '@/invitations/guestLinks'
 import { cn } from '@/lib/cn'
 
 const statusTone: Record<GuestRsvpStatus, string> = {
-  Pending: 'border-amber-500/50 bg-amber-500/10 text-amber-400',
+  Pending: 'border-warning/50 bg-warning-soft text-warning',
   Accepted: 'border-accent/60 bg-accent-soft text-accent',
   Declined: 'border-danger/60 bg-danger-soft text-danger',
 }
@@ -194,7 +194,7 @@ export function GuestDetailsDialog({
                 {guest.name}
               </h2>
               {guest.guestTypeName ? (
-                <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-sm font-medium text-amber-400">
+                <span className="rounded-md border border-warning/40 bg-warning-soft px-2 py-0.5 text-sm font-medium text-warning">
                   {guest.guestTypeName}
                 </span>
               ) : (
@@ -234,7 +234,33 @@ export function GuestDetailsDialog({
               <dt className="text-sm text-muted">Check-in code</dt>
               <dd className="mt-0.5 font-mono text-sm">{guest.checkInCode}</dd>
             </div>
+            {guest.phone ? (
+              <div>
+                <dt className="text-sm text-muted">Mobile</dt>
+                <dd className="mt-0.5 tabular-nums">{guest.phone}</dd>
+              </div>
+            ) : null}
+            {guest.registeredOn ? (
+              <div>
+                <dt className="text-sm text-muted">Self-registered</dt>
+                <dd className="mt-0.5">{when(guest.registeredOn)}</dd>
+              </div>
+            ) : null}
           </dl>
+
+          {guest.answers && guest.answers.length > 0 ? (
+            <div className="mt-4 rounded-md border border-border p-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-muted">Registration answers</p>
+              <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+                {guest.answers.map((answer) => (
+                  <div key={answer.label}>
+                    <dt className="text-sm text-muted">{answer.label}</dt>
+                    <dd className="mt-0.5 break-words text-sm">{answer.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : null}
 
           <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
             <span>Email sent: {when(guest.lastEmailedOn)}</span>
@@ -366,7 +392,7 @@ export function GuestDetailsDialog({
               {downloading === 'badges-pdf' ? 'Preparing…' : 'E-Badge PDF'}
             </PanelButton>
             {downloadError ? (
-              <p role="alert" className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+              <p role="alert" className="rounded-md border border-danger/40 bg-danger-soft px-3 py-2 text-xs text-danger">
                 {downloadError}
               </p>
             ) : null}
@@ -391,7 +417,7 @@ function PanelButton({
         tone === 'neutral' && 'border-border bg-surface text-foreground hover:bg-hover',
         tone === 'primary' && 'border-accent bg-accent text-accent-foreground hover:bg-accent-hover',
         tone === 'accent' && 'justify-start border-accent/60 bg-surface text-accent hover:bg-accent-soft',
-        tone === 'warning' && 'border-amber-500/60 bg-surface text-amber-400 hover:bg-amber-500/10',
+        tone === 'warning' && 'border-border bg-surface text-warning hover:bg-warning-soft',
         tone === 'danger' && 'border-danger/60 bg-surface text-danger hover:bg-danger-soft',
         className,
       )}

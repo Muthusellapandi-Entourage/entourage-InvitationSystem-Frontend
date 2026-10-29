@@ -115,11 +115,15 @@ export type FloorLayout = {
   arrangements: Arrangement[]
 }
 
-/** Default floor colors, taken from the cream table and navy chair reference. */
-export const defaultTableFill = '#E8D9C4'
-export const defaultTableStroke = '#9E5A58'
-export const defaultChairFill = '#3A5170'
-export const defaultChairStroke = '#3A5170'
+/** Default floor colors: cream table with a mint-teal rim, navy numbered seats with a light ring. */
+export const defaultTableFill = '#EDE4D6'
+export const defaultTableStroke = '#38B8A2'
+export const defaultChairFill = '#2C3A52'
+export const defaultChairStroke = '#E6EBF2'
+/** Guest name tags beside each seat. */
+export const nameTagFill = '#1D1F1B'
+export const nameTagStroke = '#E6EBF2'
+export const nameTagText = '#F4F4F5'
 export const defaultStageFill = '#C8BBA8'
 export const defaultStageStroke = '#3E4A46'
 
@@ -216,11 +220,11 @@ function numberOr(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
-/** Accept only #RRGGBB. Anything else falls back to the theme color. */
+/** Accept #RRGGBB or #RRGGBBAA (with alpha). Anything else falls back to the theme color. */
 export function normalizeColor(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const hex = value.trim()
-  return /^#[0-9A-Fa-f]{6}$/.test(hex) ? hex.toUpperCase() : null
+  return /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(hex) ? hex.toUpperCase() : null
 }
 
 function normalizeSeat(value: unknown): Seat | null {

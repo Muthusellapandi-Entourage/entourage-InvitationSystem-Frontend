@@ -28,7 +28,7 @@ export function SelectField({ label, error, hint, options, id, className, ...pro
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={cn(
-          'h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground',
+          'h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground transition-colors focus:border-accent disabled:cursor-not-allowed disabled:opacity-50',
           error && 'border-danger',
           className,
         )}
@@ -45,7 +45,7 @@ export function SelectField({ label, error, hint, options, id, className, ...pro
           {error}
         </p>
       ) : hint ? (
-        <p id={`${fieldId}-hint`} className="text-sm text-muted">
+        <p id={`${fieldId}-hint`} className="text-xs leading-relaxed text-muted">
           {hint}
         </p>
       ) : null}

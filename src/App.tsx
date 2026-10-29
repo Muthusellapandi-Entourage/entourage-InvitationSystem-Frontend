@@ -34,7 +34,8 @@ function AppToaster() {
           background: 'var(--surface)',
           color: 'var(--foreground)',
           border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow)',
+          boxShadow: 'none',
+          borderRadius: '6px',
         },
       }}
     />

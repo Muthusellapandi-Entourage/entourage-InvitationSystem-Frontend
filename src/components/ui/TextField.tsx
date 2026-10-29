@@ -24,7 +24,7 @@ export function TextField({ label, error, hint, trailing, id, className, ...prop
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
           className={cn(
-            'h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground placeholder:text-muted disabled:bg-disabled',
+            'h-10 w-full rounded-md border border-border bg-surface px-3 text-sm text-foreground transition-colors placeholder:text-placeholder focus:border-accent disabled:cursor-not-allowed disabled:opacity-50',
             trailing && 'pr-10',
             error && 'border-danger',
             className,
@@ -38,7 +38,7 @@ export function TextField({ label, error, hint, trailing, id, className, ...prop
           {error}
         </p>
       ) : hint ? (
-        <p id={`${fieldId}-hint`} className="text-sm text-muted">
+        <p id={`${fieldId}-hint`} className="text-xs leading-relaxed text-muted">
           {hint}
         </p>
       ) : null}

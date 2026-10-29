@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { ApiError, apiBaseUrl } from '@/api/client'
 import { fontApi, type EventFont } from '@/api/fontApi'
 import { invitationApi } from '@/api/invitationApi'
+import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
 import { Button } from '@/components/ui/Button'
 import {
   builtInNameFonts,
@@ -953,13 +954,10 @@ function NumberRow({
 
 function ColorRow({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="grid gap-1 text-xs">
+    <div className="grid gap-1 text-xs">
       <span className="font-medium text-muted">{label}</span>
-      <span className="flex h-9 items-center gap-2 rounded-md border border-border bg-background px-2">
-        <input type="color" value={value} onChange={(event) => onChange(event.target.value.toUpperCase())} className="size-6 cursor-pointer border-0 bg-transparent p-0" />
-        <span className="font-mono text-xs">{value}</span>
-      </span>
-    </label>
+      <AlphaColorInput label={label} value={value} onChange={onChange} slider={false} />
+    </div>
   )
 }
 

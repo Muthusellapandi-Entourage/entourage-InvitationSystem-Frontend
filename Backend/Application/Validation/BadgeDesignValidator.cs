@@ -31,7 +31,7 @@ public sealed class BadgeDesignValidator : AbstractValidator<BadgeDesignDto>
                 .Must(value => value is "regular" or "bold")
                 .WithMessage("Choose regular or bold.");
             RuleFor(design => design.Name!.Color)
-                .Matches("^#[0-9A-Fa-f]{6}$")
+                .Matches(HexColor.Pattern)
                 .WithMessage("Use a color like #111111.");
             RuleFor(design => design.Name!.Align)
                 .Must(value => value is "left" or "center" or "right")

@@ -120,6 +120,5 @@ public static class GuestNameRenderer
         return SKTypeface.FromFamilyName(family) ?? SKTypeface.Default;
     }
 
-    private static SKColor Color(string? hex) =>
-        hex is { Length: 7 } && hex[0] == '#' && SKColor.TryParse(hex, out var color) ? color : SKColors.White;
+    private static SKColor Color(string? hex) => BadgeRenderer.SkiaColor(hex, SKColors.White);
 }

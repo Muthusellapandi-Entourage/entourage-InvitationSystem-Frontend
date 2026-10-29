@@ -60,6 +60,9 @@ builder.Services.AddScoped<RsvpDashboardService>();
 builder.Services.AddScoped<MicrositeService>();
 builder.Services.AddScoped<RsvpPageService>();
 builder.Services.AddScoped<FrontDeskService>();
+builder.Services.AddScoped<EventAnalyticsService>();
+builder.Services.AddScoped<RegistrationService>();
+builder.Services.AddScoped<PrintBadgeService>();
 // Used only to confirm an event domain reaches this server: short timeout, no cookies.
 builder.Services.AddHttpClient(EventSiteService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { UseCookies = false, MaxAutomaticRedirections = 3 });

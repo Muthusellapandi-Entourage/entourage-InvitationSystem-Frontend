@@ -1,11 +1,14 @@
 import { Copy, ExternalLink } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { KioskSettingsSection } from '@/components/kiosk/KioskSettingsSection'
 import { Button } from '@/components/ui/Button'
+import { useEvent } from '@/hooks/useEvents'
 
-/** Check-in tab: the EventPass scanner address for door staff, to open or share. */
+/** Scanner tab: the EventPass scanner address for door staff, and the self check-in kiosk. */
 export function CheckInLinkPage() {
   const { eventId = '' } = useParams()
+  const event = useEvent(eventId).data
   const url = `${window.location.origin}/scan/${eventId}`
 
   async function copy() {
@@ -18,6 +21,7 @@ export function CheckInLinkPage() {
   }
 
   return (
+    <div className="flex flex-col gap-8">
     <section className="max-w-2xl">
       <h2 className="text-base font-semibold">Scanner link</h2>
       <p className="mt-1 text-sm text-muted">Open this on the phones, tablets or desk computers at the entrance. Staff sign in with their usual account.</p>
@@ -38,6 +42,11 @@ export function CheckInLinkPage() {
           Open in new tab
         </Button>
       </div>
+      <p className="mt-3 text-xs text-muted">
+        Printing badges at a desk? Use the front-desk link (Guests tab): it has a scan box and a Print badge button for each guest.
+      </p>
     </section>
+    <KioskSettingsSection eventId={eventId} eventName={event?.name ?? ''} />
+    </div>
   )
 }

@@ -64,7 +64,9 @@ public static class InvitationEmailBuilder
             }
 
             var color = value is not null && TryParseHex(value, out _, out _, out _) ? value.ToUpperInvariant() : Default;
-            return new CanvasFill($" bgcolor=\"{color}\"", $"background-color:{color};", color);
+            // Old email clients only take an opaque colour in bgcolor; modern ones get the see-through one in CSS.
+            var solid = HexColor.Flatten(color, "#FFFFFF");
+            return new CanvasFill($" bgcolor=\"{solid}\"", $"background-color:{HexColor.ToCss(color, Default)};", solid);
         }
     }
 
@@ -363,14 +365,22 @@ public static class InvitationEmailBuilder
             return null;
         }
 
-        if (!TryParseHex(field.BackgroundColor, out var red, out var green, out var blue))
+        if (!HexColor.TryParse(field.BackgroundColor, out var red, out var green, out var blue, out var alpha))
+        {
+            return null;
+        }
+
+        // The colour's own alpha and the opacity slider combine.
+        opacity = (int)Math.Round(opacity * alpha / 255d);
+        if (opacity <= 0)
         {
             return null;
         }
 
         if (opacity >= 100)
         {
-            return (field.BackgroundColor, field.BackgroundColor);
+            var opaque = string.Create(CultureInfo.InvariantCulture, $"#{red:X2}{green:X2}{blue:X2}");
+            return (opaque, opaque);
         }
 
         if (!TryParseHex(mixBase, out var baseRed, out var baseGreen, out var baseBlue))
@@ -385,18 +395,9 @@ public static class InvitationEmailBuilder
         return (solid, css);
     }
 
-    private static bool TryParseHex(string hex, out int red, out int green, out int blue)
-    {
-        red = green = blue = 0;
-        if (hex.Length != 7 || hex[0] != '#')
-        {
-            return false;
-        }
-
-        return int.TryParse(hex.AsSpan(1, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out red)
-            && int.TryParse(hex.AsSpan(3, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out green)
-            && int.TryParse(hex.AsSpan(5, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out blue);
-    }
+    /// <summary>#RRGGBB or #RRGGBBAA (the alpha is ignored here).</summary>
+    private static bool TryParseHex(string hex, out int red, out int green, out int blue) =>
+        HexColor.TryParse(hex, out red, out green, out blue, out _);
 
     private static ImagePlacementDto EffectiveImage(ImagePlacementDto? placement, int canvasWidth, int fallbackWidth)
     {
@@ -536,7 +537,7 @@ public static class InvitationEmailBuilder
             _ => presetWeight,
         };
 
-        return $"font-family:{family};font-size:{field.FontSize}px;font-weight:{weight};font-style:{slant};color:{field.Color};line-height:1.35;";
+        return $"font-family:{family};font-size:{field.FontSize}px;font-weight:{weight};font-style:{slant};color:{HexColor.ToCss(field.Color, "#FFFFFF")};line-height:1.35;";
     }
 
     private static string? Url(Guid? id, IReadOnlyDictionary<Guid, string> assetUrls)

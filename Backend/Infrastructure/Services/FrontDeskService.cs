@@ -37,7 +37,7 @@ public sealed record FrontDeskActionResult(string Status, string Message, FrontD
 /// The front-desk dashboard behind a secret link (/live-dashboard/{token}): the full guest list with
 /// RSVP and check-in details, plus manual check-in and seating for guests without their E-Badge.
 /// </summary>
-public sealed class FrontDeskService(AppDbContext db, CheckInService checkIn)
+public sealed class FrontDeskService(AppDbContext db, CheckInService checkIn, PrintBadgeService printBadges)
 {
     private const string Source = "front desk";
 
@@ -96,6 +96,27 @@ public sealed class FrontDeskService(AppDbContext db, CheckInService checkIn)
         var item = await FindAsync(token, cancellationToken);
         var result = await checkIn.CheckInByIdAsync(item.Id, guestId, Source, cancellationToken);
         return new FrontDeskActionResult(result.Status, result.Message, await RowAsync(item.Id, guestId, cancellationToken));
+    }
+
+    /// <summary>A badge scanned at the front desk (USB scanner on the laptop): checks the guest in.</summary>
+    public async Task<FrontDeskActionResult> ScanAsync(string token, string? code, CancellationToken cancellationToken)
+    {
+        var item = await FindAsync(token, cancellationToken);
+        var result = await checkIn.ScanAsync(item.Id, new CheckInScanRequest(code), cancellationToken, Source);
+        return new FrontDeskActionResult(result.Status, result.Message, result.Guest is null ? null : await RowAsync(item.Id, result.Guest.Id, cancellationToken));
+    }
+
+    /// <summary>What to print for a guest's badge (their guest type's print design).</summary>
+    public async Task<PrintPayloadDto> PrintAsync(string token, Guid guestId, CancellationToken cancellationToken)
+    {
+        var item = await FindAsync(token, cancellationToken);
+        return await printBadges.PayloadAsync(item.Id, guestId, cancellationToken) ?? throw AppException.NotFound("Guest not found.");
+    }
+
+    public async Task PrintedAsync(string token, Guid guestId, CancellationToken cancellationToken)
+    {
+        var item = await FindAsync(token, cancellationToken);
+        await printBadges.LogPrintedAsync(item.Id, guestId, Source, cancellationToken);
     }
 
     public async Task<FrontDeskActionResult> MarkSeatedAsync(string token, Guid guestId, CancellationToken cancellationToken)

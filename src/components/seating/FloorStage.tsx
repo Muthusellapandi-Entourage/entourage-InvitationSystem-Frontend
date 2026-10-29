@@ -1,9 +1,21 @@
-import { memo, useEffect, useRef, useState } from 'react'
-import type Konva from 'konva'
+import { memo, useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
+import Konva from 'konva'
 import { Circle, Ellipse, Group, Layer, Line, Rect, Shape, Stage, Text, Transformer } from 'react-konva'
-import { CHAIR, CHAIR_BOTTOM, CHAIR_LEFT, CHAIR_RIGHT, CHAIR_TOP, ROW_LABEL_GUTTER, seatPlace } from '@/seating/geometry'
+import { CHAIR, ROW_LABEL_GUTTER, seatPlace } from '@/seating/geometry'
 import { arrangementBox, moveCohort, readableOn, rotateSelection, tableLabelPoint, unionBounds, uprightRotation, type WorldRect } from '@/seating/layoutOps'
-import { defaultChairFill, defaultChairStroke, defaultStageFill, defaultStageStroke, defaultTableFill, defaultTableStroke, type Arrangement, type FloorLayout, type TableKind } from '@/seating/model'
+import {
+  defaultChairFill,
+  defaultChairStroke,
+  defaultStageFill,
+  defaultStageStroke,
+  defaultTableFill,
+  defaultTableStroke,
+  nameTagFill,
+  nameTagText,
+  type Arrangement,
+  type FloorLayout,
+  type TableKind,
+} from '@/seating/model'
 
 export type FloorColors = {
   background: string
@@ -70,7 +82,16 @@ type FloorStageProps = {
   onView: (view: { x: number; y: number; scale: number }) => void
   /** Guest details by id, for the seated marker's hover card. */
   guests?: Map<string, SeatGuest>
+  /** Filled with an exporter that renders the whole floor (every table, seat and name tag) as a PNG. */
+  exportRef?: MutableRefObject<FloorExporter | null>
 }
+
+export type FloorExporter = {
+  /** The whole floor as a high-resolution PNG. `title` is drawn above the plan. */
+  toPng: (options?: { pixelRatio?: number; title?: string; subtitle?: string }) => Promise<Blob>
+}
+
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
 
 function selectMode(event: { evt: MouseEvent | TouchEvent }): SelectMode {
   if (!('ctrlKey' in event.evt)) return 'replace'
@@ -101,6 +122,7 @@ export function FloorStage({
   view,
   onView,
   guests,
+  exportRef,
 }: FloorStageProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const [hover, setHover] = useState<SeatHover | null>(null)
@@ -176,8 +198,124 @@ export function FloorStage({
   }, [])
   const panFrame = useRef<number | null>(null)
   const zoomFrame = useRef<{ id: number; scale: number; pointer: { x: number; y: number } } | null>(null)
+  // While exporting an image, every label is drawn whatever the zoom.
+  const [exporting, setExporting] = useState(false)
   // Chair numbers are unreadable when zoomed far out; skipping them keeps big floors fast.
-  const detail = view.scale >= 0.45
+  const detail = view.scale >= 0.45 || exporting
+  // Name tags for the whole floor, laid out together so tags from neighbouring tables never overlap.
+  const floorTags = useMemo(() => (detail ? layoutFloorTags(layout.arrangements, guests) : []), [detail, layout.arrangements, guests])
+  const tagsRef = useRef(floorTags)
+  tagsRef.current = floorTags
+  const [draggingIds, setDraggingIds] = useState<Set<string>>(() => new Set())
+
+  useEffect(() => {
+    if (!exportRef) return
+    exportRef.current = {
+      async toPng(options = {}) {
+        const stage = stageRef.current
+        if (!stage) throw new Error('The floor is not ready yet.')
+        setExporting(true)
+        transformerRef.current?.nodes([])
+        // Let React draw every label and floating name tag first (zoomed-out floors draw them only now).
+        await nextFrame()
+        await nextFrame()
+        const seated = live.current.layout.arrangements.some(
+          (item) => item.kind !== 'row' && item.kind !== 'stage' && item.seats.some((seat) => seat.guestId),
+        )
+        for (let wait = 0; seated && tagsRef.current.length === 0 && wait < 30; wait += 1) await nextFrame()
+        // Name tags must not be hidden by an unfinished drag.
+        setDraggingIds(new Set())
+        await nextFrame()
+        stage.batchDraw()
+        try {
+          const boxes = live.current.layout.arrangements.map(arrangementBox)
+          const area = unionBounds(boxes)
+          if (!area) throw new Error('There is nothing on this floor yet.')
+          let left = area.left
+          let top = area.top
+          let right = area.right
+          let bottom = area.bottom
+          for (const tag of tagsRef.current) {
+            left = Math.min(left, tag.x)
+            top = Math.min(top, tag.y)
+            right = Math.max(right, tag.x + tag.width)
+            bottom = Math.max(bottom, tag.y + TAG_HEIGHT)
+          }
+          const margin = 60
+          const header = options.title ? 90 : 0
+          left -= margin
+          right += margin
+          top -= margin + header
+          bottom += margin
+          const width = Math.ceil(right - left)
+          const height = Math.ceil(bottom - top)
+          // Stay inside browser canvas limits (about 16k px per side, ~200 megapixels in total).
+          const wanted = options.pixelRatio ?? 3
+          const pixelRatio = Math.max(1, Math.min(wanted, 16000 / Math.max(width, height), Math.sqrt(200_000_000 / (width * height))))
+
+          const before = { x: stage.x(), y: stage.y(), scale: stage.scaleX(), width: stage.width(), height: stage.height() }
+          const [gridLayer, floorLayer] = stage.getLayers()
+          gridLayer?.visible(false)
+          const extras: Konva.Node[] = []
+          const background = new Konva.Rect({ x: left, y: top, width, height, fill: colors.background, listening: false })
+          floorLayer?.add(background)
+          background.moveToBottom()
+          extras.push(background)
+          if (options.title) {
+            const title = new Konva.Text({
+              x: left + margin,
+              y: top + margin - 10,
+              text: options.title,
+              fontFamily: 'Inter, sans-serif',
+              fontSize: 34,
+              fontStyle: '700',
+              fill: colors.foreground,
+              listening: false,
+            })
+            floorLayer?.add(title)
+            extras.push(title)
+            if (options.subtitle) {
+              const subtitle = new Konva.Text({
+                x: left + margin,
+                y: top + margin + 34,
+                text: options.subtitle,
+                fontFamily: 'Inter, sans-serif',
+                fontSize: 16,
+                fill: colors.muted,
+                listening: false,
+              })
+              floorLayer?.add(subtitle)
+              extras.push(subtitle)
+            }
+          }
+          stage.size({ width, height })
+          stage.scale({ x: 1, y: 1 })
+          stage.position({ x: -left, y: -top })
+          try {
+            return await new Promise<Blob>((resolve, reject) =>
+              stage.toBlob({
+                pixelRatio,
+                mimeType: 'image/png',
+                callback: (blob) => (blob ? resolve(blob) : reject(new Error('The image could not be created.'))),
+              }),
+            )
+          } finally {
+            for (const node of extras) node.destroy()
+            gridLayer?.visible(true)
+            stage.size({ width: before.width, height: before.height })
+            stage.scale({ x: before.scale, y: before.scale })
+            stage.position({ x: before.x, y: before.y })
+            stage.batchDraw()
+          }
+        } finally {
+          setExporting(false)
+        }
+      },
+    }
+    return () => {
+      exportRef.current = null
+    }
+  }, [exportRef, colors])
 
   function showGuest(arrangement: Arrangement, seat: Arrangement['seats'][number] | null) {
     const stage = stageRef.current
@@ -451,7 +589,6 @@ export function FloorStage({
                 labelFontSize={labelFontSize}
                 draggable={tool === 'select'}
                 detail={detail}
-                guests={guests}
                 register={(node) => {
                   if (node) nodes.current.set(id, node)
                   else nodes.current.delete(id)
@@ -467,6 +604,7 @@ export function FloorStage({
                 onDragStart={() => {
                   const current = live.current.layout.arrangements
                   const ids = moveCohort(current, id, live.current.selectedIds)
+                  setDraggingIds(new Set(ids))
                   dragOrigin.current = {
                     id,
                     positions: new Map(
@@ -491,6 +629,7 @@ export function FloorStage({
                 }}
                 onMove={(x, y, rotation, size) => {
                   dragOrigin.current = null
+                  setDraggingIds((current) => (current.size ? new Set() : current))
                   live.current.onMove(id, x, y, rotation, size)
                 }}
                 onSeatMove={(seatId, x, y) => live.current.onSeatMove(id, seatId, x, y)}
@@ -531,6 +670,16 @@ export function FloorStage({
             anchorFill={colors.surface}
             rotateAnchorOffset={18}
             boundBoxFunc={(oldBox, newBox) => (newBox.width < 40 || newBox.height < 24 ? oldBox : newBox)}
+          />
+        </Layer>
+        <Layer listening={false}>
+          <FloorNameTags
+            tags={floorTags}
+            hidden={draggingIds}
+            accent={colors.accent}
+            isMarked={(arrangementId, seatId) =>
+              selectedSeatKeys.includes(`${arrangementId}:${seatId}`) || (arrangementId === primaryId && seatId === selectedSeatId)
+            }
           />
         </Layer>
       </Stage>
@@ -684,8 +833,7 @@ const ArrangementNode = memo(
     sameKeys(previous.selectedSeatKeys, next.selectedSeatKeys) &&
     previous.labelFontSize === next.labelFontSize &&
     previous.draggable === next.draggable &&
-    previous.detail === next.detail &&
-    previous.guests === next.guests,
+    previous.detail === next.detail,
 )
 
 /**
@@ -710,7 +858,6 @@ function ArrangementNodeView({
   labelFontSize,
   draggable,
   detail,
-  guests,
   register,
   onSelectSeat,
   onSelectBody,
@@ -725,8 +872,6 @@ function ArrangementNodeView({
   onHoverSeat: (seat: Arrangement['seats'][number] | null) => void
   /** False when zoomed far out: chair numbers and badges are skipped. */
   detail: boolean
-  /** Guest details by id; an occupied chair shows the guest's initials instead of its number. */
-  guests?: Map<string, SeatGuest>
   arrangement: Arrangement
   colors: FloorColors
   selected: boolean
@@ -751,7 +896,13 @@ function ArrangementNodeView({
     ?? (arrangement.kind === 'row'
       ? '#FFFFFF'
       : readableOn(arrangement.fill ?? (arrangement.kind === 'stage' ? defaultStageFill : defaultTableFill)))
-  const nameSize = arrangement.kind === 'stage' && arrangement.labelSize ? arrangement.labelSize : labelFontSize
+  // Table names read large and bold in the centre of the table, like a place card.
+  const nameSize =
+    arrangement.kind === 'stage' && arrangement.labelSize
+      ? arrangement.labelSize
+      : arrangement.kind === 'row' || arrangement.kind === 'stage'
+        ? labelFontSize
+        : Math.round(labelFontSize * 1.4)
   const chairScale = (arrangement.chairSize ?? CHAIR) / CHAIR
   return (
     <Group
@@ -789,7 +940,7 @@ function ArrangementNodeView({
       {arrangement.seats.map((seat) => {
         const marked = selectedSeatKeys.includes(`${arrangement.id}:${seat.id}`) || seat.id === selectedSeatId || (selected && selectedSeatId == null && arrangement.kind === 'row')
         const chairFill = seat.fill ?? defaultChairFill
-        const chairStroke = seat.stroke ?? (marked ? colors.accent : defaultChairStroke)
+        const chairStroke = seat.stroke ?? defaultChairStroke
         const seatSelected = seat.id === selectedSeatId
         return (
           <Group
@@ -844,49 +995,33 @@ function ArrangementNodeView({
               onRotateSeat(seat.id, node.rotation())
             }}
           >
-            <Group scaleX={chairScale} scaleY={chairScale}>
-              <ChairGlyph fill={chairFill} stroke={chairStroke} strokeWidth={marked ? 2 : 1} seated={Boolean(seat.guestId)} accent={colors.accent} />
-            </Group>
-            {/* Outline, not a blurred shadow: shadows are the costliest thing to redraw across thousands of chairs. */}
-            {/* Taken chairs show the guest's initials; the seat number stays in the hover card. */}
+            {/* Numbered seat disc. Flat outline rings only: no blurred shadows (costly across thousands of seats). */}
+            <SeatDisc radius={SEAT_RADIUS * chairScale} fill={chairFill} ring={chairStroke} marked={marked} assigned={Boolean(seat.guestId)} accent={colors.accent} />
             {detail ? (() => {
-              const text = (seat.guestId ? guestInitials(guests?.get(seat.guestId)?.name) : null) ?? seat.label
-              // One line, never wrapped: "AO" used to break onto two lines and only "A" was visible.
-              // Shrink the text if it is wider than the chair seat (~0.62em per character).
-              const box = 40 * chairScale
-              const size = Math.max(7, Math.min(labelFontSize, (34 * chairScale) / Math.max(1, text.length * 0.62)))
+              const text = seat.label
+              const radius = SEAT_RADIUS * chairScale
+              const size = Math.max(8, Math.min(radius * 0.95, (radius * 1.5) / Math.max(1, text.length * 0.62)))
               return (
-              <Text
-                name="chair-label"
-                text={text}
-                y={4}
-                width={box}
-                height={size + 2}
-                offsetX={box / 2}
-                offsetY={(size + 2) / 2}
-                rotation={uprightRotation(arrangement.rotation + seat.rotation)}
-                align="center"
-                verticalAlign="middle"
-                wrap="none"
-                fontFamily="Geist Sans, sans-serif"
-                fontSize={size}
-                fill="#FFFFFF"
-                stroke="#1C1D1A"
-                strokeWidth={1.1}
-                fillAfterStrokeEnabled
-                perfectDrawEnabled={false}
-                listening={false}
-              />
+                <Text
+                  name="chair-label"
+                  text={text}
+                  width={radius * 2}
+                  height={size + 2}
+                  offsetX={radius}
+                  offsetY={(size + 2) / 2}
+                  rotation={uprightRotation(arrangement.rotation + seat.rotation)}
+                  align="center"
+                  verticalAlign="middle"
+                  wrap="none"
+                  fontFamily="Inter, sans-serif"
+                  fontSize={size}
+                  fontStyle="700"
+                  fill="#FFFFFF"
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
               )
             })() : null}
-            {seat.guestId && detail ? (
-              <SeatedMarker
-                rotation={uprightRotation(arrangement.rotation + seat.rotation)}
-                chairScale={chairScale}
-                accent={colors.accent}
-                surface={colors.surface}
-              />
-            ) : null}
           </Group>
         )
       })}
@@ -918,9 +1053,9 @@ function ArrangementNodeView({
           offsetY={(nameSize + 4) / 2}
           align="center"
           verticalAlign="middle"
-          fontFamily="Geist Sans, sans-serif"
+          fontFamily="Inter, sans-serif"
           fontSize={nameSize}
-          fontStyle="600"
+          fontStyle={arrangement.kind === 'row' || arrangement.kind === 'stage' ? '600' : '700'}
           fill={labelFill}
           stroke={arrangement.kind === 'row' && !arrangement.labelColor ? '#1C1D1A' : undefined}
           strokeWidth={arrangement.kind === 'row' && !arrangement.labelColor ? 0.6 : 0}
@@ -932,25 +1067,381 @@ function ArrangementNodeView({
   )
 }
 
-/**
- * Small "person sitting on a chair" badge on the corner of an occupied chair.
- * Kept upright on screen so it reads the same however the table is turned.
- */
-function SeatedMarker({ rotation, chairScale, accent, surface }: { rotation: number; chairScale: number; accent: string; surface: string }) {
-  const corner = 20 * chairScale
+/** Radius of a seat disc at chair scale 1 (chairs are spaced CHAIR = 52 apart). */
+const SEAT_RADIUS = 16
+
+/** Navy numbered disc with a light ring; a selected seat gets a mint-teal halo. */
+function SeatDisc({
+  radius,
+  fill,
+  ring,
+  marked,
+  assigned,
+  accent,
+}: {
+  radius: number
+  fill: string
+  ring: string
+  marked: boolean
+  /** A guest sits here: the seat always carries the mint-teal glow. */
+  assigned: boolean
+  accent: string
+}) {
+  const glow = assigned || marked
   return (
-    <Group name="seat-marker" rotation={rotation} listening={false}>
-      <Group x={corner} y={-corner}>
-        <Circle radius={10} fill={accent} stroke={surface} strokeWidth={1.5} />
-        {/* Head */}
-        <Circle x={0.5} y={-4.6} radius={2} fill={surface} />
-        {/* Chair back and seat */}
-        <Line points={[-4.5, -2.5, -4.5, 6]} stroke={surface} strokeWidth={1.4} lineCap="round" />
-        <Line points={[-4.5, 2.6, 2.5, 2.6]} stroke={surface} strokeWidth={1.4} lineCap="round" />
-        {/* Body: back, thigh along the seat, shin down */}
-        <Line points={[-0.2, -2.2, -1.6, 1.2, 3.6, 1.2, 3.6, 6]} stroke={surface} strokeWidth={1.8} lineCap="round" lineJoin="round" />
-      </Group>
-    </Group>
+    <>
+      {/* Generous transparent hit area so small seats are easy to click and drop guests on. */}
+      <Circle radius={radius + 6} fill="#000000" opacity={0.01} strokeEnabled={false} perfectDrawEnabled={false} />
+      {/* Mint-teal glow on assigned seats; a selected seat glows stronger so the selection still stands out. */}
+      {glow ? <Circle radius={radius + 6} fill={accent} opacity={marked ? 0.32 : 0.16} listening={false} perfectDrawEnabled={false} /> : null}
+      {glow ? <Circle radius={radius + 4} stroke={accent} strokeWidth={marked ? 3 : 1.75} listening={false} perfectDrawEnabled={false} /> : null}
+      <Circle radius={radius} fill={fill} stroke={ring} strokeWidth={2} perfectDrawEnabled={false} />
+    </>
+  )
+}
+
+/** "Bader Saleh Al Mansoori" → "Bader A." … first name plus the last name's initial. */
+export function shortGuestName(name: string | null | undefined) {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return null
+  if (parts.length === 1) return parts[0]
+  return `${parts[0]} ${parts[parts.length - 1][0].toUpperCase()}.`
+}
+
+let measureContext: CanvasRenderingContext2D | null = null
+function textWidth(text: string, font: string) {
+  measureContext ??= document.createElement('canvas').getContext('2d')
+  if (!measureContext) return text.length * 7
+  measureContext.font = font
+  return measureContext.measureText(text).width
+}
+
+/** Guest name tag size (half of the earlier 24.5px enlargement). */
+const TAG_FONT = 12.25
+const TAG_PAD_X = 8
+const TAG_HEIGHT = 22
+
+const TAG_GAP = 4
+/** Room between a seat's ring and its tag, for the connector line. */
+const TAG_LEAD = 10
+
+/** Distance from a tag's centre to its edge along direction (dx, dy). */
+function rayExtent(dx: number, dy: number, width: number) {
+  const ex = Math.abs(dx) > 1e-6 ? width / 2 / Math.abs(dx) : Infinity
+  const ey = Math.abs(dy) > 1e-6 ? TAG_HEIGHT / 2 / Math.abs(dy) : Infinity
+  return Math.min(ex, ey)
+}
+
+/** Does an axis-aligned box touch a circle? */
+function boxHitsCircle(left: number, top: number, right: number, bottom: number, cx: number, cy: number, r: number) {
+  const nx = Math.min(Math.max(cx, left), right)
+  const ny = Math.min(Math.max(cy, top), bottom)
+  return (nx - cx) ** 2 + (ny - cy) ** 2 < r * r
+}
+
+type TagBox = {
+  seatId: string
+  name: string
+  /** Seat centre, screen axes, relative to the table centre. */
+  sx: number
+  sy: number
+  /** The chair's outward direction (the way it faces away from the table). */
+  dx: number
+  dy: number
+  /** Distance from the seat centre to the tag centre along (dx, dy). */
+  d: number
+  width: number
+}
+
+/**
+ * Places each seated guest's tag on the line the chair points along, straight out from the table,
+ * so tags fan out around the table at the chair's own angle. Tags that would overlap another tag
+ * or a seat slide further out along that same line.
+ */
+function layoutTags(arrangement: Arrangement, guests: Map<string, SeatGuest> | undefined, radius: number): TagBox[] {
+  const angle = (arrangement.rotation * Math.PI) / 180
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  const seats = arrangement.seats.map((seat) => ({ seat, x: seat.x * cos - seat.y * sin, y: seat.x * sin + seat.y * cos }))
+  const discR = radius + 5
+  const roundTable = arrangement.kind === 'round'
+  const halfW = Math.abs((arrangement.tableWidth / 2) * cos) + Math.abs((arrangement.tableHeight / 2) * sin) + 6
+  const halfH = Math.abs((arrangement.tableWidth / 2) * sin) + Math.abs((arrangement.tableHeight / 2) * cos) + 6
+
+  const placed: { left: number; top: number; right: number; bottom: number }[] = []
+  const tags: TagBox[] = []
+  // Clockwise from the top, so neighbours settle in order.
+  const seated = seats.filter((item) => item.seat.guestId).sort((a, b) => Math.atan2(a.x, -a.y) - Math.atan2(b.x, -b.y))
+  for (const { seat, x: sx, y: sy } of seated) {
+    const name = shortGuestName(guests?.get(seat.guestId!)?.name) ?? 'Guest'
+    const width = Math.ceil(textWidth(name, `500 ${TAG_FONT}px Inter, sans-serif`)) + TAG_PAD_X * 2
+    // Outward direction: the chair's own facing (backrest side), checked against "away from the centre".
+    const length = Math.hypot(sx, sy) || 1
+    const radial = { x: sx / length, y: sy / length }
+    const total = ((arrangement.rotation + seat.rotation) * Math.PI) / 180
+    const facing = { x: Math.sin(total), y: -Math.cos(total) }
+    const dir = facing.x * radial.x + facing.y * radial.y > 0.2 ? facing : radial
+    const boxFor = (dx: number, dy: number, d: number) => {
+      const cx = sx + dx * d
+      const cy = sy + dy * d
+      return {
+        left: cx - width / 2 - TAG_GAP / 2,
+        right: cx + width / 2 + TAG_GAP / 2,
+        top: cy - TAG_HEIGHT / 2 - TAG_GAP / 2,
+        bottom: cy + TAG_HEIGHT / 2 + TAG_GAP / 2,
+      }
+    }
+    const blocked = ({ left, top, right, bottom }: { left: number; top: number; right: number; bottom: number }) =>
+      placed.some((box) => !(right <= box.left || left >= box.right || bottom <= box.top || top >= box.bottom)) ||
+      seats.some((other) => boxHitsCircle(left, top, right, bottom, other.x, other.y, discR)) ||
+      (roundTable
+        ? boxHitsCircle(left, top, right, bottom, 0, 0, arrangement.tableWidth / 2 + 6)
+        : !(right <= -halfW || left >= halfW || bottom <= -halfH || top >= halfH))
+
+    // Best free spot close to the chair: straight out along the chair's angle if there is room;
+    // otherwise the nearest open space around the chair (turned up to 80°), not far down the line.
+    // A short connector beats a long one, so distance costs more than turning.
+    const base = Math.atan2(dir.y, dir.x)
+    let best: { dx: number; dy: number; d: number; cost: number } | null = null
+    for (let turn = -80; turn <= 80; turn += 10) {
+      const a = base + (turn * Math.PI) / 180
+      const dx = Math.cos(a)
+      const dy = Math.sin(a)
+      // Never point back toward the table.
+      if (dx * radial.x + dy * radial.y < -0.15) continue
+      const start = radius + TAG_LEAD + rayExtent(dx, dy, width)
+      for (let extra = 0; extra <= 240; extra += 6) {
+        const cost = extra + Math.abs(turn) * 0.7
+        if (best && cost >= best.cost) break
+        if (!blocked(boxFor(dx, dy, start + extra))) {
+          best = { dx, dy, d: start + extra, cost }
+          break
+        }
+      }
+    }
+    const chosen = best ?? { dx: dir.x, dy: dir.y, d: radius + TAG_LEAD + rayExtent(dir.x, dir.y, width) }
+    placed.push(boxFor(chosen.dx, chosen.dy, chosen.d))
+    tags.push({ seatId: seat.id, name, sx, sy, dx: chosen.dx, dy: chosen.dy, d: chosen.d, width })
+  }
+  return tags
+}
+
+/** One placed name tag in floor (world) coordinates. */
+type FloorTag = {
+  key: string
+  arrangementId: string
+  seatId: string
+  name: string
+  /** Seat centre and disc radius. */
+  sx: number
+  sy: number
+  radius: number
+  /** Direction from the seat to the tag (the chair's angle, or a nearby angle if that was full). */
+  dx: number
+  dy: number
+  /** Top-left corner of the tag. */
+  x: number
+  y: number
+  width: number
+}
+
+type Box = { left: number; top: number; right: number; bottom: number }
+type Obstacle = { box: Box; circle?: { cx: number; cy: number; r: number } }
+
+const BUCKET = 120
+
+/**
+ * Lays out every name tag on the floor so no tag overlaps another tag, any seat, or any table —
+ * including tags and seats of neighbouring tables. Each table first arranges its own tags (stacked
+ * beside their seats); a tag that still collides with something from another table is moved to the
+ * nearest free spot (up/down, further out, or the other side), with a leader line to its seat.
+ */
+function layoutFloorTags(arrangements: Arrangement[], guests: Map<string, SeatGuest> | undefined): FloorTag[] {
+  // Spatial buckets keep collision checks fast on big floors.
+  const buckets = new Map<string, Obstacle[]>()
+  const keysFor = (box: Box) => {
+    const keys: string[] = []
+    for (let i = Math.floor(box.left / BUCKET); i <= Math.floor(box.right / BUCKET); i += 1) {
+      for (let j = Math.floor(box.top / BUCKET); j <= Math.floor(box.bottom / BUCKET); j += 1) keys.push(`${i},${j}`)
+    }
+    return keys
+  }
+  const add = (obstacle: Obstacle) => {
+    for (const key of keysFor(obstacle.box)) {
+      const list = buckets.get(key)
+      if (list) list.push(obstacle)
+      else buckets.set(key, [obstacle])
+    }
+  }
+  const hits = (box: Box) => {
+    for (const key of keysFor(box)) {
+      for (const obstacle of buckets.get(key) ?? []) {
+        const o = obstacle.box
+        if (box.right <= o.left || box.left >= o.right || box.bottom <= o.top || box.top >= o.bottom) continue
+        if (obstacle.circle) {
+          const { cx, cy, r } = obstacle.circle
+          const nx = Math.min(Math.max(cx, box.left), box.right)
+          const ny = Math.min(Math.max(cy, box.top), box.bottom)
+          if ((nx - cx) ** 2 + (ny - cy) ** 2 >= r * r) continue
+        }
+        return true
+      }
+    }
+    return false
+  }
+
+  // Obstacles: every seat disc and every table body on the floor.
+  for (const arrangement of arrangements) {
+    const angle = (arrangement.rotation * Math.PI) / 180
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    const scale = (arrangement.chairSize ?? CHAIR) / CHAIR
+    const discR = SEAT_RADIUS * scale + 4
+    for (const seat of arrangement.seats) {
+      const cx = arrangement.x + seat.x * cos - seat.y * sin
+      const cy = arrangement.y + seat.x * sin + seat.y * cos
+      add({ box: { left: cx - discR, top: cy - discR, right: cx + discR, bottom: cy + discR }, circle: { cx, cy, r: discR } })
+    }
+    if (arrangement.kind === 'row') continue
+    const margin = 6
+    if (arrangement.kind === 'round') {
+      const r = arrangement.tableWidth / 2 + margin
+      add({ box: { left: arrangement.x - r, top: arrangement.y - r, right: arrangement.x + r, bottom: arrangement.y + r }, circle: { cx: arrangement.x, cy: arrangement.y, r } })
+    } else {
+      const halfW = Math.abs((arrangement.tableWidth / 2) * cos) + Math.abs((arrangement.tableHeight / 2) * sin) + margin
+      const halfH = Math.abs((arrangement.tableWidth / 2) * sin) + Math.abs((arrangement.tableHeight / 2) * cos) + margin
+      add({ box: { left: arrangement.x - halfW, top: arrangement.y - halfH, right: arrangement.x + halfW, bottom: arrangement.y + halfH } })
+    }
+  }
+
+  const placed: FloorTag[] = []
+  for (const arrangement of arrangements) {
+    if (arrangement.kind === 'row' || arrangement.kind === 'stage') continue
+    const radius = SEAT_RADIUS * ((arrangement.chairSize ?? CHAIR) / CHAIR)
+    for (const tag of layoutTags(arrangement, guests, radius)) {
+      const sx = arrangement.x + tag.sx
+      const sy = arrangement.y + tag.sy
+      // Top-left of a tag whose centre is `d` out from the seat along direction (dx, dy).
+      const at = (dx: number, dy: number, d: number) => ({ x: sx + dx * d - tag.width / 2, y: sy + dy * d - TAG_HEIGHT / 2 })
+      const boxAt = (x: number, y: number): Box => ({ left: x - TAG_GAP / 2, top: y - TAG_GAP / 2, right: x + tag.width + TAG_GAP / 2, bottom: y + TAG_HEIGHT + TAG_GAP / 2 })
+
+      let dir = { x: tag.dx, y: tag.dy }
+      let spot = at(tag.dx, tag.dy, tag.d)
+      if (hits(boxAt(spot.x, spot.y))) {
+        // Nearest free spot that still follows the chair: further out on the same line first,
+        // then a slightly turned line (±8°, ±16°, ±24°).
+        const base = Math.atan2(tag.dy, tag.dx)
+        const candidates: { dx: number; dy: number; d: number; cost: number }[] = []
+        for (let turn = -80; turn <= 80; turn += 10) {
+          const a = base + (turn * Math.PI) / 180
+          const dx = Math.cos(a)
+          const dy = Math.sin(a)
+          const start = radius + TAG_LEAD + rayExtent(dx, dy, tag.width)
+          for (let extra = 0; extra <= 300; extra += 6) {
+            candidates.push({ dx, dy, d: start + extra, cost: extra + Math.abs(turn) * 0.7 })
+          }
+        }
+        candidates.sort((a, b) => a.cost - b.cost)
+        const free = candidates.find((candidate) => {
+          const point = at(candidate.dx, candidate.dy, candidate.d)
+          return !hits(boxAt(point.x, point.y))
+        })
+        if (free) {
+          spot = at(free.dx, free.dy, free.d)
+          dir = { x: free.dx, y: free.dy }
+        }
+      }
+      add({ box: boxAt(spot.x, spot.y) })
+      placed.push({
+        key: `${arrangement.id}:${tag.seatId}`,
+        arrangementId: arrangement.id,
+        seatId: tag.seatId,
+        name: tag.name,
+        sx,
+        sy,
+        radius,
+        dx: dir.x,
+        dy: dir.y,
+        x: spot.x,
+        y: spot.y,
+        width: tag.width,
+      })
+    }
+  }
+  return placed
+}
+
+/** Every guest name tag on the floor, drawn upright on top of all tables. */
+function FloorNameTags({
+  tags,
+  hidden,
+  isMarked,
+  accent,
+}: {
+  tags: FloorTag[]
+  /** Tables being dragged: their tags are hidden until the drop re-lays them out. */
+  hidden: Set<string>
+  isMarked: (arrangementId: string, seatId: string) => boolean
+  accent: string
+}) {
+  return (
+    <>
+      {tags.map((tag) => {
+        if (hidden.has(tag.arrangementId)) return null
+        const radius = tag.radius
+        const marked = isMarked(tag.arrangementId, tag.seatId)
+        // Green connector straight along the chair's angle: from the seat's ring to where that line meets the tag.
+        const cx = tag.x + tag.width / 2
+        const cy = tag.y + TAG_HEIGHT / 2
+        const extent = rayExtent(tag.dx, tag.dy, tag.width)
+        const nearX = cx - tag.dx * extent
+        const nearY = cy - tag.dy * extent
+        const distance = Math.hypot(nearX - tag.sx, nearY - tag.sy)
+        const moved = distance > radius + 2
+        const ux = tag.dx
+        const uy = tag.dy
+        return (
+          <Group key={tag.key}>
+            {moved ? (
+              <Line
+                points={[tag.sx + ux * radius, tag.sy + uy * radius, nearX, nearY]}
+                stroke={accent}
+                strokeWidth={1.25}
+                opacity={0.9}
+                lineCap="round"
+                perfectDrawEnabled={false}
+              />
+            ) : null}
+            <Rect
+              x={tag.x}
+              y={tag.y}
+              width={tag.width}
+              height={TAG_HEIGHT}
+              cornerRadius={6}
+              fill={nameTagFill}
+              stroke={accent}
+              strokeWidth={marked ? 2.5 : 1.5}
+              perfectDrawEnabled={false}
+            />
+            <Text
+              x={tag.x}
+              y={tag.y}
+              width={tag.width}
+              height={TAG_HEIGHT}
+              text={tag.name}
+              align="center"
+              verticalAlign="middle"
+              wrap="none"
+              fontFamily="Inter, sans-serif"
+              fontSize={TAG_FONT}
+              fontStyle="500"
+              fill={nameTagText}
+              perfectDrawEnabled={false}
+            />
+          </Group>
+        )
+      })}
+    </>
   )
 }
 
@@ -1000,7 +1491,7 @@ function RowLabels({ arrangement, color, fontSize }: { arrangement: Arrangement;
           align="center"
           verticalAlign="middle"
           wrap="none"
-          fontFamily="Geist Sans, sans-serif"
+          fontFamily="Inter, sans-serif"
           fontSize={size}
           fontStyle="600"
           fill={color}
@@ -1022,11 +1513,14 @@ function TableBody({
   selected: boolean
   onSelect: (mode: SelectMode) => void
 }) {
-  const stroke = arrangement.stroke ?? (selected ? colors.accent : defaultTableStroke)
+  // Plans saved with the old default rim (#9E5A58) get the new teal rim too.
+  const saved = arrangement.stroke && arrangement.stroke.toUpperCase() !== '#9E5A58' ? arrangement.stroke : undefined
+  const stroke = saved ?? defaultTableStroke
   const common = {
     fill: arrangement.fill ?? defaultTableFill,
     stroke,
-    strokeWidth: selected ? 2 : 1.5,
+    // A solid rim like the reference: thick teal edge on the cream top.
+    strokeWidth: selected ? 4 : 3,
     onMouseDown: (event: { cancelBubble: boolean }) => {
       event.cancelBubble = true
     },
@@ -1039,22 +1533,38 @@ function TableBody({
       onSelect('replace')
     },
   }
+  // Soft mint-teal glow ring outside the rim (flat semi-transparent strokes, no blur), always in the accent.
+  const halo = { stroke: colors.accent, listening: false, perfectDrawEnabled: false } as const
   if (arrangement.kind === 'round') {
-    return <Circle radius={arrangement.tableWidth / 2} {...common} />
+    const radius = arrangement.tableWidth / 2
+    return (
+      <Group>
+        <Circle radius={radius + 6} strokeWidth={8} opacity={0.18} {...halo} />
+        <Circle radius={radius + 3} strokeWidth={2} opacity={0.75} {...halo} />
+        <Circle radius={radius} {...common} />
+      </Group>
+    )
   }
   if (arrangement.kind === 'oval') {
-    return <Ellipse radiusX={arrangement.tableWidth / 2} radiusY={arrangement.tableHeight / 2} {...common} />
+    const rx = arrangement.tableWidth / 2
+    const ry = arrangement.tableHeight / 2
+    return (
+      <Group>
+        <Ellipse radiusX={rx + 6} radiusY={ry + 6} strokeWidth={8} opacity={0.18} {...halo} />
+        <Ellipse radiusX={rx + 3} radiusY={ry + 3} strokeWidth={2} opacity={0.75} {...halo} />
+        <Ellipse radiusX={rx} radiusY={ry} {...common} />
+      </Group>
+    )
   }
   if (arrangement.kind === 'rect' || arrangement.kind === 'square') {
+    const width = arrangement.tableWidth
+    const height = arrangement.tableHeight
     return (
-      <Rect
-        x={-arrangement.tableWidth / 2}
-        y={-arrangement.tableHeight / 2}
-        width={arrangement.tableWidth}
-        height={arrangement.tableHeight}
-        cornerRadius={6}
-        {...common}
-      />
+      <Group>
+        <Rect x={-width / 2 - 6} y={-height / 2 - 6} width={width + 12} height={height + 12} cornerRadius={12} strokeWidth={8} opacity={0.18} {...halo} />
+        <Rect x={-width / 2 - 3} y={-height / 2 - 3} width={width + 6} height={height + 6} cornerRadius={9} strokeWidth={2} opacity={0.75} {...halo} />
+        <Rect x={-width / 2} y={-height / 2} width={width} height={height} cornerRadius={6} {...common} />
+      </Group>
     )
   }
   if (arrangement.kind === 'crescent') {
@@ -1146,74 +1656,6 @@ function TableBody({
   }
   return null
 }
-
-/** Top-down chair: a seat, a backrest toward -Y, and two front feet. */
-function ChairGlyph({
-  fill,
-  stroke,
-  strokeWidth,
-  seated,
-  accent,
-}: {
-  fill: string
-  stroke: string
-  strokeWidth: number
-  seated: boolean
-  accent: string
-}) {
-  // Taken chairs are drawn fully grey (backrest, seat and legs) so open seats stand out at a glance.
-  // A selected taken chair keeps the accent outline so the selection is still visible.
-  const selectedStroke = stroke === accent
-  if (seated) {
-    fill = TAKEN_SEAT
-    stroke = selectedStroke ? accent : TAKEN_EDGE
-  }
-  const back = seated ? TAKEN_BACK : readableOn(fill) === '#1C1D1A' ? '#3A5170' : '#E7EEF6'
-  const legs = seated ? TAKEN_EDGE : stroke
-  return (
-    <>
-      <Rect
-        x={CHAIR_LEFT}
-        y={CHAIR_TOP}
-        width={CHAIR_RIGHT - CHAIR_LEFT}
-        height={CHAIR_BOTTOM - CHAIR_TOP}
-        fill="#000000"
-        opacity={0.01}
-        strokeEnabled={false}
-        perfectDrawEnabled={false}
-      />
-      <Rect
-        x={-22}
-        y={-28}
-        width={44}
-        height={14}
-        cornerRadius={[10, 10, 3, 3]}
-        fill={back}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        perfectDrawEnabled={false}
-      />
-      <Rect
-        x={-16}
-        y={-12}
-        width={32}
-        height={32}
-        cornerRadius={6}
-        fill={fill}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        perfectDrawEnabled={false}
-      />
-      <Rect x={-16} y={16} width={6} height={8} cornerRadius={1} fill={legs} listening={false} perfectDrawEnabled={false} />
-      <Rect x={10} y={16} width={6} height={8} cornerRadius={1} fill={legs} listening={false} perfectDrawEnabled={false} />
-    </>
-  )
-}
-
-/** Greyed-out palette for chairs that already have a guest. */
-const TAKEN_SEAT = '#9CA3AB'
-const TAKEN_BACK = '#BCC2C9'
-const TAKEN_EDGE = '#6F767E'
 
 function GroupRotateHandle({
   arrangements,

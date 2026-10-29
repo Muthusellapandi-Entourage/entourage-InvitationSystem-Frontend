@@ -239,7 +239,7 @@ A warm neutral galley, one spruce accent, and a danger ramp that never substitut
 
 **The Tabular Figures Rule.** Table dates and tally counts use tabular numerals.
 
-**The Wordmark Tracking Rule.** Letter-spacing of 0.16em belongs to the ENTOURAGE wordmark. Page titles and counts use -0.02em. All other text stays at normal tracking.
+**The Wordmark Tracking Rule.** Letter-spacing of 0.16em belongs to the entourage wordmark. Page titles and counts use -0.02em. All other text stays at normal tracking.
 
 ## Layout
 
@@ -321,7 +321,7 @@ Full width, at least 720px, body size, left aligned. Header cells are Proof Gray
 
 ### Wordmark
 
-The lockup is a 28px ruled-square mark, then ENTOURAGE at 13px semibold with 0.16em tracking, then "Event Platform" at 0.75rem in Proof Gray. The mark and the name are ink. Its focus outline uses a 4px offset; every other focus ring uses 2px.
+The lockup is a 28px ruled-square mark, then entourage at 13px semibold with 0.16em tracking, then "Event Platform" at 0.75rem in Proof Gray. The mark and the name are ink. Its focus outline uses a 4px offset; every other focus ring uses 2px.
 
 ### Dialogs and menus
 

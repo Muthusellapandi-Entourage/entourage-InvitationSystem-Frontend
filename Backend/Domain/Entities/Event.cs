@@ -58,5 +58,14 @@ public sealed class Event
     /// <summary>Look and wording of the guest RSVP page (background, logo, font, texts) as JSON. Null = defaults.</summary>
     public string? RsvpPageJson { get; set; }
 
+    /// <summary>The public self-registration page (/register): fields, custom questions, look, open/closed, as JSON. Null = not set up.</summary>
+    public string? RegistrationJson { get; set; }
+
+    /// <summary>Secret code for the self check-in kiosk (/kiosk/{token}). Null = kiosk link turned off.</summary>
+    public string? KioskToken { get; set; }
+
+    /// <summary>Look and wording of the self check-in kiosk, as JSON. Null = defaults.</summary>
+    public string? KioskJson { get; set; }
+
     public User? Creator { get; set; }
 }

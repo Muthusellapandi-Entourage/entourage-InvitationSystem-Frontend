@@ -1,6 +1,44 @@
-import { ChartColumn, ChevronDown, FileDown, ImageDown, Mail, Pencil, Trash2, UserPlus } from 'lucide-react'
+import { ArrowDown, ArrowUp, ArrowUpDown, ChartColumn, ChevronDown, FileDown, ImageDown, Mail, Pencil, Trash2, UserPlus } from 'lucide-react'
 import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
+import type { GuestSort, GuestSortColumn } from '@/guests/guestSort'
 import { cn } from '@/lib/cn'
+
+/**
+ * Clickable column header for a group's guest table: click to sort ascending, again for
+ * descending, a third time to go back to the default order.
+ */
+export function SortHeader({
+  label,
+  column,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string
+  column: GuestSortColumn
+  sort: GuestSort
+  onSort: (column: GuestSortColumn) => void
+  className?: string
+}) {
+  const active = sort?.column === column
+  const Icon = !active ? ArrowUpDown : sort.direction === 'asc' ? ArrowUp : ArrowDown
+  return (
+    <th className={cn('py-3 pr-3', className)} aria-sort={!active ? 'none' : sort.direction === 'asc' ? 'ascending' : 'descending'}>
+      <button
+        type="button"
+        className={cn(
+          'group inline-flex items-center gap-1.5 uppercase tracking-[0.06em] transition-colors',
+          active ? 'text-accent' : 'text-muted hover:text-foreground',
+        )}
+        title={`Sort by ${label.toLowerCase()}`}
+        onClick={() => onSort(column)}
+      >
+        {label}
+        <Icon className={cn('size-3.5', !active && 'opacity-40 group-hover:opacity-100')} aria-hidden="true" />
+      </button>
+    </th>
+  )
+}
 
 export type GroupDownload = 'invitations' | 'badges-pdf' | 'badges-png'
 
@@ -51,7 +89,7 @@ export function GroupCardHeader({
   const empty = total === 0
 
   return (
-    <div className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-5">
+    <div className="flex flex-wrap items-center gap-4 px-5 py-5 sm:px-6">
       <div className="flex min-w-[14rem] flex-1 items-center gap-3">
         <button
           type="button"
@@ -138,8 +176,8 @@ export function CardButton({
         'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md border bg-surface font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         size === 'md' ? 'h-10 px-3.5 text-sm' : 'h-9 px-3 text-[13px]',
         tone === 'neutral' && 'border-border text-foreground hover:bg-hover',
-        tone === 'accent' && 'border-accent/70 text-foreground hover:bg-accent-soft [&>svg]:text-accent',
-        tone === 'danger' && 'border-danger/70 text-danger hover:bg-danger-soft',
+        tone === 'accent' && 'border-border text-foreground hover:border-accent/60 hover:bg-hover [&>svg]:text-accent',
+        tone === 'danger' && 'border-border bg-transparent text-danger hover:border-danger/60 hover:bg-danger-soft',
         className,
       )}
       {...props}

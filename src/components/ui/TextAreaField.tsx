@@ -22,7 +22,7 @@ export function TextAreaField({ label, error, hint, id, className, ...props }: T
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={cn(
-          'min-h-28 w-full resize-y rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted',
+          'min-h-28 w-full resize-y rounded-md border border-border bg-surface px-3 py-2.5 text-sm text-foreground transition-colors placeholder:text-placeholder focus:border-accent disabled:cursor-not-allowed disabled:opacity-50',
           error && 'border-danger',
           className,
         )}
@@ -33,7 +33,7 @@ export function TextAreaField({ label, error, hint, id, className, ...props }: T
           {error}
         </p>
       ) : hint ? (
-        <p id={`${fieldId}-hint`} className="text-sm text-muted">
+        <p id={`${fieldId}-hint`} className="text-xs leading-relaxed text-muted">
           {hint}
         </p>
       ) : null}

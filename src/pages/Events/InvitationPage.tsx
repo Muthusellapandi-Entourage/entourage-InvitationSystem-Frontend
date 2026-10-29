@@ -162,7 +162,7 @@ export function InvitationPage() {
       <button
         type="button"
         onClick={() => setMode('slices')}
-        className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium shadow-lg hover:bg-hover"
+        className="fixed bottom-5 left-1/2 z-50 inline-flex -translate-x-1/2 items-center gap-2 rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-hover"
       >
         <Scissors className="size-4 text-accent" aria-hidden="true" />
         Use single-image design

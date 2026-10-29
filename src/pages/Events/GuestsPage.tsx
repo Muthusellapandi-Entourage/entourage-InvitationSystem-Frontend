@@ -8,9 +8,13 @@ import {
   FileText,
   ImageDown,
   Mail,
+  BadgeCheck,
+  Eye,
   MonitorCheck,
   MoreHorizontal,
+  Pencil,
   Plus,
+  Trash2,
   Settings,
   Upload,
   Users,
@@ -28,15 +32,17 @@ import { downloadBadgePng, renderGuestBadge } from '@/badges/renderBadge'
 import { BulkEmailDialog } from '@/components/guests/BulkEmailDialog'
 import { DeleteGroupDialog } from '@/components/guests/DeleteGroupDialog'
 import { GuestDetailsDialog } from '@/components/guests/GuestDetailsDialog'
-import { CardButton, GroupCardHeader, type GroupDownload } from '@/components/guests/GroupCard'
+import { CardButton, GroupCardHeader, SortHeader, type GroupDownload } from '@/components/guests/GroupCard'
 import { MailSettingsDialog } from '@/components/guests/MailSettingsDialog'
 import { ProgressDialog } from '@/components/guests/ProgressDialog'
 import { Button, buttonClassName } from '@/components/ui/Button'
 import { FrontDeskLinkDialog } from '@/components/guests/FrontDeskLinkDialog'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
-import { Menu, MenuContent, MenuItem, MenuTrigger } from '@/components/ui/Menu'
+import { IconButton } from '@/components/ui/IconButton'
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/Menu'
 import { Modal } from '@/components/ui/Modal'
+import { Badge } from '@/components/ui/StatusBadge'
 import { SelectField } from '@/components/ui/SelectField'
 import { TextField } from '@/components/ui/TextField'
 import {
@@ -49,6 +55,7 @@ import {
   guestFileBase,
   type ExportOutcome,
 } from '@/guests/bulkExport'
+import { nextSort, sortGuests, type GuestSort, type GuestSortColumn } from '@/guests/guestSort'
 import { readSheet } from '@/guests/spreadsheet'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useEvent } from '@/hooks/useEvents'
@@ -108,6 +115,8 @@ export function GuestsPage() {
   const [mailSettingsOpen, setMailSettingsOpen] = useState(false)
   // Groups the user has closed. Empty = every group open.
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
+  /** Sort chosen per group card (key = section key). */
+  const [sortBy, setSortBy] = useState<Record<string, GuestSort>>({})
   useDocumentTitle(eventQuery.data ? `${eventQuery.data.name} guests` : 'Guests')
   usePageBreadcrumbs([
     { label: 'Dashboard', to: '/' },
@@ -726,6 +735,9 @@ export function GuestsPage() {
             const ids = section.guests.map((guest) => guest.id)
             const picked = ids.filter((id) => selected.includes(id)).length
             const group = section.groupId ? groups.find((item) => item.id === section.groupId) ?? null : null
+            const sort = sortBy[section.key] ?? null
+            const rows = sortGuests(section.guests, sort)
+            const onSort = (column: GuestSortColumn) => setSortBy((current) => ({ ...current, [section.key]: nextSort(current[section.key] ?? null, column) }))
             return (
               <section key={section.key} className="overflow-hidden rounded-xl border border-border bg-surface">
                 <GroupCardHeader
@@ -793,15 +805,15 @@ export function GuestsPage() {
                                 }
                               />
                             </th>
-                            <th className="py-3 pr-3 font-normal">Guest</th>
-                            <th className="py-3 pr-3 font-normal">Guest type</th>
-                            <th className="py-3 pr-3 font-normal">Status</th>
-                            <th className="py-3 pr-3 font-normal">Invitation</th>
-                            <th className="py-3 pr-5 font-normal">Actions</th>
+                            <SortHeader label="Guest" column="guest" sort={sort} onSort={onSort} />
+                            <SortHeader label="Guest type" column="type" sort={sort} onSort={onSort} />
+                            <SortHeader label="Status" column="status" sort={sort} onSort={onSort} />
+                            <SortHeader label="Invitation" column="invitation" sort={sort} onSort={onSort} />
+                            <th className="py-3 pr-5 text-right">Actions</th>
                           </tr>
                         </thead>
-                        <tbody>
-                          {section.guests.map((guest) => (
+                        <tbody className="divide-y divide-border">
+                          {rows.map((guest) => (
                             <GuestRow
                               key={guest.id}
                               guest={guest}
@@ -811,6 +823,9 @@ export function GuestsPage() {
                                 setSelected((current) => (checked ? [...current, guest.id] : current.filter((id) => id !== guest.id)))
                               }
                               onMore={() => setDetailsId(guest.id)}
+                              onEdit={() => openEditGuest(guest)}
+                              onGenerate={() => void generate([guest.id], false)}
+                              onDelete={() => setPendingDelete([guest])}
                             />
                           ))}
                         </tbody>
@@ -826,12 +841,12 @@ export function GuestsPage() {
 
       {/* Selection bar */}
       {selected.length > 0 ? (
-        <div className="fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
-          <div className="flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 shadow-[var(--shadow)]">
-            <span className="px-1 text-sm font-medium tabular-nums">{selected.length} selected</span>
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface">
+          <div className="mx-auto flex max-w-full items-center gap-2 overflow-x-auto px-6 py-3">
+            <span className="whitespace-nowrap pr-2 text-sm font-medium tabular-nums">{selected.length} selected</span>
             <select
               aria-label="Assign guest type"
-              className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
+              className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
               value={assignTypeId}
               onChange={(event) => setAssignTypeId(event.target.value)}
             >
@@ -847,7 +862,7 @@ export function GuestsPage() {
             </Button>
             <select
               aria-label="Move to group"
-              className="h-9 rounded-md border border-border bg-surface px-2 text-sm"
+              className="h-10 rounded-md border border-border bg-surface px-3 text-sm"
               value={moveGroupId}
               onChange={(event) => setMoveGroupId(event.target.value)}
             >
@@ -865,23 +880,23 @@ export function GuestsPage() {
             <Button variant="secondary" disabled={busy} onClick={() => openEmail(selectedGuests, 'selected guests')}>
               Email
             </Button>
-            <Menu>
-              <MenuTrigger asChild>
-                <Button variant="secondary" disabled={busy}>
-                  Download
-                </Button>
-              </MenuTrigger>
-              <MenuContent>
-                <MenuItem onSelect={() => void download('invitations', selectedGuests, 'selected guests')}>Invitations (PDF)</MenuItem>
-                <MenuItem onSelect={() => void download('badges-pdf', selectedGuests, 'selected guests')}>E-badges (PDF)</MenuItem>
-                <MenuItem onSelect={() => void download('badges-png', selectedGuests, 'selected guests')}>E-badges (images, ZIP)</MenuItem>
-                <MenuItem onSelect={() => void rsvpReport(selectedGuests, 'selected guests')}>RSVP report</MenuItem>
-              </MenuContent>
-            </Menu>
+            <span className="mx-1 h-6 w-px bg-border" aria-hidden="true" />
+            <Button variant="secondary" disabled={busy} onClick={() => void download('invitations', selectedGuests, 'selected guests')}>
+              Invitations PDF
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => void download('badges-pdf', selectedGuests, 'selected guests')}>
+              E-badges PDF
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => void download('badges-png', selectedGuests, 'selected guests')}>
+              E-badges images
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={() => void rsvpReport(selectedGuests, 'selected guests')}>
+              RSVP report
+            </Button>
             <Button variant="secondary" onClick={() => void generate(selected, false)}>
               Generate badges
             </Button>
-            <Button variant="secondary" className="text-danger" onClick={() => setPendingDelete(selectedGuests)}>
+            <Button variant="danger" onClick={() => setPendingDelete(selectedGuests)}>
               Delete
             </Button>
             <Button variant="ghost" aria-label="Clear selection" className="px-2" onClick={() => setSelected([])}>
@@ -1240,6 +1255,9 @@ function GuestRow({
   busy,
   onCheck,
   onMore,
+  onEdit,
+  onGenerate,
+  onDelete,
 }: {
   guest: Guest
   checked: boolean
@@ -1247,11 +1265,14 @@ function GuestRow({
   onCheck: (checked: boolean) => void
   /** Opens the guest panel: status, invitation link, email, guest pass, history. */
   onMore: () => void
+  onEdit: () => void
+  onGenerate: () => void
+  onDelete: () => void
 }) {
   const rsvp = guest.rsvpStatus ?? 'Pending'
   const invited = guest.invitationCount > 0
   return (
-    <tr className={cn('border-b border-border last:border-b-0', checked && 'bg-accent-soft/40')}>
+    <tr className={cn('transition-colors hover:bg-hover/60', checked && 'bg-accent-soft/40')}>
       <td className="py-4 pl-5 pr-2 align-middle">
         <input type="checkbox" className="size-4" aria-label={`Select ${guest.name}`} checked={checked} onChange={(event) => onCheck(event.target.checked)} />
       </td>
@@ -1261,29 +1282,43 @@ function GuestRow({
       </td>
       <td className="py-4 pr-3 align-middle">{guest.guestTypeName ?? <span className="text-muted">No guest type</span>}</td>
       <td className="py-4 pr-3 align-middle">
-        <span
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium',
-            rsvp === 'Accepted'
-              ? 'border-accent/60 bg-accent-soft text-accent'
-              : rsvp === 'Declined'
-                ? 'border-danger/60 bg-danger-soft text-danger'
-                : 'border-amber-500/50 bg-amber-500/10 text-amber-400',
-          )}
-        >
-          <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-          {rsvp}
-        </span>
+        <Badge tone={rsvp === 'Accepted' ? 'teal' : rsvp === 'Declined' ? 'rose' : 'amber'}>{rsvp}</Badge>
       </td>
       <td className="py-4 pr-3 align-middle">
-        {invited ? <span className="text-accent">Sent · {guest.lastInvitationTypeName ?? 'Recorded'}</span> : <span className="text-muted">Not sent</span>}
+        {invited ? (
+          <Badge tone="teal">Sent · {guest.lastInvitationTypeName ?? 'Recorded'}</Badge>
+        ) : (
+          <Badge tone="gray">Not sent</Badge>
+        )}
       </td>
-      <td className="py-4 pr-5 align-middle">
-        <div className="flex items-center gap-2">
-          <CardButton disabled={busy} aria-label={`More for ${guest.name}`} title="Status, invitation link, email, guest pass and history" onClick={onMore}>
-            <MoreHorizontal className="size-4" aria-hidden="true" />
-            More
-          </CardButton>
+      <td className="py-3 pr-5 align-middle">
+        <div className="flex justify-end">
+          <Menu>
+            <MenuTrigger asChild>
+              <IconButton aria-label={`Actions for ${guest.name}`} className="size-9 border border-border" disabled={busy}>
+                <MoreHorizontal className="size-4" aria-hidden="true" />
+              </IconButton>
+            </MenuTrigger>
+            <MenuContent>
+              <MenuItem onSelect={onMore}>
+                <Eye className="mr-2 size-4" aria-hidden="true" />
+                Details
+              </MenuItem>
+              <MenuItem onSelect={onEdit}>
+                <Pencil className="mr-2 size-4" aria-hidden="true" />
+                Edit
+              </MenuItem>
+              <MenuItem disabled={!guest.guestTypeId} onSelect={onGenerate}>
+                <BadgeCheck className="mr-2 size-4" aria-hidden="true" />
+                {guest.badgeCount > 0 ? 'Regenerate badge' : 'Generate badge'}
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem className="text-danger data-[highlighted]:bg-danger-soft data-[highlighted]:text-danger" onSelect={onDelete}>
+                <Trash2 className="mr-2 size-4" aria-hidden="true" />
+                Delete
+              </MenuItem>
+            </MenuContent>
+          </Menu>
         </div>
       </td>
     </tr>

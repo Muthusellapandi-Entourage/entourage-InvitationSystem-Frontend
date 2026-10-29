@@ -27,6 +27,11 @@ export type Guest = {
   declineReason?: string | null
   /** The guest's personal code in their invitation and RSVP links. */
   inviteToken?: string | null
+  phone?: string | null
+  /** Set when the guest signed up on the event's public registration page. */
+  registeredOn?: string | null
+  /** Registration answers: company and custom questions. */
+  answers?: { label: string; value: string }[] | null
 }
 
 export type GuestRsvpStatus = 'Pending' | 'Accepted' | 'Declined'

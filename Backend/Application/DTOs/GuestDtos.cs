@@ -8,7 +8,8 @@ public sealed record GuestTypeDto(
     int GuestCount,
     bool InvitationConfigured,
     bool BadgeConfigured,
-    DateTime UpdatedOn);
+    DateTime UpdatedOn,
+    bool PrintBadgeConfigured = false);
 
 public sealed record CreateGuestTypeRequest(string Name);
 
@@ -48,7 +49,13 @@ public sealed record GuestDto(
     DateTime? LastEmailedOn = null,
     string? InvitationUrl = null,
     string? DeclineReason = null,
-    string? InviteToken = null);
+    string? InviteToken = null,
+    string? Phone = null,
+    DateTime? RegisteredOn = null,
+    IReadOnlyList<GuestAnswerDto>? Answers = null);
+
+/// <summary>One answer from the self-registration form (company or a custom question).</summary>
+public sealed record GuestAnswerDto(string Label, string Value);
 
 public sealed record GuestActivityDto(Guid Id, string Kind, string? Detail, DateTime CreatedOn);
 

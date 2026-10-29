@@ -23,7 +23,7 @@ export function Logo({
     <span className={cn('flex items-center gap-2.5 text-foreground', className)}>
       <LogoMark className={markClassName} />
       <span className="min-w-0 text-left">
-        <span className="block text-[13px] font-semibold tracking-[0.16em]">ENTOURAGE</span>
+        <span className="block text-[13px] font-semibold tracking-[0.16em]">entourage</span>
         <span className="block text-xs text-muted">Event Platform</span>
       </span>
     </span>

@@ -81,6 +81,16 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.Property<string>("RsvpPageJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("RegistrationJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("KioskJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("KioskToken")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -111,6 +121,10 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.HasIndex("FrontDeskToken")
                         .IsUnique()
                         .HasFilter("[FrontDeskToken] IS NOT NULL");
+
+                    b.HasIndex("KioskToken")
+                        .IsUnique()
+                        .HasFilter("[KioskToken] IS NOT NULL");
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -252,6 +266,16 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                     b.Property<string>("Position")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<DateTime?>("RegisteredOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RegistrationAnswersJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RsvpStatus")
                         .IsRequired()
@@ -416,6 +440,9 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("InvitationDesignJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PrintBadgeDesignJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("InvitationHtml")

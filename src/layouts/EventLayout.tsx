@@ -9,16 +9,18 @@ import { useEvent } from '@/hooks/useEvents'
 import { cn } from '@/lib/cn'
 
 const modules = [
+  // In event workflow order: set up → prepare & invite → plan → event day → review.
   { label: 'Overview', path: '', enabled: true },
-  { label: 'Guest types', path: 'guest-types', enabled: true },
   { label: 'Guests', path: 'guests', enabled: true },
+  { label: 'Guest types', path: 'guest-types', enabled: true },
   { label: 'Invitations', path: 'invitations', enabled: true },
-  { label: 'RSVP', path: 'rsvp', enabled: true },
   { label: 'E-Badges', path: 'badges', enabled: true },
-  { label: 'Check-in', path: 'check-in', enabled: true },
-  { label: 'Live attendance', path: 'live', enabled: true, liveOnly: true },
+  { label: 'Self-registration', path: 'registration', enabled: true },
+  { label: 'Responses', path: 'rsvp', enabled: true },
   { label: 'Seating', path: 'seating', enabled: true },
-  { label: 'Analytics', path: 'analytics', enabled: false },
+  { label: 'Scanner', path: 'check-in', enabled: true },
+  { label: 'Live attendance', path: 'live', enabled: true, liveOnly: true },
+  { label: 'Analytics', path: 'analytics', enabled: true },
 ]
 
 export function EventLayout() {
@@ -76,7 +78,7 @@ export function EventLayout() {
           role="note"
           className={cn(
             'mt-4 rounded-lg border px-4 py-3 text-sm',
-            event.status === 'Draft' ? 'border-amber-500/40 bg-amber-500/10' : 'border-border bg-hover',
+            event.status === 'Draft' ? 'border-warning/40 bg-warning-soft' : 'border-border bg-hover',
           )}
         >
           <span className="font-semibold">{event.status === 'Draft' ? 'Draft — not live yet.' : 'Archived — read-only.'}</span>{' '}
@@ -112,8 +114,8 @@ export function EventLayout() {
               end={module.path === ''}
               className={({ isActive }) =>
                 cn(
-                  '-mb-px shrink-0 border-b px-3 py-2 text-sm transition-colors duration-150',
-                  isActive ? 'border-accent font-medium text-foreground' : 'border-transparent text-muted hover:text-foreground',
+                  '-mb-px shrink-0 border-b-2 px-4 py-3 text-sm transition-colors duration-150',
+                  isActive ? 'border-accent font-medium text-accent' : 'border-transparent text-muted hover:text-foreground',
                 )
               }
             >
@@ -134,7 +136,7 @@ export function EventLayout() {
           <Settings className="size-4" aria-hidden="true" />
         </NavLink>
       </nav>
-      <div className="pt-8">
+      <div className="pt-10">
         <Outlet />
       </div>
     </div>

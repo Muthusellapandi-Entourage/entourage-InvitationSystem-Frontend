@@ -16,7 +16,7 @@ type Filter = 'all' | 'Accepted' | 'Declined' | 'reasons'
 export function RsvpPage() {
   const { eventId = '' } = useParams()
   const event = useEvent(eventId).data
-  useDocumentTitle(event ? `RSVP · ${event.name}` : 'RSVP')
+  useDocumentTitle(event ? `Responses · ${event.name}` : 'Responses')
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState<Filter>('all')
   const [search, setSearch] = useState('')
@@ -127,7 +127,7 @@ export function RsvpPage() {
               aria-pressed={filter === value}
               onClick={() => setFilter(value)}
               className={cn(
-                'h-8 rounded-full border px-3 text-xs font-medium',
+                'h-9 rounded-md border px-3 text-xs font-medium',
                 filter === value ? 'border-accent bg-accent-soft text-accent' : 'border-border text-muted hover:text-foreground',
               )}
             >

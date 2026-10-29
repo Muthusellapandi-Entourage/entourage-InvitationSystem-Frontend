@@ -1024,8 +1024,29 @@ public sealed class GuestDirectoryService(
                 lastEmailed.TryGetValue(guest.Id, out var emailed) ? DateTime.SpecifyKind(emailed, DateTimeKind.Utc) : null,
                 domain is null ? null : EventDomains.InvitationUrl(domain, guest.InviteToken),
                 guest.DeclineReason,
-                guest.InviteToken);
+                guest.InviteToken,
+                guest.Phone,
+                guest.RegisteredOn,
+                ReadAnswers(guest.RegistrationAnswersJson));
         }).ToList();
+    }
+
+    /// <summary>Self-registration answers stored on the guest; null when there are none or they cannot be read.</summary>
+    private static IReadOnlyList<GuestAnswerDto>? ReadAnswers(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<GuestAnswerDto>>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private async Task<List<Guest>> LoadGuestsAsync(Guid eventId, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
@@ -1171,7 +1192,8 @@ public sealed class GuestDirectoryService(
         guestCount,
         IsConfigured(type.InvitationDesignJson),
         IsConfigured(type.BadgeDesignJson),
-        type.UpdatedOn);
+        type.UpdatedOn,
+        IsConfigured(type.PrintBadgeDesignJson));
 
     private static bool IsConfigured(string? json) => !string.IsNullOrWhiteSpace(json);
 

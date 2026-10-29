@@ -6,8 +6,10 @@ import { useAuth } from '@/stores/authStore'
 
 function navClass(isActive: boolean) {
   return cn(
-    'flex h-9 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors duration-150',
-    isActive ? 'bg-selected font-medium text-foreground' : 'text-muted hover:bg-hover hover:text-foreground',
+    'flex h-10 items-center gap-2.5 rounded-md border-l-2 px-3 text-sm transition-colors duration-150',
+    isActive
+      ? 'border-accent bg-hover font-medium text-foreground [&>svg]:text-accent'
+      : 'border-transparent text-muted hover:bg-hover hover:text-foreground',
   )
 }
 

@@ -14,12 +14,15 @@ type Fill = { attr: string; style: string; mixBase: string }
 
 function fillFor(design: Pick<InvitationDesign, 'backgroundColor'>): Fill {
   const color = canvasFill(design)
+  // A see-through canvas colour (#RRGGBBAA): Outlook's bgcolor gets it flattened over white, CSS keeps it see-through.
+  const alpha = color && color.length === 9 ? Number.parseInt(color.slice(7, 9), 16) : 255
+  const solid = color ? (alpha >= 255 ? color.slice(0, 7) : mixOver(color.slice(0, 7), '#FFFFFF', Math.round((alpha / 255) * 100))) : null
   return {
-    attr: color ? ` bgcolor="${color}"` : '',
-    style: color ? `background-color:${color};` : '',
+    attr: solid ? ` bgcolor="${solid}"` : '',
+    style: color ? `background-color:${alpha >= 255 ? color.slice(0, 7) : hexToRgba(color.slice(0, 7), Math.round((alpha / 255) * 100))};` : '',
     // Translucent name backgrounds are flattened over the canvas colour, or the
     // page colour when the canvas is transparent.
-    mixBase: color ?? '#E8E8E4',
+    mixBase: solid ?? '#E8E8E4',
   }
 }
 
@@ -92,10 +95,14 @@ function guestLine(
 
 function nameFill(field: GuestFieldDesign, mixBase: string) {
   if (!field.nameBackground || !field.backgroundColor || field.backgroundOpacity <= 0) return null
-  const opacity = Math.min(100, Math.max(0, Math.round(field.backgroundOpacity)))
+  // The colour's own alpha (#RRGGBBAA) and the opacity slider combine.
+  const alpha = field.backgroundColor.length === 9 ? Number.parseInt(field.backgroundColor.slice(7, 9), 16) / 255 : 1
+  const opacity = Math.min(100, Math.max(0, Math.round(field.backgroundOpacity * alpha)))
+  if (opacity <= 0) return null
+  const rgb = field.backgroundColor.slice(0, 7)
   return {
-    solid: opacity >= 100 ? field.backgroundColor : mixOver(field.backgroundColor, mixBase, opacity),
-    css: opacity >= 100 ? field.backgroundColor : hexToRgba(field.backgroundColor, opacity),
+    solid: opacity >= 100 ? rgb : mixOver(rgb, mixBase.slice(0, 7), opacity),
+    css: opacity >= 100 ? rgb : hexToRgba(rgb, opacity),
   }
 }
 

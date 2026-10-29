@@ -175,7 +175,7 @@ function StatusPill({ inUse }: { inUse: boolean }) {
     <span
       className={cn(
         'rounded-full px-2 py-0.5 text-xs font-medium',
-        inUse ? 'bg-accent-soft text-accent' : 'bg-amber-500/15 text-amber-600 dark:text-amber-300',
+        inUse ? 'bg-accent-soft text-accent' : 'bg-warning-soft text-warning',
       )}
     >
       {inUse ? 'In use' : 'Not confirmed'}

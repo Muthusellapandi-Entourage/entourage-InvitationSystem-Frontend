@@ -72,7 +72,7 @@ export function LiveBoard({
     <div ref={boardRef} className={cn('flex flex-col gap-6', fullscreen && 'overflow-y-auto bg-background p-6 sm:p-10')}>
       {heading}
       <div className="flex flex-wrap items-center gap-3">
-        <span className="inline-flex items-center gap-2 rounded-full bg-accent-soft px-3 py-1 text-sm font-medium text-accent" aria-live="polite">
+        <span className="inline-flex items-center gap-2 rounded-sm bg-accent-soft px-3 py-1 text-sm font-medium text-accent" aria-live="polite">
           <span className={cn('size-2 rounded-full bg-accent', !paused && 'animate-pulse')} aria-hidden="true" />
           {paused ? 'Paused' : 'Live'}
           {updatedAt ? <span className="text-xs text-muted tabular-nums">· {new Date(updatedAt).toLocaleTimeString()}</span> : null}
@@ -208,7 +208,7 @@ function ScanBadge({ scan }: { scan: LiveScan }) {
       <span
         className={cn(
           'rounded-full px-2 py-0.5 text-xs font-medium',
-          scan.firstScan ? 'bg-accent-soft text-accent' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+          scan.firstScan ? 'bg-accent-soft text-accent' : 'bg-warning-soft text-warning',
         )}
       >
         {scan.firstScan ? 'Checked in' : 'Scanned again'}

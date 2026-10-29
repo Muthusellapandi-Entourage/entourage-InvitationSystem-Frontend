@@ -6,6 +6,7 @@ import { ApiError, apiBaseUrl } from '@/api/client'
 import { fontApi } from '@/api/fontApi'
 import { invitationApi } from '@/api/invitationApi'
 import { rsvpApi, type RsvpPageSettings, type RsvpPreviewView } from '@/api/rsvpApi'
+import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
 
@@ -322,19 +323,10 @@ function TextArea({ label, value, onChange, rows = 2, hint }: { label: string; v
 
 function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className="grid min-w-0 gap-1.5">
+    <div className="grid min-w-0 gap-1.5">
       <span className="truncate text-sm font-medium">{label}</span>
-      <span className="flex h-11 items-center gap-2.5 rounded-lg border border-border bg-background px-2.5">
-        <input
-          type="color"
-          value={value}
-          onChange={(event) => onChange(event.target.value.toUpperCase())}
-          className="size-7 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0"
-          aria-label={`${label} colour`}
-        />
-        <span className="truncate font-mono text-xs">{value}</span>
-      </span>
-    </label>
+      <AlphaColorInput label={label} value={value} onChange={onChange} />
+    </div>
   )
 }
 

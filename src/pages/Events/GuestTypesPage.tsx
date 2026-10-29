@@ -8,7 +8,9 @@ import { guestTypeApi, type GuestType } from '@/api/guestTypeApi'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { IconButton } from '@/components/ui/IconButton'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '@/components/ui/Menu'
+import { Badge } from '@/components/ui/StatusBadge'
 import { SelectField } from '@/components/ui/SelectField'
 import { TextField } from '@/components/ui/TextField'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -163,22 +165,25 @@ export function GuestTypesPage() {
             description="Create a type such as VIP or Media, then design its invitation and badge."
           />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="bg-surface text-muted">
-                <tr>
+          <div>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border">
                   <th className="w-10 py-3" />
-                  <th className="py-3 pr-3 font-medium">Guest type</th>
-                  <th className="py-3 pr-3 text-center font-medium">Guests</th>
-                  <th className="py-3 pr-3 text-center font-medium">Invitation</th>
-                  <th className="py-3 pr-3 text-center font-medium">Badge</th>
-                  <th className="py-3 pr-3 text-center font-medium">Status</th>
-                  <th className="w-12 py-3" />
+                  <th className="py-3 pr-3">Guest type</th>
+                  <th className="py-3 pr-3 text-center">Guests</th>
+                  <th className="py-3 pr-3 text-center">Invitation</th>
+                  <th className="py-3 pr-3 text-center">E-Badge</th>
+                  <th className="py-3 pr-3 text-center">Print badge</th>
+                  <th className="py-3 pr-3 text-center">Status</th>
+                  <th className="w-14 py-3 pr-3">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border">
                 {types.map((type, index) => (
-                  <tr key={type.id} className="border-t border-border">
+                  <tr key={type.id} className="transition-colors hover:bg-hover/60">
                     <td className="py-3 pl-3 text-muted">
                       <GripVertical className="size-4" aria-hidden="true" />
                     </td>
@@ -193,23 +198,18 @@ export function GuestTypesPage() {
                     <td className="py-3 pr-3">
                       <DesignStatus configured={type.badgeConfigured} to={`/events/${eventId}/guest-types/${type.id}/badge`} />
                     </td>
-                    <td className="py-3 pr-3 text-center">
-                      <span
-                        className={cn(
-                          'inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium',
-                          type.isEnabled ? 'bg-accent-soft text-accent' : 'bg-selected text-muted',
-                        )}
-                      >
-                        {type.isEnabled ? 'Enabled' : 'Disabled'}
-                      </span>
+                    <td className="py-3 pr-3">
+                      <DesignStatus configured={Boolean(type.printBadgeConfigured)} to={`/events/${eventId}/guest-types/${type.id}/print-badge`} />
                     </td>
-                    <td className="py-3 pr-2 text-right">
+                    <td className="py-3 pr-3 text-center">
+                      <Badge tone={type.isEnabled ? 'teal' : 'gray'}>{type.isEnabled ? 'Enabled' : 'Disabled'}</Badge>
+                    </td>
+                    <td className="w-14 py-2.5 pr-3 text-right">
                       <Menu>
-                        <MenuTrigger
-                          aria-label={`Actions for ${type.name}`}
-                          className="inline-flex size-8 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-foreground"
-                        >
-                          <MoreHorizontal className="size-4" aria-hidden="true" />
+                        <MenuTrigger asChild>
+                          <IconButton aria-label={`Actions for ${type.name}`} className="size-9 border border-border">
+                            <MoreHorizontal className="size-4" aria-hidden="true" />
+                          </IconButton>
                         </MenuTrigger>
                         <MenuContent>
                           <MenuItem
@@ -222,6 +222,7 @@ export function GuestTypesPage() {
                             Edit guest type
                           </MenuItem>
                           <MenuItem
+                            disabled={types.length < 2}
                             onSelect={() => {
                               setDuplicate(type)
                               setDestinationId(types.find((item) => item.id !== type.id)?.id ?? '')
@@ -240,11 +241,11 @@ export function GuestTypesPage() {
                             Move down
                           </MenuItem>
                           <MenuSeparator />
-                          <MenuItem onSelect={() => toggleMutation.mutate(type)}>
+                          <MenuItem disabled={toggleMutation.isPending} onSelect={() => toggleMutation.mutate(type)}>
                             <Ban className="mr-2 size-4" aria-hidden="true" />
                             {type.isEnabled ? 'Disable' : 'Enable'}
                           </MenuItem>
-                          <MenuItem className="text-danger data-[highlighted]:text-danger" onSelect={() => setPendingDelete(type)}>
+                          <MenuItem className="text-danger data-[highlighted]:bg-danger-soft data-[highlighted]:text-danger" onSelect={() => setPendingDelete(type)}>
                             <Trash2 className="mr-2 size-4" aria-hidden="true" />
                             Delete
                           </MenuItem>

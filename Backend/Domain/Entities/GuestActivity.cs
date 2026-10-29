@@ -34,4 +34,6 @@ public static class GuestActivityKinds
     public const string Downloaded = "Downloaded";
     public const string CheckedIn = "Checked in";
     public const string Seated = "Seated";
+    public const string SelfRegistered = "Self-registered";
+    public const string BadgePrinted = "Badge printed";
 }

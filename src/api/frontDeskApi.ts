@@ -1,5 +1,6 @@
 import { apiClient } from '@/api/client'
 import type { GuestRsvpStatus } from '@/api/guestApi'
+import type { PrintPayload } from '@/api/printBadgeApi'
 
 export type FrontDeskGuest = {
   id: string
@@ -41,6 +42,13 @@ export const frontDeskApi = {
     apiClient<FrontDeskAction>(`/api/public/front-desk/${encodeURIComponent(token)}/guests/${guestId}/check-in`, { method: 'POST' }),
   seated: (token: string, guestId: string) =>
     apiClient<FrontDeskAction>(`/api/public/front-desk/${encodeURIComponent(token)}/guests/${guestId}/seated`, { method: 'POST' }),
+  /** A badge scanned at the desk (USB scanner on the laptop): checks the guest in. */
+  scan: (token: string, code: string) =>
+    apiClient<FrontDeskAction>(`/api/public/front-desk/${encodeURIComponent(token)}/scan`, { method: 'POST', body: JSON.stringify({ code }) }),
+  /** The guest's printed badge data and design. */
+  print: (token: string, guestId: string) => apiClient<PrintPayload>(`/api/public/front-desk/${encodeURIComponent(token)}/guests/${guestId}/print`),
+  printed: (token: string, guestId: string) =>
+    apiClient<void>(`/api/public/front-desk/${encodeURIComponent(token)}/guests/${guestId}/printed`, { method: 'POST' }),
 }
 
 export const frontDeskUrl = (token: string) => `${window.location.origin}/live-dashboard/${token}`

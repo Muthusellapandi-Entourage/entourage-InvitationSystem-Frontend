@@ -49,7 +49,8 @@ export type BadgeDesign = {
 }
 
 const guid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const hex = /^#[0-9A-Fa-f]{6}$/
+/** #RRGGBB or #RRGGBBAA (with alpha). */
+const hex = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/
 
 function clampInt(value: unknown, min: number, max: number, fallback: number) {
   const number = typeof value === 'number' ? value : Number(value)

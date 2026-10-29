@@ -11,7 +11,7 @@ export function MenuContent({ className, ...props }: DropdownMenu.DropdownMenuCo
         sideOffset={6}
         align="end"
         className={cn(
-          'z-50 min-w-44 rounded-md border border-border bg-surface p-1 text-sm text-foreground shadow-[var(--shadow)]',
+          'z-50 min-w-44 rounded-md border border-border bg-surface p-1 text-sm text-foreground',
           className,
         )}
         {...props}

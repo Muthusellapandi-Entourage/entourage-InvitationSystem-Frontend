@@ -1,11 +1,18 @@
 import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 
+/**
+ * Charcoal & Mint Teal action hierarchy:
+ * - primary: the one filled mint-teal action per view
+ * - secondary: thin hairline outline on the surface
+ * - ghost: flat text action
+ * - danger: soft rose text with a hairline outline, never a loud fill
+ */
 const variants = {
-  primary: 'bg-accent text-accent-foreground hover:bg-accent-hover',
+  primary: 'bg-accent text-accent-foreground font-medium hover:bg-accent-hover',
   secondary: 'border border-border bg-surface text-foreground hover:bg-hover',
   ghost: 'text-foreground hover:bg-hover',
-  danger: 'bg-danger text-danger-foreground hover:bg-danger-hover',
+  danger: 'border border-border bg-transparent text-danger hover:bg-danger-soft hover:border-danger/60',
 } as const
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -14,7 +21,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export function buttonClassName(variant: keyof typeof variants = 'primary', className?: string) {
   return cn(
-    'inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors duration-150 ease-out disabled:cursor-not-allowed disabled:bg-disabled disabled:text-muted',
+    'inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-medium transition-colors duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50',
     variants[variant],
     className,
   )

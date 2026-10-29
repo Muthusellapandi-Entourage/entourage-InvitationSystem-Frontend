@@ -45,7 +45,7 @@ public sealed class InvitationDesignValidator : AbstractValidator<InvitationDesi
         When(design => design.AcceptImage is not null, () => RuleFor(design => design.AcceptImage!).SetValidator(new ImagePlacementValidator()));
         When(design => design.DeclineImage is not null, () => RuleFor(design => design.DeclineImage!).SetValidator(new ImagePlacementValidator()));
         RuleFor(design => design.BackgroundColor)
-            .Must(value => value is null || value == "transparent" || System.Text.RegularExpressions.Regex.IsMatch(value, "^#[0-9A-Fa-f]{6}$"))
+            .Must(value => value is null || value == "transparent" || System.Text.RegularExpressions.Regex.IsMatch(value, HexColor.Pattern))
             .WithMessage("Use a canvas background like #313131, or transparent.");
         When(design => design.Guides is not null, () =>
         {
@@ -112,8 +112,8 @@ public sealed class SliceDesignValidator : AbstractValidator<SliceDesignDto>
             RuleFor(name => name.PositionFont)
                 .Must(font => BuiltInFonts.Contains(font))
                 .WithMessage("Choose Arial, Georgia or Times New Roman, or an uploaded font.");
-            RuleFor(name => name.Color).Matches("^#[0-9A-Fa-f]{6}$").WithMessage("Use a colour like #FFFFFF.");
-            RuleFor(name => name.PositionColor).Matches("^#[0-9A-Fa-f]{6}$").WithMessage("Use a colour like #FFFFFF.");
+            RuleFor(name => name.Color).Matches(HexColor.Pattern).WithMessage("Use a colour like #FFFFFF.");
+            RuleFor(name => name.PositionColor).Matches(HexColor.Pattern).WithMessage("Use a colour like #FFFFFF.");
             RuleFor(name => name.Align).Must(value => value is "left" or "center" or "right").WithMessage("Choose left, center, or right.");
             RuleFor(name => name.Valign).Must(value => value is "top" or "middle" or "bottom").WithMessage("Choose top, middle, or bottom.");
             RuleFor(name => name.PaddingX).InclusiveBetween(0, 3000);
@@ -198,7 +198,7 @@ public sealed class GuestFieldValidator : AbstractValidator<GuestFieldDto>
         RuleFor(field => field.FontSize).InclusiveBetween(8, 72);
         RuleFor(field => field.MobileFontSize).InclusiveBetween(8, 48);
         RuleFor(field => field.Color)
-            .Matches("^#[0-9A-Fa-f]{6}$")
+            .Matches(HexColor.Pattern)
             .WithMessage("Use a color like #FFFFFF.");
         RuleFor(field => field.Alignment)
             .Must(value => value is "left" or "center" or "right")
@@ -215,7 +215,7 @@ public sealed class GuestFieldValidator : AbstractValidator<GuestFieldDto>
         When(field => field.BackgroundColor is not null, () =>
         {
             RuleFor(field => field.BackgroundColor!)
-                .Matches("^#[0-9A-Fa-f]{6}$")
+                .Matches(HexColor.Pattern)
                 .WithMessage("Use a background color like #000000.");
         });
         When(field => field.BackgroundOpacity is not null, () =>

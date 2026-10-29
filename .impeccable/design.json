@@ -356,8 +356,8 @@
       "name": "Wordmark",
       "kind": "custom",
       "refersTo": "wordmark",
-      "description": "ENTOURAGE lockup. Wide tracking stays on this name alone.",
-      "html": "<span class=\"ds-wordmark\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" width=\"28\" height=\"28\"><rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"></rect><path d=\"M7 8.5h10M7 12h7.5M7 15.5h10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"></path></svg><span><span class=\"ds-wordmark-name\">ENTOURAGE</span><span class=\"ds-wordmark-sub\">Event Platform</span></span></span>",
+      "description": "entourage lockup. Wide tracking stays on this name alone.",
+      "html": "<span class=\"ds-wordmark\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\" width=\"28\" height=\"28\"><rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"></rect><path d=\"M7 8.5h10M7 12h7.5M7 15.5h10\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"></path></svg><span><span class=\"ds-wordmark-name\">entourage</span><span class=\"ds-wordmark-sub\">Event Platform</span></span></span>",
       "css": ".ds-wordmark { display: inline-flex; align-items: center; gap: 10px; color: var(--foreground, #1c1c1a); font-family: var(--font-sans, \"Geist Sans\", ui-sans-serif, system-ui, sans-serif); } .ds-wordmark-name { display: block; font-size: 13px; font-weight: 600; letter-spacing: 0.16em; } .ds-wordmark-sub { display: block; font-size: 0.75rem; color: var(--muted, #5c5c56); }"
     }
   ],
@@ -399,7 +399,7 @@
       },
       {
         "name": "The Wordmark Tracking Rule",
-        "body": "Letter-spacing of 0.16em belongs to the ENTOURAGE wordmark. Page titles and counts use -0.02em. All other text stays at normal tracking.",
+        "body": "Letter-spacing of 0.16em belongs to the entourage wordmark. Page titles and counts use -0.02em. All other text stays at normal tracking.",
         "section": "typography"
       },
       {

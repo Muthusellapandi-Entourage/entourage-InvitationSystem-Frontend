@@ -38,7 +38,7 @@ Roles are an enum so more than Administrator can be added later. Only Administra
 
 ## Brand Commitments
 
-The product name is ENTOURAGE. The lockup reads "ENTOURAGE" and "Event Platform". The brief fixes a restrained enterprise dashboard: neutral, white, black, gray, and dark charcoal, with one subtle accent for important actions and states. Light and dark are both first-class. The brief names Linear, Vercel, Stripe Dashboard, and Notion as craft references and explicitly says not to copy them. Gradients, neon, glass, rainbow color, huge cards, and decorative motion are out.
+The product name is entourage. The lockup reads "entourage" and "Event Platform". The brief fixes a restrained enterprise dashboard: neutral, white, black, gray, and dark charcoal, with one subtle accent for important actions and states. Light and dark are both first-class. The brief names Linear, Vercel, Stripe Dashboard, and Notion as craft references and explicitly says not to copy them. Gradients, neon, glass, rainbow color, huge cards, and decorative motion are out.
 
 ## Evidence on Hand
 

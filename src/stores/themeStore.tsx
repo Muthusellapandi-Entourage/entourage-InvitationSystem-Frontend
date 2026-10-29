@@ -14,9 +14,14 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 function readPreference(): ThemePreference {
-  const stored = localStorage.getItem(storageKey)
-  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
-  return 'system'
+  try {
+    const stored = localStorage.getItem(storageKey)
+    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
+  } catch {
+    // Storage unavailable: use the default.
+  }
+  // Charcoal & Mint Teal is dark-first.
+  return 'dark'
 }
 
 function resolveTheme(preference: ThemePreference): ResolvedTheme {

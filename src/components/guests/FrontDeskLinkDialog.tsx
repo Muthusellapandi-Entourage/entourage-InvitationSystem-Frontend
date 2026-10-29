@@ -37,7 +37,7 @@ export function FrontDeskLinkDialog({ eventId, live, open, onClose }: { eventId:
       onClose={onClose}
     >
       {!live ? (
-        <p className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+        <p className="mb-4 rounded-lg border border-warning/40 bg-warning-soft px-3 py-2 text-sm">
           The event is not Active yet. Staff can open the list, but checking in only works once the event is Active.
         </p>
       ) : null}

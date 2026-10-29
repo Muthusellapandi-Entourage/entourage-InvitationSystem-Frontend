@@ -785,8 +785,8 @@ function stageError(draft: StageDraft) {
 }
 
 function StagePreview({ draft }: { draft: StageDraft }) {
-  const fill = /^#[0-9A-Fa-f]{6}$/.test(draft.fill) ? draft.fill : defaultStageFill
-  const stroke = /^#[0-9A-Fa-f]{6}$/.test(draft.stroke) ? draft.stroke : defaultStageStroke
+  const fill = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(draft.fill) ? draft.fill : defaultStageFill
+  const stroke = /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(draft.stroke) ? draft.stroke : defaultStageStroke
   return (
     <svg viewBox="0 0 360 120" className="h-24 w-full rounded-md border border-border bg-background" role="img" aria-label="Stage preview">
       <g transform={`rotate(${draft.rotation} 180 60)`}>

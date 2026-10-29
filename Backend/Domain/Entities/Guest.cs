@@ -17,6 +17,15 @@ public sealed class Guest
 
     public string? Position { get; set; }
 
+    /// <summary>Mobile / phone number, e.g. from the self-registration form.</summary>
+    public string? Phone { get; set; }
+
+    /// <summary>When the guest signed themselves up through the event's public registration page. Null = added by staff.</summary>
+    public DateTime? RegisteredOn { get; set; }
+
+    /// <summary>Answers from the registration form (company and custom questions) as JSON: [{ "label": …, "value": … }].</summary>
+    public string? RegistrationAnswersJson { get; set; }
+
     /// <summary>"Pending", "Accepted" or "Declined". Set by the admin or by the guest's RSVP reply.</summary>
     public string RsvpStatus { get; set; } = GuestRsvp.Pending;
 

@@ -20,7 +20,8 @@ public sealed class CheckInService(AppDbContext db)
     /// <summary>The event is not Active (draft or archived), so the door is closed.</summary>
     public const string Closed = "Closed";
 
-    public async Task<CheckInResultDto> ScanAsync(Guid eventId, CheckInScanRequest request, CancellationToken cancellationToken)
+    /// <param name="source">Where the scan happened when it was not the door scanner, e.g. "front desk" or "self check-in".</param>
+    public async Task<CheckInResultDto> ScanAsync(Guid eventId, CheckInScanRequest request, CancellationToken cancellationToken, string? source = null)
     {
         var status = await EventStatusAsync(eventId, cancellationToken);
         if (status != EventStatus.Active)
@@ -46,7 +47,7 @@ public sealed class CheckInService(AppDbContext db)
             return new CheckInResultDto(NotFound, "Guest not found. This badge is not on the guest list for this event.", null);
         }
 
-        return await RecordAsync(guest, null, cancellationToken);
+        return await RecordAsync(guest, source, cancellationToken);
     }
 
     /// <summary>Checks a guest in by hand (front desk), for a guest without their E-Badge.</summary>

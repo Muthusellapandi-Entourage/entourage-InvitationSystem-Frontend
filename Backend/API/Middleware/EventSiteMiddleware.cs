@@ -18,11 +18,13 @@ public sealed class EventSiteMiddleware(RequestDelegate next, ILogger<EventSiteM
         "/api/public/fonts/",
         // The RSVP page's calls (confirm, E-Badge, QR, Wallet) work the same on the event domain.
         "/api/public/rsvp",
+        // The self-registration page's submit call.
+        "/api/public/register",
         // Let's Encrypt / win-acme certificate checks, when the server answers them.
         "/.well-known/acme-challenge/",
     ];
 
-    public async Task InvokeAsync(HttpContext context, EventSiteService sites)
+    public async Task InvokeAsync(HttpContext context, EventSiteService sites, RegistrationService registration)
     {
         var host = context.Request.Host.Host;
         if (string.IsNullOrEmpty(host) || host is "localhost" or "127.0.0.1" or "[::1]")
@@ -61,6 +63,16 @@ public sealed class EventSiteMiddleware(RequestDelegate next, ILogger<EventSiteM
             if ((path == "/" || path.Equals(EventDomains.InvitationPath, StringComparison.OrdinalIgnoreCase)) && read)
             {
                 await WriteAsync(context, await sites.HomeAsync(site, context.Request.Query["g"], context.Request.Query["view"], cancellationToken));
+                return;
+            }
+
+            // Self-registration: eventdomain.com/register (also /register/ and /register.html).
+            if (read && (path.Equals(RegistrationService.DomainPath, StringComparison.OrdinalIgnoreCase)
+                || path.Equals($"{RegistrationService.DomainPath}/", StringComparison.OrdinalIgnoreCase)
+                || path.Equals($"{RegistrationService.DomainPath}.html", StringComparison.OrdinalIgnoreCase)))
+            {
+                var (status, html) = await registration.PageAsync(site.EventId, cancellationToken);
+                await WriteAsync(context, new EventSiteService.Page(status, html));
                 return;
             }
 

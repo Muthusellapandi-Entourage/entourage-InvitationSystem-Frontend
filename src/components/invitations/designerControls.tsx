@@ -1,6 +1,7 @@
 import { ChevronDown, Info, Lightbulb, Trash2, Upload } from 'lucide-react'
-import { useId, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
+import { useId, useRef, type ChangeEvent, type ReactNode } from 'react'
 import { apiBaseUrl } from '@/api/client'
+import { AlphaColorInput } from '@/components/ui/AlphaColorInput'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/cn'
 
@@ -367,51 +368,41 @@ export function ColorSwatchField({
   onNone?: () => void
 }) {
   const id = useId()
-  const [draft, setDraft] = useState<string | null>(null)
-  const valid = /^#[0-9A-Fa-f]{6}$/.test(value)
+  // "None" (no colour) keeps its own look; otherwise the field takes a colour with opacity (#RRGGBBAA).
+  if (none) {
+    return (
+      <div className="grid gap-1.5">
+        <label htmlFor={id} className="text-sm font-medium">
+          {label}
+        </label>
+        <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface pr-2 pl-1.5">
+          <label className="relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-border">
+            <span className="sr-only">Pick {label.toLowerCase()}</span>
+            <span
+              aria-hidden="true"
+              className="absolute inset-0"
+              style={{ background: 'linear-gradient(135deg, transparent 45%, #c0392b 45%, #c0392b 55%, transparent 55%)' }}
+            />
+            <input type="color" className="absolute inset-0 size-full cursor-pointer opacity-0" value="#FFFFFF" onChange={(event) => onChange(event.target.value.toUpperCase())} />
+          </label>
+          <input id={id} value={noneLabel} readOnly className="h-full min-w-0 flex-1 bg-transparent text-sm" />
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="grid gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
-        {label}
-      </label>
-      <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-surface pr-2 pl-1.5">
-        <label className="relative size-7 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-border">
-          <span className="sr-only">Pick {label.toLowerCase()}</span>
-          <span
-            aria-hidden="true"
-            className="absolute inset-0"
-            style={
-              none
-                ? { background: 'linear-gradient(135deg, transparent 45%, #c0392b 45%, #c0392b 55%, transparent 55%)' }
-                : { background: valid ? value : '#FFFFFF' }
-            }
-          />
-          <input
-            type="color"
-            className="absolute inset-0 size-full cursor-pointer opacity-0"
-            value={valid ? value : '#FFFFFF'}
-            onChange={(event) => onChange(event.target.value.toUpperCase())}
-          />
+      <div className="flex items-center justify-between gap-2">
+        <label htmlFor={id} className="text-sm font-medium">
+          {label}
         </label>
-        <input
-          id={id}
-          value={none ? noneLabel : (draft ?? value)}
-          spellCheck={false}
-          className={cn('h-full min-w-0 flex-1 bg-transparent text-sm', !none && 'uppercase')}
-          readOnly={none}
-          onChange={(event) => {
-            const next = event.target.value.toUpperCase()
-            setDraft(next)
-            if (/^#[0-9A-F]{6}$/.test(next)) onChange(next)
-          }}
-          onBlur={() => setDraft(null)}
-        />
-        {onNone && !none ? (
+        {onNone ? (
           <button type="button" className="text-xs whitespace-nowrap text-muted hover:text-foreground" onClick={onNone}>
             {noneLabel}
           </button>
         ) : null}
       </div>
+      <AlphaColorInput label={label} value={value} onChange={onChange} />
     </div>
   )
 }
