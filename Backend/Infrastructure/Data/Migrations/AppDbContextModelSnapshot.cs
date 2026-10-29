@@ -22,6 +22,233 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Entourage.Domain.Entities.AccAccessProfile", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<string>("Color").IsRequired().HasMaxLength(9).HasColumnType("nvarchar(9)");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(120).HasColumnType("nvarchar(120)");
+                    b.Property<int>("SortOrder").HasColumnType("int");
+                    b.Property<string>("ZoneIdsJson").IsRequired().HasColumnType("nvarchar(max)");
+                    b.HasKey("Id");
+                    b.HasIndex("EventId");
+                    b.ToTable("AccAccessProfiles", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccApplicant", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<Guid?>("AccessProfileId").HasColumnType("uniqueidentifier");
+                    b.Property<Guid?>("ApplicantTypeId").HasColumnType("uniqueidentifier");
+                    b.Property<int?>("BadgeNumber").HasColumnType("int");
+                    b.Property<DateTime>("CreatedOn").HasColumnType("datetime2");
+                    b.Property<DateTime?>("CollectedOn").HasColumnType("datetime2");
+                    b.Property<string>("CredentialCode").IsRequired().HasMaxLength(32).HasColumnType("nvarchar(32)");
+                    b.Property<DateTime?>("LastPrintedOn").HasColumnType("datetime2");
+                    b.Property<int>("PrintCount").HasColumnType("int");
+                    b.Property<string>("CustomFieldsJson").IsRequired().HasColumnType("nvarchar(max)");
+                    b.Property<DateOnly?>("DateOfBirth").HasColumnType("date");
+                    b.Property<Guid?>("DecidedBy").HasColumnType("uniqueidentifier");
+                    b.Property<DateTime?>("DecidedOn").HasColumnType("datetime2");
+                    b.Property<string>("Email").HasMaxLength(256).HasColumnType("nvarchar(256)");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("ExtraZoneIdsJson").IsRequired().HasColumnType("nvarchar(max)");
+                    b.Property<string>("FirstName").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<string>("IdNumberHash").HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<string>("IdNumberLast4").HasMaxLength(4).HasColumnType("nvarchar(4)");
+                    b.Property<string>("IdNumberProtected").HasMaxLength(1000).HasColumnType("nvarchar(1000)");
+                    b.Property<string>("JobTitle").HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<string>("LastName").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<string>("Nationality").HasMaxLength(80).HasColumnType("nvarchar(80)");
+                    b.Property<Guid?>("OrganizationId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Phone").HasMaxLength(40).HasColumnType("nvarchar(40)");
+                    b.Property<Guid?>("PhotoFileId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("RejectionReason").HasMaxLength(1000).HasColumnType("nvarchar(1000)");
+                    b.Property<string>("Source").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+                    b.Property<string>("StageKey").IsRequired().HasMaxLength(40).HasColumnType("nvarchar(40)");
+                    b.Property<DateTime>("SubmittedOn").HasColumnType("datetime2");
+                    b.Property<DateTime>("UpdatedOn").HasColumnType("datetime2");
+                    b.HasKey("Id");
+                    b.HasIndex("CredentialCode").IsUnique();
+                    b.HasIndex("EventId");
+                    b.HasIndex("OrganizationId");
+                    b.HasIndex("EventId", "IdNumberHash");
+                    b.ToTable("AccApplicants", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccApplicantType", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<Guid?>("DefaultProfileId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("DocumentsJson").IsRequired().HasColumnType("nvarchar(max)");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("FieldsJson").IsRequired().HasColumnType("nvarchar(max)");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(120).HasColumnType("nvarchar(120)");
+                    b.Property<int>("SortOrder").HasColumnType("int");
+                    b.HasKey("Id");
+                    b.HasIndex("EventId");
+                    b.ToTable("AccApplicantTypes", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccAuditLog", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<string>("Action").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<string>("ActorName").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<Guid?>("ActorUserId").HasColumnType("uniqueidentifier");
+                    b.Property<Guid?>("ApplicantId").HasColumnType("uniqueidentifier");
+                    b.Property<DateTime>("CreatedOn").HasColumnType("datetime2");
+                    b.Property<string>("Detail").HasMaxLength(2000).HasColumnType("nvarchar(2000)");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.HasKey("Id");
+                    b.HasIndex("ApplicantId");
+                    b.HasIndex("EventId", "CreatedOn");
+                    b.ToTable("AccAuditLogs", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccBadgeTemplate", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<string>("ApplicantTypeIdsJson").IsRequired().HasColumnType("nvarchar(max)");
+                    b.Property<string>("DesignJson").IsRequired().HasColumnType("nvarchar(max)");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<bool>("IsDefault").HasColumnType("bit");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(120).HasColumnType("nvarchar(120)");
+                    b.Property<int>("SortOrder").HasColumnType("int");
+                    b.Property<DateTime>("UpdatedOn").HasColumnType("datetime2");
+                    b.HasKey("Id");
+                    b.HasIndex("EventId");
+                    b.ToTable("AccBadgeTemplates", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccRevokedCredential", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<Guid>("ApplicantId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Code").IsRequired().HasMaxLength(32).HasColumnType("nvarchar(32)");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Reason").IsRequired().HasMaxLength(500).HasColumnType("nvarchar(500)");
+                    b.Property<DateTime>("RevokedOn").HasColumnType("datetime2");
+                    b.HasKey("Id");
+                    b.HasIndex("ApplicantId");
+                    b.HasIndex("EventId", "Code").IsUnique();
+                    b.ToTable("AccRevokedCredentials", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccDocument", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<Guid>("ApplicantId").HasColumnType("uniqueidentifier");
+                    b.Property<DateOnly?>("ExpiresOn").HasColumnType("date");
+                    b.Property<Guid>("FileId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Kind").IsRequired().HasMaxLength(60).HasColumnType("nvarchar(60)");
+                    b.Property<string>("Label").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<string>("Status").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+                    b.Property<DateTime>("UploadedOn").HasColumnType("datetime2");
+                    b.HasKey("Id");
+                    b.HasIndex("ApplicantId");
+                    b.ToTable("AccDocuments", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccEvent", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<Guid>("CreatedBy").HasColumnType("uniqueidentifier");
+                    b.Property<DateTime>("CreatedOn").HasColumnType("datetime2");
+                    b.Property<DateOnly>("EndDate").HasColumnType("date");
+                    b.Property<Guid?>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<string>("NotificationsJson").HasColumnType("nvarchar(max)");
+                    b.Property<bool>("PublicApplyEnabled").HasColumnType("bit");
+                    b.Property<string>("Slug").IsRequired().HasMaxLength(120).HasColumnType("nvarchar(120)");
+                    b.Property<string>("StagesJson").IsRequired().HasColumnType("nvarchar(max)");
+                    b.Property<DateOnly>("StartDate").HasColumnType("date");
+                    b.Property<string>("Status").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+                    b.Property<string>("Timezone").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<DateTime>("UpdatedOn").HasColumnType("datetime2");
+                    b.Property<string>("Venue").HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.HasKey("Id");
+                    b.HasIndex("EventId").IsUnique().HasFilter("[EventId] IS NOT NULL");
+                    b.HasIndex("Slug").IsUnique();
+                    b.ToTable("AccEvents", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccFile", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<string>("ContentType").IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+                    b.Property<DateTime>("CreatedOn").HasColumnType("datetime2");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("FileName").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<string>("RelativePath").IsRequired().HasMaxLength(400).HasColumnType("nvarchar(400)");
+                    b.Property<long>("Size").HasColumnType("bigint");
+                    b.HasKey("Id");
+                    b.HasIndex("EventId");
+                    b.ToTable("AccFiles", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccOrgUser", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<DateTime>("CreatedOn").HasColumnType("datetime2");
+                    b.Property<string>("Email").IsRequired().HasMaxLength(256).HasColumnType("nvarchar(256)");
+                    b.Property<DateTime?>("InviteExpiresOn").HasColumnType("datetime2");
+                    b.Property<string>("InviteTokenHash").HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.Property<bool>("IsActive").HasColumnType("bit");
+                    b.Property<DateTime?>("LastLoginOn").HasColumnType("datetime2");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<Guid>("OrganizationId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("PasswordHash").IsRequired().HasMaxLength(500).HasColumnType("nvarchar(500)");
+                    b.HasKey("Id");
+                    b.HasIndex("Email");
+                    b.HasIndex("OrganizationId");
+                    b.ToTable("AccOrgUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccOrganization", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<Guid?>("ApplicantTypeId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("ContactEmail").HasMaxLength(256).HasColumnType("nvarchar(256)");
+                    b.Property<string>("ContactName").HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<string>("ContactPhone").HasMaxLength(40).HasColumnType("nvarchar(40)");
+                    b.Property<DateTime>("CreatedOn").HasColumnType("datetime2");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+                    b.Property<int?>("Quota").HasColumnType("int");
+                    b.Property<DateTime>("UpdatedOn").HasColumnType("datetime2");
+                    b.HasKey("Id");
+                    b.HasIndex("EventId");
+                    b.ToTable("AccOrganizations", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccPortalSession", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<DateTime>("CreatedOn").HasColumnType("datetime2");
+                    b.Property<DateTime>("ExpiresOn").HasColumnType("datetime2");
+                    b.Property<Guid>("OrgUserId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("TokenHash").IsRequired().HasMaxLength(64).HasColumnType("nvarchar(64)");
+                    b.HasKey("Id");
+                    b.HasIndex("OrgUserId");
+                    b.HasIndex("TokenHash").IsUnique();
+                    b.ToTable("AccPortalSessions", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccZone", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("uniqueidentifier");
+                    b.Property<int?>("Capacity").HasColumnType("int");
+                    b.Property<string>("Code").IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+                    b.Property<string>("Color").IsRequired().HasMaxLength(9).HasColumnType("nvarchar(9)");
+                    b.Property<Guid>("EventId").HasColumnType("uniqueidentifier");
+                    b.Property<string>("Name").IsRequired().HasMaxLength(120).HasColumnType("nvarchar(120)");
+                    b.Property<int>("SortOrder").HasColumnType("int");
+                    b.HasKey("Id");
+                    b.HasIndex("EventId");
+                    b.ToTable("AccZones", (string)null);
+                });
+
             modelBuilder.Entity("Entourage.Domain.Entities.Event", b =>
                 {
                     b.Property<Guid>("Id")
@@ -859,6 +1086,60 @@ namespace Entourage.Api.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccAccessProfile", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.AccEvent", "Event").WithMany().HasForeignKey("EventId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccApplicant", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.AccEvent", "Event").WithMany().HasForeignKey("EventId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccApplicantType", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.AccEvent", "Event").WithMany().HasForeignKey("EventId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccBadgeTemplate", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.AccEvent", "Event").WithMany().HasForeignKey("EventId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccDocument", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.AccApplicant", "Applicant").WithMany().HasForeignKey("ApplicantId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Applicant");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccOrgUser", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.AccOrganization", "Organization").WithMany().HasForeignKey("OrganizationId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Organization");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccOrganization", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.AccEvent", "Event").WithMany().HasForeignKey("EventId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccPortalSession", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.AccOrgUser", "OrgUser").WithMany().HasForeignKey("OrgUserId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("OrgUser");
+                });
+
+            modelBuilder.Entity("Entourage.Domain.Entities.AccZone", b =>
+                {
+                    b.HasOne("Entourage.Domain.Entities.AccEvent", "Event").WithMany().HasForeignKey("EventId").OnDelete(DeleteBehavior.Cascade).IsRequired();
+                    b.Navigation("Event");
                 });
 
             modelBuilder.Entity("Entourage.Domain.Entities.Event", b =>

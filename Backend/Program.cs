@@ -63,6 +63,17 @@ builder.Services.AddScoped<FrontDeskService>();
 builder.Services.AddScoped<EventAnalyticsService>();
 builder.Services.AddScoped<RegistrationService>();
 builder.Services.AddScoped<PrintBadgeService>();
+// Event Accreditation (separate module: own tables, routes and roles).
+builder.Services.AddSingleton<Entourage.Infrastructure.Services.Accreditation.AccIdProtector>();
+builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccActorResolver>();
+builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccNotifier>();
+builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccFileService>();
+builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccSetupService>();
+builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccApplicantService>();
+builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccOrganizationService>();
+builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccPortalService>();
+builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccTeamService>();
+builder.Services.AddScoped<Entourage.Infrastructure.Services.Accreditation.AccBadgeService>();
 // Used only to confirm an event domain reaches this server: short timeout, no cookies.
 builder.Services.AddHttpClient(EventSiteService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10))
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { UseCookies = false, MaxAutomaticRedirections = 3 });

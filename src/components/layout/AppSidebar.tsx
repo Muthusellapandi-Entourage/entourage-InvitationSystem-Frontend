@@ -1,5 +1,6 @@
-import { CalendarDays, LayoutDashboard, LogOut, Settings } from 'lucide-react'
+import { CalendarDays, LayoutDashboard, LogOut, Settings, ShieldCheck } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
+import { accRoleLabels, isAccreditationOnly } from '@/components/accreditation/shared'
 import { Logo } from '@/components/brand/Logo'
 import { cn } from '@/lib/cn'
 import { useAuth } from '@/stores/authStore'
@@ -21,6 +22,8 @@ function initials(firstName: string, lastName: string) {
 export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { user, logout } = useAuth()
   const name = user?.firstName || 'Administrator'
+  // Accreditation-only roles never see the invitation system.
+  const invitations = !isAccreditationOnly(user?.role)
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-foreground">
@@ -28,20 +31,35 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
         <Logo to="/" />
       </div>
       <nav className="flex-1 px-3" aria-label="Primary">
-        <NavLink to="/" end className={({ isActive }) => navClass(isActive)} onClick={onNavigate}>
-          <LayoutDashboard className="size-4" aria-hidden="true" />
-          Overview
-        </NavLink>
-        <div className="mx-2.5 my-3 border-t border-border" role="separator" />
-        <NavLink to="/events" className={({ isActive }) => navClass(isActive)} onClick={onNavigate}>
-          <CalendarDays className="size-4" aria-hidden="true" />
-          Events
-        </NavLink>
-        <div className="mx-2.5 my-3 border-t border-border" role="separator" />
-        <NavLink to="/settings" className={({ isActive }) => navClass(isActive)} onClick={onNavigate}>
-          <Settings className="size-4" aria-hidden="true" />
-          Settings
-        </NavLink>
+        {invitations ? (
+          <>
+            <NavLink to="/" end className={({ isActive }) => navClass(isActive)} onClick={onNavigate}>
+              <LayoutDashboard className="size-4" aria-hidden="true" />
+              Overview
+            </NavLink>
+            <div className="mx-2.5 my-3 border-t border-border" role="separator" />
+            <NavLink to="/events" className={({ isActive }) => navClass(isActive)} onClick={onNavigate}>
+              <CalendarDays className="size-4" aria-hidden="true" />
+              Events
+            </NavLink>
+          </>
+        ) : null}
+        {/* Administrators open accreditation from each event; accreditation staff start here. */}
+        {!invitations ? (
+          <NavLink to="/accreditation" className={({ isActive }) => navClass(isActive)} onClick={onNavigate}>
+            <ShieldCheck className="size-4" aria-hidden="true" />
+            Accreditation
+          </NavLink>
+        ) : null}
+        {invitations ? (
+          <>
+            <div className="mx-2.5 my-3 border-t border-border" role="separator" />
+            <NavLink to="/settings" className={({ isActive }) => navClass(isActive)} onClick={onNavigate}>
+              <Settings className="size-4" aria-hidden="true" />
+              Settings
+            </NavLink>
+          </>
+        ) : null}
       </nav>
       <div className="border-t border-border p-3">
         <div className="flex items-center gap-2.5 px-1">
@@ -53,7 +71,7 @@ export function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
           </span>
           <span className="min-w-0">
             <span className="block truncate text-sm font-medium">{name}</span>
-            <span className="block truncate text-xs text-muted">{user?.role ?? 'Administrator'}</span>
+            <span className="block truncate text-xs text-muted">{accRoleLabels[user?.role ?? ''] ?? user?.role ?? 'Administrator'}</span>
           </span>
         </div>
         <button

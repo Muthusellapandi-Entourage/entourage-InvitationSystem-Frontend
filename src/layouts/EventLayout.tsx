@@ -1,5 +1,9 @@
-import { ArrowLeft, Settings } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowLeft, ExternalLink, Loader2, Settings, ShieldCheck } from 'lucide-react'
+import { useState } from 'react'
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
+import { accApi } from '@/api/accreditationApi'
 import { ApiError } from '@/api/client'
 import { buttonClassName } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -22,6 +26,57 @@ const modules = [
   { label: 'Live attendance', path: 'live', enabled: true, liveOnly: true },
   { label: 'Analytics', path: 'analytics', enabled: true },
 ]
+
+/**
+ * Opens this event's accreditation in its own browser tab (it is a separate workspace, not an event tab).
+ * The first click starts accreditation for the event, copying its name and dates.
+ */
+function AccreditationButton({ eventId }: { eventId: string }) {
+  const queryClient = useQueryClient()
+  const linked = useQuery({ queryKey: ['acc', 'for-event', eventId], queryFn: async () => (await accApi.forEvent(eventId)) ?? null })
+  const [starting, setStarting] = useState(false)
+  const accEventId = linked.data?.id
+
+  if (accEventId) {
+    return (
+      <a href={`/accreditation/${accEventId}`} target="_blank" rel="noopener" className={buttonClassName('secondary')}>
+        <ShieldCheck className="size-4" aria-hidden="true" />
+        Accreditation
+        <ExternalLink className="size-3.5 text-muted" aria-hidden="true" />
+      </a>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      className={buttonClassName('secondary')}
+      disabled={linked.isLoading || starting}
+      title="Start accreditation (workforce, media, vendors) for this event"
+      onClick={async () => {
+        // Open the tab now so the browser does not block it as a pop-up.
+        const tab = window.open('', '_blank')
+        setStarting(true)
+        try {
+          const created = await accApi.startForEvent(eventId)
+          queryClient.setQueryData(['acc', 'for-event', eventId], created)
+          void queryClient.invalidateQueries({ queryKey: ['acc', 'events'] })
+          const url = `/accreditation/${created.id}/setup`
+          if (tab) tab.location.href = url
+          else window.open(url, '_blank')
+        } catch (error) {
+          tab?.close()
+          toast.error(error instanceof Error ? error.message : 'Accreditation could not be started.')
+        } finally {
+          setStarting(false)
+        }
+      }}
+    >
+      {starting ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <ShieldCheck className="size-4" aria-hidden="true" />}
+      Start accreditation
+    </button>
+  )
+}
 
 export function EventLayout() {
   const { eventId = '' } = useParams()
@@ -69,9 +124,12 @@ export function EventLayout() {
             <StatusBadge status={event.status} />
           </div>
         </div>
-        <Link to={`/events/${event.id}/settings`} className={buttonClassName('secondary')}>
-          Edit event
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <AccreditationButton eventId={event.id} />
+          <Link to={`/events/${event.id}/settings`} className={buttonClassName('secondary')}>
+            Edit event
+          </Link>
+        </div>
       </div>
       {event.status !== 'Active' ? (
         <p

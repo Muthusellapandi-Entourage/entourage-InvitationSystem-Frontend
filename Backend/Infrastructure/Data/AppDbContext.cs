@@ -38,8 +38,222 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<EventFont> EventFonts => Set<EventFont>();
 
+    /* ---------------- Accreditation (separate from invitations) ---------------- */
+
+    public DbSet<AccEvent> AccEvents => Set<AccEvent>();
+
+    public DbSet<AccZone> AccZones => Set<AccZone>();
+
+    public DbSet<AccAccessProfile> AccAccessProfiles => Set<AccAccessProfile>();
+
+    public DbSet<AccApplicantType> AccApplicantTypes => Set<AccApplicantType>();
+
+    public DbSet<AccOrganization> AccOrganizations => Set<AccOrganization>();
+
+    public DbSet<AccOrgUser> AccOrgUsers => Set<AccOrgUser>();
+
+    public DbSet<AccPortalSession> AccPortalSessions => Set<AccPortalSession>();
+
+    public DbSet<AccApplicant> AccApplicants => Set<AccApplicant>();
+
+    public DbSet<AccDocument> AccDocuments => Set<AccDocument>();
+
+    public DbSet<AccFile> AccFiles => Set<AccFile>();
+
+    public DbSet<AccAuditLog> AccAuditLogs => Set<AccAuditLog>();
+
+    public DbSet<AccBadgeTemplate> AccBadgeTemplates => Set<AccBadgeTemplate>();
+
+    public DbSet<AccRevokedCredential> AccRevokedCredentials => Set<AccRevokedCredential>();
+
+    private static void ConfigureAccreditation(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AccBadgeTemplate>(entity =>
+        {
+            entity.ToTable("AccBadgeTemplates");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId);
+            entity.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.DesignJson).IsRequired();
+            entity.Property(item => item.ApplicantTypeIdsJson).IsRequired();
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Event).WithMany().HasForeignKey(item => item.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccRevokedCredential>(entity =>
+        {
+            entity.ToTable("AccRevokedCredentials");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.EventId, item.Code }).IsUnique();
+            entity.HasIndex(item => item.ApplicantId);
+            entity.Property(item => item.Code).HasMaxLength(32).IsRequired();
+            entity.Property(item => item.Reason).HasMaxLength(500).IsRequired();
+            entity.Property(item => item.RevokedOn).HasConversion(UtcDateTimeConverter.Instance);
+        });
+
+        modelBuilder.Entity<AccEvent>(entity =>
+        {
+            entity.ToTable("AccEvents");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.Slug).IsUnique();
+            // One accreditation per event. No foreign key on purpose: the two systems stay independent.
+            entity.HasIndex(item => item.EventId).IsUnique().HasFilter("[EventId] IS NOT NULL");
+            entity.Property(item => item.Name).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.Slug).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Venue).HasMaxLength(200);
+            entity.Property(item => item.Timezone).HasMaxLength(100).IsRequired();
+            entity.Property(item => item.Status).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.StagesJson).IsRequired();
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+        });
+
+        modelBuilder.Entity<AccZone>(entity =>
+        {
+            entity.ToTable("AccZones");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId);
+            entity.Property(item => item.Code).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Color).HasMaxLength(9).IsRequired();
+            entity.HasOne(item => item.Event).WithMany().HasForeignKey(item => item.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccAccessProfile>(entity =>
+        {
+            entity.ToTable("AccAccessProfiles");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId);
+            entity.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.Color).HasMaxLength(9).IsRequired();
+            entity.Property(item => item.ZoneIdsJson).IsRequired();
+            entity.HasOne(item => item.Event).WithMany().HasForeignKey(item => item.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccApplicantType>(entity =>
+        {
+            entity.ToTable("AccApplicantTypes");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId);
+            entity.Property(item => item.Name).HasMaxLength(120).IsRequired();
+            entity.Property(item => item.FieldsJson).IsRequired();
+            entity.Property(item => item.DocumentsJson).IsRequired();
+            entity.HasOne(item => item.Event).WithMany().HasForeignKey(item => item.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccOrganization>(entity =>
+        {
+            entity.ToTable("AccOrganizations");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId);
+            entity.Property(item => item.Name).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.ContactName).HasMaxLength(200);
+            entity.Property(item => item.ContactEmail).HasMaxLength(256);
+            entity.Property(item => item.ContactPhone).HasMaxLength(40);
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Event).WithMany().HasForeignKey(item => item.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccOrgUser>(entity =>
+        {
+            entity.ToTable("AccOrgUsers");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.OrganizationId);
+            entity.HasIndex(item => item.Email);
+            entity.Property(item => item.Email).HasMaxLength(256).IsRequired();
+            entity.Property(item => item.Name).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.PasswordHash).HasMaxLength(500).IsRequired();
+            entity.Property(item => item.InviteTokenHash).HasMaxLength(64);
+            entity.Property(item => item.InviteExpiresOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.LastLoginOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.HasOne(item => item.Organization).WithMany().HasForeignKey(item => item.OrganizationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccPortalSession>(entity =>
+        {
+            entity.ToTable("AccPortalSessions");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.TokenHash).IsUnique();
+            entity.Property(item => item.TokenHash).HasMaxLength(64).IsRequired();
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.ExpiresOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.OrgUser).WithMany().HasForeignKey(item => item.OrgUserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccApplicant>(entity =>
+        {
+            entity.ToTable("AccApplicants");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId);
+            entity.HasIndex(item => item.OrganizationId);
+            entity.HasIndex(item => new { item.EventId, item.IdNumberHash });
+            entity.HasIndex(item => item.CredentialCode).IsUnique();
+            entity.Property(item => item.FirstName).HasMaxLength(100).IsRequired();
+            entity.Property(item => item.LastName).HasMaxLength(100).IsRequired();
+            entity.Property(item => item.Email).HasMaxLength(256);
+            entity.Property(item => item.Phone).HasMaxLength(40);
+            entity.Property(item => item.JobTitle).HasMaxLength(200);
+            entity.Property(item => item.Nationality).HasMaxLength(80);
+            entity.Property(item => item.IdNumberProtected).HasMaxLength(1000);
+            entity.Property(item => item.IdNumberLast4).HasMaxLength(4);
+            entity.Property(item => item.IdNumberHash).HasMaxLength(64);
+            entity.Property(item => item.CustomFieldsJson).IsRequired();
+            entity.Property(item => item.StageKey).HasMaxLength(40).IsRequired();
+            entity.Property(item => item.ExtraZoneIdsJson).IsRequired();
+            entity.Property(item => item.Source).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.RejectionReason).HasMaxLength(1000);
+            entity.Property(item => item.CredentialCode).HasMaxLength(32).IsRequired();
+            entity.Property(item => item.SubmittedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.LastPrintedOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.Property(item => item.CollectedOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.Property(item => item.DecidedOn).HasConversion(UtcNullableDateTimeConverter.Instance);
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.Property(item => item.UpdatedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Event).WithMany().HasForeignKey(item => item.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccDocument>(entity =>
+        {
+            entity.ToTable("AccDocuments");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.ApplicantId);
+            entity.Property(item => item.Kind).HasMaxLength(60).IsRequired();
+            entity.Property(item => item.Label).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.Status).HasMaxLength(20).IsRequired();
+            entity.Property(item => item.UploadedOn).HasConversion(UtcDateTimeConverter.Instance);
+            entity.HasOne(item => item.Applicant).WithMany().HasForeignKey(item => item.ApplicantId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccFile>(entity =>
+        {
+            entity.ToTable("AccFiles");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.EventId);
+            entity.Property(item => item.FileName).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.ContentType).HasMaxLength(100).IsRequired();
+            entity.Property(item => item.RelativePath).HasMaxLength(400).IsRequired();
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+        });
+
+        modelBuilder.Entity<AccAuditLog>(entity =>
+        {
+            entity.ToTable("AccAuditLogs");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.EventId, item.CreatedOn });
+            entity.HasIndex(item => item.ApplicantId);
+            entity.Property(item => item.ActorName).HasMaxLength(200).IsRequired();
+            entity.Property(item => item.Action).HasMaxLength(100).IsRequired();
+            entity.Property(item => item.Detail).HasMaxLength(2000);
+            entity.Property(item => item.CreatedOn).HasConversion(UtcDateTimeConverter.Instance);
+        });
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        ConfigureAccreditation(modelBuilder);
+
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("Users");
